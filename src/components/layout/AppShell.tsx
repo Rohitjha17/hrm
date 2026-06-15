@@ -2,6 +2,8 @@ import { useState, type ReactNode } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import {
   Building2,
+  CalendarClock,
+  Fingerprint,
   LayoutDashboard,
   LogOut,
   Menu,
@@ -27,6 +29,13 @@ interface NavItem {
 
 const adminNav: NavItem[] = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard, testid: 'nav-dashboard' },
+  {
+    to: '/admin/attendance',
+    label: 'Attendance',
+    icon: CalendarClock,
+    testid: 'nav-attendance',
+    perm: 'attendance.view_all',
+  },
   { to: '/admin/users', label: 'Employees', icon: Users, testid: 'nav-users', perm: 'users.view' },
   { to: '/admin/roles', label: 'Roles', icon: Shield, testid: 'nav-roles', perm: 'roles.view' },
   {
@@ -41,6 +50,13 @@ const adminNav: NavItem[] = [
 
 const employeeNav: NavItem[] = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard, testid: 'nav-dashboard' },
+  {
+    to: '/attendance',
+    label: 'My Attendance',
+    icon: Fingerprint,
+    testid: 'nav-my-attendance',
+    perm: 'attendance.view_own',
+  },
 ]
 
 export function AppShell({ children }: { children: ReactNode }) {

@@ -34,6 +34,160 @@ export type Database = {
   }
   public: {
     Tables: {
+      attendance_config: {
+        Row: {
+          full_day_hours: number
+          grace_minutes: number
+          half_day_hours: number
+          id: boolean
+          ip_allowlist: string[]
+          office_lat: number
+          office_lng: number
+          overtime_after_hours: number
+          quarter_day_hours: number
+          radius_meters: number
+          timezone: string
+          updated_at: string
+          work_end: string
+          work_start: string
+        }
+        Insert: {
+          full_day_hours?: number
+          grace_minutes?: number
+          half_day_hours?: number
+          id?: boolean
+          ip_allowlist?: string[]
+          office_lat?: number
+          office_lng?: number
+          overtime_after_hours?: number
+          quarter_day_hours?: number
+          radius_meters?: number
+          timezone?: string
+          updated_at?: string
+          work_end?: string
+          work_start?: string
+        }
+        Update: {
+          full_day_hours?: number
+          grace_minutes?: number
+          half_day_hours?: number
+          id?: boolean
+          ip_allowlist?: string[]
+          office_lat?: number
+          office_lng?: number
+          overtime_after_hours?: number
+          quarter_day_hours?: number
+          radius_meters?: number
+          timezone?: string
+          updated_at?: string
+          work_end?: string
+          work_start?: string
+        }
+        Relationships: []
+      }
+      attendance_days: {
+        Row: {
+          first_in_at: string | null
+          id: string
+          is_late: boolean
+          last_out_at: string | null
+          overtime_minutes: number
+          punch_count: number
+          status: string
+          updated_at: string
+          user_id: string
+          work_date: string
+          worked_minutes: number
+        }
+        Insert: {
+          first_in_at?: string | null
+          id?: string
+          is_late?: boolean
+          last_out_at?: string | null
+          overtime_minutes?: number
+          punch_count?: number
+          status?: string
+          updated_at?: string
+          user_id: string
+          work_date: string
+          worked_minutes?: number
+        }
+        Update: {
+          first_in_at?: string | null
+          id?: string
+          is_late?: boolean
+          last_out_at?: string | null
+          overtime_minutes?: number
+          punch_count?: number
+          status?: string
+          updated_at?: string
+          user_id?: string
+          work_date?: string
+          worked_minutes?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "attendance_days_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      attendance_punches: {
+        Row: {
+          created_at: string
+          distance_meters: number | null
+          id: string
+          ip_address: string | null
+          latitude: number | null
+          longitude: number | null
+          punch_type: string
+          punched_at: string
+          selfie_path: string | null
+          user_id: string
+          within_radius: boolean
+          work_date: string
+        }
+        Insert: {
+          created_at?: string
+          distance_meters?: number | null
+          id?: string
+          ip_address?: string | null
+          latitude?: number | null
+          longitude?: number | null
+          punch_type: string
+          punched_at?: string
+          selfie_path?: string | null
+          user_id: string
+          within_radius?: boolean
+          work_date: string
+        }
+        Update: {
+          created_at?: string
+          distance_meters?: number | null
+          id?: string
+          ip_address?: string | null
+          latitude?: number | null
+          longitude?: number | null
+          punch_type?: string
+          punched_at?: string
+          selfie_path?: string | null
+          user_id?: string
+          within_radius?: boolean
+          work_date?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "attendance_punches_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       audit_log: {
         Row: {
           action: string
@@ -357,10 +511,28 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      attendance_punch: {
+        Args: {
+          p_ip?: string
+          p_lat: number
+          p_lng: number
+          p_selfie_path?: string
+          p_type: string
+        }
+        Returns: Json
+      }
       has_permission: { Args: { perm: string }; Returns: boolean }
+      haversine_m: {
+        Args: { lat1: number; lat2: number; lng1: number; lng2: number }
+        Returns: number
+      }
       health_check: { Args: never; Returns: string }
       my_permissions: { Args: never; Returns: string[] }
       my_roles: { Args: never; Returns: string[] }
+      recompute_attendance_day: {
+        Args: { p_date: string; p_user: string }
+        Returns: undefined
+      }
     }
     Enums: {
       [_ in never]: never

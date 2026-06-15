@@ -8,6 +8,8 @@ import { UsersPage } from '@/features/admin/users/UsersPage'
 import { RolesPage } from '@/features/admin/roles/RolesPage'
 import { HierarchyPage } from '@/features/admin/hierarchy/HierarchyPage'
 import { AuditPage } from '@/features/admin/audit/AuditPage'
+import { PunchPage } from '@/features/attendance/PunchPage'
+import { AttendanceMonitorPage } from '@/features/attendance/AttendanceMonitorPage'
 
 export function App() {
   return (
@@ -15,6 +17,22 @@ export function App() {
       <Route path="/login" element={<LoginPage />} />
       <Route element={<ProtectedRoute />}>
         <Route path="/" element={<DashboardPage />} />
+        <Route
+          path="/attendance"
+          element={
+            <RequirePermission perm="attendance.view_own">
+              <PunchPage />
+            </RequirePermission>
+          }
+        />
+        <Route
+          path="/admin/attendance"
+          element={
+            <RequirePermission perm="attendance.view_all">
+              <AttendanceMonitorPage />
+            </RequirePermission>
+          }
+        />
         <Route
           path="/admin/users"
           element={

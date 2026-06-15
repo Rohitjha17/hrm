@@ -50,9 +50,30 @@ audit_log (append-only)
   `roles.manage`; `user_roles` self/`users.manage`; `audit_log` read with
   `audit.view`, written only by the audit trigger.
 
+**Attendance (Phase 2)**
+
+```
+attendance_config (singleton)   attendance_punches >── user_id ─> profiles
+  office_lat/lng, radius_meters       punch_type in|out, punched_at, work_date
+  work_start/end, grace_minutes       lat/lng, distance_meters, within_radius
+  full/half/quarter_day_hours         selfie_path (→ private selfies bucket)
+  overtime_after_hours, timezone
+  ip_allowlist[]                 attendance_days (one per user/day, unique)
+                                      worked_minutes, status, is_late,
+                                      overtime_minutes, first_in/last_out
+```
+
+- Writes go ONLY through SECURITY DEFINER RPCs: `attendance_punch()` (radius +
+  sequence validation, haversine) and `recompute_attendance_day()` (the
+  working-hours engine). Clients have read-only RLS (own rows or
+  `attendance.view_all`).
+- `attendance_days` + `attendance_punches` are in the `supabase_realtime`
+  publication for live admin monitoring.
+- Status is derived from **worked minutes** vs configurable thresholds, not
+  fixed clock times.
+
 ## Planned entities (by phase)
 
-- **Phase 2** — `attendance_punches`, `attendance_days`, `attendance_config`.
 - **Phase 3** — `tasks`, `task_status_history`, `task_statuses`.
 - **Phase 4** — `planning_slots`, `planning_updates`, `planning_config`,
   `planning_compliance`.

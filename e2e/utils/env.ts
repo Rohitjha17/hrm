@@ -16,8 +16,13 @@ export function loadEnv(): Record<string, string> {
   } catch {
     /* fall back to process.env below */
   }
-  return {
-    VITE_SUPABASE_URL: env.VITE_SUPABASE_URL ?? process.env.VITE_SUPABASE_URL ?? '',
-    VITE_SUPABASE_ANON_KEY: env.VITE_SUPABASE_ANON_KEY ?? process.env.VITE_SUPABASE_ANON_KEY ?? '',
+  for (const k of [
+    'VITE_SUPABASE_URL',
+    'VITE_SUPABASE_ANON_KEY',
+    'SUPABASE_URL',
+    'SUPABASE_SERVICE_ROLE_KEY',
+  ]) {
+    if (!env[k] && process.env[k]) env[k] = process.env[k] as string
   }
+  return env
 }

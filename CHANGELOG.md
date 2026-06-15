@@ -3,6 +3,32 @@
 All notable changes to this project are documented here. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/); one section per build phase.
 
+## [0.3.0] — Phase 2: Attendance (GPS + live selfie + realtime)
+
+### Added
+- Schema: `attendance_config` (singleton; office coords, 50 m radius, work
+  window, hour thresholds, grace, IP allowlist, timezone), `attendance_punches`,
+  `attendance_days` — all RLS default-deny; writes only via SECURITY DEFINER RPCs.
+- `attendance_punch()` RPC: validates radius **server-side** (haversine) + punch
+  sequence, records the punch, recomputes the day. Optional admin IP-allowlist.
+- **Working-hours engine** (`recompute_attendance_day`): classifies full/half/
+  quarter/absent from *actual hours worked* (configurable, not fixed clock),
+  plus late detection and overtime.
+- Live **selfie capture** (camera → canvas → private `selfies` bucket, owner-
+  scoped storage RLS) linked to each punch; GPS gate with client pre-check +
+  authoritative server check.
+- **Realtime** admin monitor: punches stream live via Supabase Realtime
+  (RLS-gated) with a polling fallback; configurable settings modal.
+- Frontend: employee My Attendance (punch in/out, today status, punch list),
+  admin Attendance Monitor; nav + routes.
+- E2E (5 specs): hours-engine edge cases, in-radius selfie punch, out-of-radius
+  rejection (client + server), and **live cross-device realtime sync**.
+
+### Notes
+- WiFi SSID validation is **not possible** from a web browser (documented); GPS
+  is the primary gate with an optional IP allowlist. Background screenshots
+  likewise require a native agent (Phase 19).
+
 ## [0.2.0] — Phase 1: Auth, roles, RBAC, users & hierarchy
 
 ### Added

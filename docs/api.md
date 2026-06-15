@@ -27,8 +27,30 @@ const { data, error } = await supabase.rpc('health_check') // 'ok'
 - **Auth:** authenticated. Role slugs held by the caller (e.g. `['employee',
   'super_admin']`) — drives the dual-view toggle.
 
-More RPCs are documented here as they are added (attendance hours engine,
-planning compliance, salary calc inputs, etc.).
+### `attendance_punch(p_type, p_lat, p_lng, p_selfie_path?, p_ip?) → jsonb`
+- **Auth:** authenticated. **SECURITY DEFINER.** Validates the punch is within
+  the configured radius (haversine, server-side) and that the in/out sequence is
+  valid, records the punch, and recomputes the day.
+- **Returns:** `{ ok: true, punch_type, distance_m, work_date, status,
+  worked_minutes, is_late, overtime_minutes }` or `{ ok: false, reason }` where
+  reason ∈ `out_of_radius | ip_not_allowed | already_punched_in | not_punched_in`.
+
+```ts
+const { data } = await supabase.rpc('attendance_punch', {
+  p_type: 'in', p_lat: 22.745618, p_lng: 75.8933851, p_selfie_path: 'uid/2026-06-16/x.jpg',
+})
+```
+
+### `recompute_attendance_day(p_user, p_date)` — service-role only
+- The working-hours engine. Pairs in/out punches, sums worked minutes, derives
+  `status` (full/half/quarter/absent) from configurable thresholds, plus
+  `is_late` and `overtime_minutes`.
+
+> **Platform note:** WiFi SSID validation is impossible from a web browser, so
+> attendance uses GPS as the primary gate plus an optional admin IP allowlist.
+
+More RPCs are documented here as they are added (planning compliance, salary
+calc inputs, etc.).
 
 ## Edge Functions (Deno)
 

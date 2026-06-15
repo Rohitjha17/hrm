@@ -35,6 +35,26 @@ All data lives in one central Postgres database. When you punch in on your phone
 an admin watching the dashboard on a laptop sees it **in real time** — no refresh
 (Phase 2). The same is true for tasks, planning, and leave updates.
 
+## Attendance (punch in/out)
+
+Employees → **My Attendance**:
+1. Tap **Punch In**. Allow **location** and **camera** when prompted (the app
+   must be served over HTTPS for these to work).
+2. The app checks you are within the office radius (default **50 m**) and
+   captures a **live selfie**, then records the punch.
+3. Tap **Punch Out** when leaving. Your day is classified automatically from the
+   **hours you actually worked** (full / half / quarter day), with late-arrival
+   and overtime flags.
+
+If you are **outside the radius**, the punch is rejected — move closer and retry.
+
+Admins → **Attendance** (Admin view): a **live monitor** of everyone's status
+for a chosen date; new punches appear in real time. Admins with the right
+permission can adjust the radius and hour thresholds via **Settings**.
+
+> Note: browsers cannot read WiFi names (SSID), so attendance is gated by GPS
+> (plus an optional network/IP allowlist), not WiFi.
+
 ## Adding people & configuration (no code)
 
 From Phase 1, admins add employees, roles, departments, teams, holidays, task
