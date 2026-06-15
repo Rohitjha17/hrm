@@ -3,6 +3,20 @@
 All notable changes to this project are documented here. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/); one section per build phase.
 
+## [0.8.0] — Phase 7: Appraisal management
+
+### Added
+- Schema: `appraisal_cycles` (monthly/quarterly/half-yearly/annual) and
+  `appraisals` (scores, performance rating, manager/HR feedback, recommendations).
+- `compute_appraisal_scores()` RPC (SECURITY DEFINER, `appraisal.manage`): scores
+  **attendance** (weighted days), **tasks** (completed/total in period) and
+  **planning** (compliant/working days) from real data; derives an overall score,
+  an **increment recommendation** (tiered) and a **promotion recommendation**.
+- Frontend: admin Appraisals page (cycles, add appraisal, set rating/feedback,
+  compute, cycle report with recommendations); employee self appraisal view.
+- E2E (2 specs): create cycle + appraisal → compute (att 90 / task 75 / plan 50
+  → overall 71.7, +5% increment) and employee self-view.
+
 ## [0.7.0] — Phase 6: Salary management
 
 ### Added

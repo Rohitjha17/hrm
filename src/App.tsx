@@ -17,6 +17,8 @@ import { LeavePage } from '@/features/leave/LeavePage'
 import { LeaveApprovalsPage } from '@/features/leave/LeaveApprovalsPage'
 import { SalaryPage } from '@/features/salary/SalaryPage'
 import { SalaryAdminPage } from '@/features/salary/SalaryAdminPage'
+import { AppraisalPage } from '@/features/appraisal/AppraisalPage'
+import { AppraisalAdminPage } from '@/features/appraisal/AppraisalAdminPage'
 
 export function App() {
   return (
@@ -93,6 +95,22 @@ export function App() {
           element={
             <RequirePermission perm={['salary.view', 'salary.manage']}>
               <SalaryAdminPage />
+            </RequirePermission>
+          }
+        />
+        <Route
+          path="/appraisal"
+          element={
+            <RequirePermission perm="appraisal.view_own">
+              <AppraisalPage />
+            </RequirePermission>
+          }
+        />
+        <Route
+          path="/admin/appraisal"
+          element={
+            <RequirePermission perm={['appraisal.view', 'appraisal.manage']}>
+              <AppraisalAdminPage />
             </RequirePermission>
           }
         />

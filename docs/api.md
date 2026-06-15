@@ -41,6 +41,12 @@ const { data } = await supabase.rpc('attendance_punch', {
 })
 ```
 
+### `compute_appraisal_scores(p_appraisal) → jsonb`
+- **Auth:** authenticated; requires `appraisal.manage`. **SECURITY DEFINER.**
+- Scores attendance (weighted days), tasks (completed/total in period) and
+  planning (compliant/working days) for the appraisal's cycle period; writes the
+  scores, overall, increment % and promotion flag back to the appraisal row.
+
 ### `recompute_attendance_day(p_user, p_date)` — service-role only
 - The working-hours engine. Pairs in/out punches, sums worked minutes, derives
   `status` (full/half/quarter/absent) from configurable thresholds, plus

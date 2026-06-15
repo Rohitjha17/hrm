@@ -34,6 +34,112 @@ export type Database = {
   }
   public: {
     Tables: {
+      appraisal_cycles: {
+        Row: {
+          created_at: string
+          cycle_type: string
+          id: string
+          name: string
+          period_end: string
+          period_start: string
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          cycle_type: string
+          id?: string
+          name: string
+          period_end: string
+          period_start: string
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          cycle_type?: string
+          id?: string
+          name?: string
+          period_end?: string
+          period_start?: string
+          status?: string
+        }
+        Relationships: []
+      }
+      appraisals: {
+        Row: {
+          attendance_score: number
+          created_at: string
+          created_by: string | null
+          cycle_id: string
+          hr_feedback: string | null
+          id: string
+          increment_recommendation: number
+          manager_feedback: string | null
+          overall_score: number
+          performance_rating: number | null
+          planning_score: number
+          promotion_recommended: boolean
+          task_score: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          attendance_score?: number
+          created_at?: string
+          created_by?: string | null
+          cycle_id: string
+          hr_feedback?: string | null
+          id?: string
+          increment_recommendation?: number
+          manager_feedback?: string | null
+          overall_score?: number
+          performance_rating?: number | null
+          planning_score?: number
+          promotion_recommended?: boolean
+          task_score?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          attendance_score?: number
+          created_at?: string
+          created_by?: string | null
+          cycle_id?: string
+          hr_feedback?: string | null
+          id?: string
+          increment_recommendation?: number
+          manager_feedback?: string | null
+          overall_score?: number
+          performance_rating?: number | null
+          planning_score?: number
+          promotion_recommended?: boolean
+          task_score?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "appraisals_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "appraisals_cycle_id_fkey"
+            columns: ["cycle_id"]
+            isOneToOne: false
+            referencedRelation: "appraisal_cycles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "appraisals_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       attendance_config: {
         Row: {
           full_day_hours: number
@@ -1228,6 +1334,7 @@ export type Database = {
         }
         Returns: Json
       }
+      compute_appraisal_scores: { Args: { p_appraisal: string }; Returns: Json }
       decide_leave: {
         Args: { p_decision: string; p_remarks?: string; p_request: string }
         Returns: Json

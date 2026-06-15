@@ -129,9 +129,21 @@ salary_policy (singleton)        salary_profiles (user → monthly_ctc)
   is **removed from Employee/Intern by default**, so salary is hidden unless an
   admin grants it.
 
+**Appraisal (Phase 7)**
+
+```
+appraisal_cycles (monthly|quarterly|half_yearly|annual, period)
+appraisals >── cycle_id, user_id ─> profiles
+  attendance/task/planning/overall scores, performance_rating,
+  manager/hr feedback, increment_recommendation, promotion_recommended
+```
+
+- `compute_appraisal_scores()` (SECURITY DEFINER) scores from attendance/task/
+  planning data in the cycle period and derives recommendations.
+
 ## Planned entities (by phase)
 
-- **Phase 7** — `appraisal_cycles`, `appraisals`.
 - **Phases 9+** — employee lifecycle, plus the Extended-module entities.
 
-An ER diagram will be added once the relational core (Phases 1–7) lands.
+The relational core (Phases 1–7) is complete; remaining phases add reports
+(8), full employee CRUD (9) and the Extended modules (10–19).

@@ -5,6 +5,7 @@ import {
   CalendarClock,
   Fingerprint,
   CalendarRange,
+  Award,
   LayoutDashboard,
   ListChecks,
   LogOut,
@@ -50,6 +51,7 @@ const adminNav: NavItem[] = [
   },
   { to: '/admin/leave', label: 'Leave', icon: Plane, testid: 'nav-leave-admin', perm: 'leave.approve' },
   { to: '/admin/salary', label: 'Salary', icon: Wallet, testid: 'nav-salary-admin', perm: 'salary.view' },
+  { to: '/admin/appraisal', label: 'Appraisals', icon: Award, testid: 'nav-appraisal-admin', perm: 'appraisal.view' },
   { to: '/admin/users', label: 'Employees', icon: Users, testid: 'nav-users', perm: 'users.view' },
   { to: '/admin/roles', label: 'Roles', icon: Shield, testid: 'nav-roles', perm: 'roles.view' },
   {
@@ -81,6 +83,7 @@ const employeeNav: NavItem[] = [
   },
   { to: '/leave', label: 'Leave', icon: Plane, testid: 'nav-leave', perm: 'leave.view_own' },
   { to: '/salary', label: 'Salary', icon: Wallet, testid: 'nav-salary', perm: 'salary.view_own' },
+  { to: '/appraisal', label: 'Appraisals', icon: Award, testid: 'nav-appraisal', perm: 'appraisal.view_own' },
 ]
 
 export function AppShell({ children }: { children: ReactNode }) {
