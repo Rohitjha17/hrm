@@ -5,8 +5,9 @@ A production-oriented, multi-user **Human Resource Management System** built on 
 truth, with **real-time** visibility for admins. Deployable end-to-end on free
 hosting tiers.
 
-> Status: **Phase 8 complete** — core + reports/export. (RBAC, attendance, tasks,
-> planning, leave, salary, appraisal, reports.) See [the roadmap](#roadmap) and
+> Status: **Core complete (v1.0-core)** — Phases 0–9: RBAC, attendance, tasks,
+> planning, leave, salary, appraisal, reports, and full employee lifecycle. 36 e2e
+> specs green. Extended modules (10–19) are next. See [the roadmap](#roadmap) and
 > [`CHANGELOG.md`](./CHANGELOG.md).
 
 ## Stack

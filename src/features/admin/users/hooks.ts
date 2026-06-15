@@ -43,6 +43,44 @@ export function useUpdateProfile() {
   })
 }
 
+export interface NewEmployee {
+  email: string
+  password: string
+  fullName: string
+  employeeCode?: string
+  departmentId?: string | null
+  teamId?: string | null
+  managerId?: string | null
+  roleIds: string[]
+}
+
+export function useCreateEmployee() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: NewEmployee) => {
+      const { data, error } = await supabase.functions.invoke('manage-employee', {
+        body: { action: 'create', ...input },
+      })
+      if (error) throw error
+      return data as { ok: boolean; userId: string }
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['users'] }),
+  })
+}
+
+export function useDeleteEmployee() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (userId: string) => {
+      const { error } = await supabase.functions.invoke('manage-employee', {
+        body: { action: 'delete', userId },
+      })
+      if (error) throw error
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['users'] }),
+  })
+}
+
 /** Reconcile a user's role assignments to exactly `roleIds`. */
 export function useSetUserRoles() {
   const qc = useQueryClient()

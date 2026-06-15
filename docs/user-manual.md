@@ -57,8 +57,14 @@ permission can adjust the radius and hour thresholds via **Settings**.
 
 ## Adding people & configuration (no code)
 
-From Phase 1, admins add employees, roles, departments, teams, holidays, task
-statuses, and policy/planning settings entirely through the UI.
+Admins add employees, roles, departments, teams, holidays, task statuses, leave
+types and policy/planning/salary settings entirely through the UI — no code.
+
+**Add an employee** (Admin view → Employees → *Add employee*): enter their email,
+a temporary password, name, code, and assign department / team / manager / roles.
+Share the temporary password with them **out-of-band** (the app never displays
+anyone's credentials). They can then sign in and change it via *Forgot password*.
+Edit a person to reassign or **activate/deactivate**; delete removes their login.
 
 ## Backups
 

@@ -79,6 +79,15 @@ Served locally by `supabase start` (from `supabase/functions/`); deployed with
   `gross = base + overtimePay + incentives + increments`;
   `net = gross − (penalties + late×latePenalty + nonCompliant×planningPenalty)`.
 
+### `POST /functions/v1/manage-employee`
+- **Auth:** valid JWT; requires `users.manage` → otherwise **403**.
+- **Body:** `{ action: 'create' | 'delete', ... }`.
+  - `create`: `{ email, password, fullName, employeeCode?, departmentId?, teamId?,
+    managerId?, roleIds[] }` → creates the auth user (Admin API), inserts the
+    profile + role assignments (rolls back the auth user on failure).
+  - `delete`: `{ userId }` → deletes the auth user (cascades profile + related rows).
+- **Returns:** `{ ok: true, userId? }`.
+
 Planned: `full-final-settlement` (Phase 15/16), document generation.
 
 Each Edge Function documents: route, method, auth/permission, request/response

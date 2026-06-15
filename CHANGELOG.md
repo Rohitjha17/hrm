@@ -3,6 +3,21 @@
 All notable changes to this project are documented here. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/); one section per build phase.
 
+## [1.0.0] — Phase 9: Employee management & lifecycle (Core complete) 🎉
+
+### Added
+- **Edge Function `manage-employee`** (Deno): create/delete employees (auth user +
+  profile + roles) via the Admin API; gated by `users.manage`. Rolls back the auth
+  user if the profile insert fails.
+- Employees page: **Add employee** (email, temp password, code, dept/team/manager,
+  roles), **Delete** (with confirm), plus the existing edit (assign + activate/
+  deactivate). Adding people requires **no code changes**.
+- E2E (2 specs): full lifecycle add → assign → deactivate → reactivate → delete
+  through the UI; and a newly-provisioned employee can sign in.
+
+### Milestone
+- **Core (Phases 0–9) complete** — tagged `v1.0-core`. 36 e2e specs green.
+
 ## [0.9.0] — Phase 8: Reports & export
 
 ### Added
