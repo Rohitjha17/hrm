@@ -327,6 +327,53 @@ export type Database = {
         }
         Relationships: []
       }
+      candidates: {
+        Row: {
+          created_at: string
+          email: string
+          full_name: string
+          id: string
+          offer_status: string
+          opening_id: string
+          phone: string | null
+          resume_path: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          full_name: string
+          id?: string
+          offer_status?: string
+          opening_id: string
+          phone?: string | null
+          resume_path?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          full_name?: string
+          id?: string
+          offer_status?: string
+          opening_id?: string
+          phone?: string | null
+          resume_path?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "candidates_opening_id_fkey"
+            columns: ["opening_id"]
+            isOneToOne: false
+            referencedRelation: "job_openings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       companies: {
         Row: {
           created_at: string
@@ -400,6 +447,95 @@ export type Database = {
           name?: string
         }
         Relationships: []
+      }
+      interviews: {
+        Row: {
+          candidate_id: string
+          created_at: string
+          feedback: string | null
+          id: string
+          interviewer_id: string | null
+          mode: string
+          rating: number | null
+          recommendation: string | null
+          scheduled_at: string
+        }
+        Insert: {
+          candidate_id: string
+          created_at?: string
+          feedback?: string | null
+          id?: string
+          interviewer_id?: string | null
+          mode?: string
+          rating?: number | null
+          recommendation?: string | null
+          scheduled_at: string
+        }
+        Update: {
+          candidate_id?: string
+          created_at?: string
+          feedback?: string | null
+          id?: string
+          interviewer_id?: string | null
+          mode?: string
+          rating?: number | null
+          recommendation?: string | null
+          scheduled_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "interviews_candidate_id_fkey"
+            columns: ["candidate_id"]
+            isOneToOne: false
+            referencedRelation: "candidates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "interviews_interviewer_id_fkey"
+            columns: ["interviewer_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      job_openings: {
+        Row: {
+          created_at: string
+          department_id: string | null
+          description: string | null
+          designation: string
+          id: string
+          status: string
+          title: string
+        }
+        Insert: {
+          created_at?: string
+          department_id?: string | null
+          description?: string | null
+          designation: string
+          id?: string
+          status?: string
+          title: string
+        }
+        Update: {
+          created_at?: string
+          department_id?: string | null
+          description?: string | null
+          designation?: string
+          id?: string
+          status?: string
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "job_openings_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "departments"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       leave_balances: {
         Row: {

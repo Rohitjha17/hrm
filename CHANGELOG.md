@@ -3,6 +3,22 @@
 All notable changes to this project are documented here. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/); one section per build phase.
 
+## [1.2.0] — Phase 11: Recruitment & hiring
+
+### Added
+- Schema: `job_openings`, `candidates` (status pipeline + offer status),
+  `interviews` (schedule + feedback + rating + recommendation). Resume storage
+  policies on the private `documents` bucket.
+- **Offer approval routed through the Phase 10 workflow engine**: a seeded "Offer
+  Approval" workflow; a trigger reflects the instance decision back onto the
+  candidate's `offer_status`.
+- Offer-letter PDF generation (reusable `generateLetterPdf` helper).
+- Frontend: Recruitment page (openings, candidates, interview scheduling +
+  feedback, send-offer, generate letter, status pipeline). New perms
+  `recruitment.view` / `recruitment.manage` (HR + Super Admin).
+- E2E (1 spec): opening → candidate → interview → feedback → offer approval (via
+  inbox) → offer letter (PDF) → Joined.
+
 ## [1.1.0] — Phase 10: Policy management + workflow engine
 
 ### Added

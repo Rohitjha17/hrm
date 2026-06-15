@@ -3,6 +3,7 @@ import { NavLink, useNavigate } from 'react-router-dom'
 import {
   Award,
   BookText,
+  Briefcase,
   Building2,
   CalendarClock,
   CalendarRange,
@@ -59,6 +60,7 @@ const adminNav: NavItem[] = [
   { to: '/admin/reports', label: 'Reports', icon: FileBarChart, testid: 'nav-reports', perm: 'reports.view' },
   { to: '/admin/policies', label: 'Policies', icon: BookText, testid: 'nav-policies-admin', perm: 'policy.manage' },
   { to: '/admin/workflows', label: 'Workflows', icon: GitBranch, testid: 'nav-workflows', perm: 'workflow.manage' },
+  { to: '/admin/recruitment', label: 'Recruitment', icon: Briefcase, testid: 'nav-recruitment', perm: 'recruitment.view' },
   { to: '/approvals', label: 'Approvals', icon: Inbox, testid: 'nav-approvals-admin' },
   { to: '/admin/users', label: 'Employees', icon: Users, testid: 'nav-users', perm: 'users.view' },
   { to: '/admin/roles', label: 'Roles', icon: Shield, testid: 'nav-roles', perm: 'roles.view' },

@@ -24,6 +24,7 @@ import { PolicyPage } from '@/features/policy/PolicyPage'
 import { PolicyAdminPage } from '@/features/policy/PolicyAdminPage'
 import { WorkflowAdminPage } from '@/features/workflow/WorkflowAdminPage'
 import { ApprovalsPage } from '@/features/workflow/ApprovalsPage'
+import { RecruitmentPage } from '@/features/recruitment/RecruitmentPage'
 
 export function App() {
   return (
@@ -142,6 +143,14 @@ export function App() {
           element={
             <RequirePermission perm="workflow.manage">
               <WorkflowAdminPage />
+            </RequirePermission>
+          }
+        />
+        <Route
+          path="/admin/recruitment"
+          element={
+            <RequirePermission perm={['recruitment.view', 'recruitment.manage']}>
+              <RecruitmentPage />
             </RequirePermission>
           }
         />
