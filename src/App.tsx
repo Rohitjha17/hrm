@@ -33,6 +33,8 @@ import { HelpdeskPage } from '@/features/helpdesk/HelpdeskPage'
 import { AnnouncementsPage } from '@/features/engagement/AnnouncementsPage'
 import { RecognitionPage } from '@/features/engagement/RecognitionPage'
 import { VisitorsPage } from '@/features/engagement/VisitorsPage'
+import { MonitoringPage } from '@/features/monitoring/MonitoringPage'
+import { MonitoringReportPage } from '@/features/monitoring/MonitoringReportPage'
 
 export function App() {
   return (
@@ -146,6 +148,15 @@ export function App() {
           element={
             <RequirePermission perm="visitors.manage">
               <VisitorsPage />
+            </RequirePermission>
+          }
+        />
+        <Route path="/monitoring" element={<MonitoringPage />} />
+        <Route
+          path="/admin/monitoring"
+          element={
+            <RequirePermission perm="monitoring.view">
+              <MonitoringReportPage />
             </RequirePermission>
           }
         />

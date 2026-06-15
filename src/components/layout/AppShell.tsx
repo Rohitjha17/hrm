@@ -21,6 +21,7 @@ import {
   Megaphone,
   Menu,
   Milestone,
+  Monitor,
   Network,
   Package,
   Plane,
@@ -76,6 +77,7 @@ const adminNav: NavItem[] = [
   { to: '/helpdesk', label: 'Helpdesk', icon: LifeBuoy, testid: 'nav-helpdesk-admin', perm: 'helpdesk.manage' },
   { to: '/approvals', label: 'Approvals', icon: Inbox, testid: 'nav-approvals-admin' },
   { to: '/admin/visitors', label: 'Visitors', icon: IdCard, testid: 'nav-visitors', perm: 'visitors.manage' },
+  { to: '/admin/monitoring', label: 'Monitoring', icon: Monitor, testid: 'nav-monitoring', perm: 'monitoring.view' },
   { to: '/admin/users', label: 'Employees', icon: Users, testid: 'nav-users', perm: 'users.view' },
   { to: '/admin/roles', label: 'Roles', icon: Shield, testid: 'nav-roles', perm: 'roles.view' },
   {
@@ -113,6 +115,7 @@ const employeeNav: NavItem[] = [
   { to: '/helpdesk', label: 'Helpdesk', icon: LifeBuoy, testid: 'nav-helpdesk' },
   { to: '/announcements', label: 'Notice Board', icon: Megaphone, testid: 'nav-announcements' },
   { to: '/recognition', label: 'Recognition', icon: Sparkles, testid: 'nav-recognition' },
+  { to: '/monitoring', label: 'Monitoring', icon: Monitor, testid: 'nav-monitoring-self' },
 ]
 
 export function AppShell({ children }: { children: ReactNode }) {

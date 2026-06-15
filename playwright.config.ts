@@ -34,6 +34,7 @@ export default defineConfig({
           args: [
             '--use-fake-device-for-media-stream',
             '--use-fake-ui-for-media-stream',
+            '--auto-accept-this-tab-capture',
           ],
         },
       },

@@ -1022,6 +1022,24 @@ export type Database = {
           },
         ]
       }
+      monitoring_config: {
+        Row: {
+          capture_interval_minutes: number
+          id: boolean
+          updated_at: string
+        }
+        Insert: {
+          capture_interval_minutes?: number
+          id?: boolean
+          updated_at?: string
+        }
+        Update: {
+          capture_interval_minutes?: number
+          id?: boolean
+          updated_at?: string
+        }
+        Relationships: []
+      }
       onboarding: {
         Row: {
           employee_id: string
@@ -1872,6 +1890,44 @@ export type Database = {
           },
           {
             foreignKeyName: "salary_runs_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      screenshots: {
+        Row: {
+          activity_status: string
+          captured_at: string
+          created_at: string
+          id: string
+          storage_path: string
+          system_name: string | null
+          user_id: string
+        }
+        Insert: {
+          activity_status?: string
+          captured_at?: string
+          created_at?: string
+          id?: string
+          storage_path: string
+          system_name?: string | null
+          user_id: string
+        }
+        Update: {
+          activity_status?: string
+          captured_at?: string
+          created_at?: string
+          id?: string
+          storage_path?: string
+          system_name?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "screenshots_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"

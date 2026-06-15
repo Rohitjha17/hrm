@@ -5,8 +5,11 @@ A production-oriented, multi-user **Human Resource Management System** built on 
 truth, with **real-time** visibility for admins. Deployable end-to-end on free
 hosting tiers.
 
-> Status: **Core (v1.0-core) + Extended in progress.** Phases 0–14 done — core plus policies/workflow, recruitment,
-> onboarding, documents, assets, payroll, lifecycle/exit, helpdesk and engagement. 46 e2e specs green. See [the roadmap](#roadmap) and [`CHANGELOG.md`](./CHANGELOG.md).
+> Status: **ALL PHASES COMPLETE (0–19).** Core (`v1.0-core`) + every Extended
+> module: policies/workflow engine, recruitment, onboarding, documents, assets,
+> payroll (incl. F&F), lifecycle/exit, helpdesk, engagement and opt-in monitoring.
+> **47 Playwright e2e specs green.** AI analytics deferred (Future Version) behind
+> a clean `services/ai` boundary. See [the roadmap](#roadmap) and [`CHANGELOG.md`](./CHANGELOG.md).
 
 ## Stack
 

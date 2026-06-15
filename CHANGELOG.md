@@ -3,6 +3,26 @@
 All notable changes to this project are documented here. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/); one section per build phase.
 
+## [2.0.0] — Phase 19: Employee monitoring (feasibility-constrained) 🎉
+
+### Added
+- Schema: `monitoring_config` (configurable 10/15/20/30-min interval the future
+  native agent consumes) + `screenshots` (user, captured_at, system name,
+  activity, image path). RLS + private `screenshots` storage policies.
+- **Opt-in** screen capture (`getDisplayMedia`, consent-gated) → upload + record;
+  admin Daily/Weekly/Monthly/employee-wise report. Both pages prominently state
+  the limitation.
+
+### Honest limitation (not faked)
+- Continuous, silent, background screenshot capture is **impossible from a web
+  browser** — it requires explicit per-session consent and cannot run on a hidden
+  timer. True background monitoring needs a **separate native desktop agent**
+  (out of scope). Storage-cost caveat documented in `docs/hosting.md`.
+
+### Milestone
+- **All phases (0–19) complete.** 47 e2e specs green. AI analytics deferred
+  (Future Version) with a clean `services/ai` extension boundary.
+
 ## [1.9.0] — Phase 18: Announcements, recognition & visitors
 
 ### Added
