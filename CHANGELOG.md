@@ -3,6 +3,19 @@
 All notable changes to this project are documented here. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/); one section per build phase.
 
+## [0.6.0] — Phase 5: Leave management
+
+### Added
+- Schema: `leave_types` (Paid/Casual/Sick/Unpaid seeded with quotas), `holidays`
+  master (seeded), `leave_requests` (apply → approve/reject/cancel), `leave_balances`.
+- `decide_leave()` RPC: approve/reject by an approver (`leave.approve`) or the
+  requester's reporting manager; on approval, increments the year's balance.
+  Inclusive day count via trigger.
+- Frontend: employee Leave page (balances, apply, my requests, cancel pending);
+  admin Approvals page (decide pending) + holiday calendar CRUD; realtime status
+  + poll fallback so balances/status update without refresh.
+- E2E (3 specs): apply → live approve + balance update, reject, holiday CRUD.
+
 ## [0.5.0] — Phase 4: Planning & mandatory policy
 
 ### Added

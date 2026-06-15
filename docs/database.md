@@ -101,9 +101,21 @@ planning_config (singleton)   planning_slots >── user_id ─> profiles
   blocked until compliance is met; `unlock_planning()` (admin) overrides;
   `submit_planning_compliance()` sets the flags.
 
+**Leave (Phase 5)**
+
+```
+leave_types (Paid/Casual/Sick/Unpaid)   holidays (master)
+leave_requests >── user_id ─> profiles   leave_balances (user/type/year):
+  type, start/end, days (trigger),          allocated, used
+  status (pending|approved|rejected|cancelled), decided_by
+```
+
+- `decide_leave()` (SECURITY DEFINER) approves/rejects (approver or reporting
+  manager) and updates the balance. RLS: requests visible to owner / reports /
+  `leave.view_all`. Realtime on `leave_requests`.
+
 ## Planned entities (by phase)
 
-- **Phase 5** — `leave_types`, `leave_requests`, `leave_balances`, `holidays`.
 - **Phase 6** — `salary_components`, `salary_runs`, `payslips`.
 - **Phase 7** — `appraisal_cycles`, `appraisals`.
 - **Phases 9+** — employee lifecycle, plus the Extended-module entities.

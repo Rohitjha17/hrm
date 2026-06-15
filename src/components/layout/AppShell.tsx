@@ -10,6 +10,7 @@ import {
   LogOut,
   Menu,
   Network,
+  Plane,
   ScrollText,
   Shield,
   Users,
@@ -46,6 +47,7 @@ const adminNav: NavItem[] = [
     testid: 'nav-planning-admin',
     perm: 'planning.view_all',
   },
+  { to: '/admin/leave', label: 'Leave', icon: Plane, testid: 'nav-leave-admin', perm: 'leave.approve' },
   { to: '/admin/users', label: 'Employees', icon: Users, testid: 'nav-users', perm: 'users.view' },
   { to: '/admin/roles', label: 'Roles', icon: Shield, testid: 'nav-roles', perm: 'roles.view' },
   {
@@ -75,6 +77,7 @@ const employeeNav: NavItem[] = [
     testid: 'nav-planning',
     perm: 'planning.view_own',
   },
+  { to: '/leave', label: 'Leave', icon: Plane, testid: 'nav-leave', perm: 'leave.view_own' },
 ]
 
 export function AppShell({ children }: { children: ReactNode }) {

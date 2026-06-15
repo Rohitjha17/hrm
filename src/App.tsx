@@ -13,6 +13,8 @@ import { AttendanceMonitorPage } from '@/features/attendance/AttendanceMonitorPa
 import { TasksPage } from '@/features/tasks/TasksPage'
 import { PlanningPage } from '@/features/planning/PlanningPage'
 import { PlanningAdminPage } from '@/features/planning/PlanningAdminPage'
+import { LeavePage } from '@/features/leave/LeavePage'
+import { LeaveApprovalsPage } from '@/features/leave/LeaveApprovalsPage'
 
 export function App() {
   return (
@@ -57,6 +59,22 @@ export function App() {
           element={
             <RequirePermission perm="planning.view_all">
               <PlanningAdminPage />
+            </RequirePermission>
+          }
+        />
+        <Route
+          path="/leave"
+          element={
+            <RequirePermission perm="leave.view_own">
+              <LeavePage />
+            </RequirePermission>
+          }
+        />
+        <Route
+          path="/admin/leave"
+          element={
+            <RequirePermission perm={['leave.view_all', 'leave.approve']}>
+              <LeaveApprovalsPage />
             </RequirePermission>
           }
         />

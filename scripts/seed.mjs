@@ -106,6 +106,19 @@ async function main() {
     }
   }
 
+  // Allocate leave balances for the current year (idempotent).
+  const { data: leaveTypes } = await admin.from('leave_types').select('id, default_annual_quota')
+  if (leaveTypes?.length) {
+    const year = new Date().getFullYear()
+    const rows = []
+    for (const userId of idByEmail.values()) {
+      for (const lt of leaveTypes) {
+        rows.push({ user_id: userId, leave_type_id: lt.id, year, allocated: lt.default_annual_quota, used: 0 })
+      }
+    }
+    await admin.from('leave_balances').upsert(rows, { onConflict: 'user_id,leave_type_id,year' })
+  }
+
   // Developer-only credential printout.
   console.log('\n[seed] ✅ Done. Local demo credentials (developer console only):')
   console.table(
