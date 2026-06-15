@@ -550,6 +550,48 @@ export type Database = {
           },
         ]
       }
+      exit_clearances: {
+        Row: {
+          clearance_type: string
+          cleared_at: string | null
+          cleared_by: string | null
+          id: string
+          resignation_id: string
+          status: string
+        }
+        Insert: {
+          clearance_type: string
+          cleared_at?: string | null
+          cleared_by?: string | null
+          id?: string
+          resignation_id: string
+          status?: string
+        }
+        Update: {
+          clearance_type?: string
+          cleared_at?: string | null
+          cleared_by?: string | null
+          id?: string
+          resignation_id?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "exit_clearances_cleared_by_fkey"
+            columns: ["cleared_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "exit_clearances_resignation_id_fkey"
+            columns: ["resignation_id"]
+            isOneToOne: false
+            referencedRelation: "resignations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       fnf_settlements: {
         Row: {
           breakdown: Json | null
@@ -861,6 +903,51 @@ export type Database = {
           sort_order?: number
         }
         Relationships: []
+      }
+      lifecycle_events: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          employee_id: string
+          event_date: string
+          event_type: string
+          id: string
+          note: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          employee_id: string
+          event_date: string
+          event_type: string
+          id?: string
+          note?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          employee_id?: string
+          event_date?: string
+          event_type?: string
+          id?: string
+          note?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lifecycle_events_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lifecycle_events_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       loans_advances: {
         Row: {
@@ -1374,6 +1461,47 @@ export type Database = {
             columns: ["team_id"]
             isOneToOne: false
             referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      resignations: {
+        Row: {
+          employee_id: string
+          exit_interview_notes: string | null
+          id: string
+          last_working_date: string
+          reason: string | null
+          status: string
+          submitted_at: string
+          updated_at: string
+        }
+        Insert: {
+          employee_id: string
+          exit_interview_notes?: string | null
+          id?: string
+          last_working_date: string
+          reason?: string | null
+          status?: string
+          submitted_at?: string
+          updated_at?: string
+        }
+        Update: {
+          employee_id?: string
+          exit_interview_notes?: string | null
+          id?: string
+          last_working_date?: string
+          reason?: string | null
+          status?: string
+          submitted_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "resignations_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -2081,6 +2209,7 @@ export type Database = {
         }
         Returns: Json
       }
+      clear_exit_item: { Args: { p_clearance: string }; Returns: Json }
       compute_appraisal_scores: { Args: { p_appraisal: string }; Returns: Json }
       decide_leave: {
         Args: { p_decision: string; p_remarks?: string; p_request: string }
@@ -2103,6 +2232,14 @@ export type Database = {
         Returns: undefined
       }
       return_asset: { Args: { p_asset: string }; Returns: Json }
+      start_exit: {
+        Args: {
+          p_employee: string
+          p_last_working_date: string
+          p_reason?: string
+        }
+        Returns: Json
+      }
       start_onboarding: { Args: { p_employee: string }; Returns: Json }
       start_workflow: {
         Args: {

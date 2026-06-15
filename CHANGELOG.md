@@ -3,6 +3,17 @@
 All notable changes to this project are documented here. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/); one section per build phase.
 
+## [1.7.0] — Phase 16: Employee lifecycle & exit management
+
+### Added
+- Schema: `lifecycle_events` (joining/confirmation/promotion/transfer/dept-change/
+  salary-revision/exit, audited) + employee **timeline**; `resignations` and
+  `exit_clearances`. `start_exit()` and `clear_exit_item()` RPCs.
+- Frontend: Lifecycle page — record events + timeline; start exit → clearance
+  checklist → generate Experience / Relieving / No-Due documents (PDF).
+- New perms `lifecycle.view_own` (employee), `lifecycle.manage` (HR). RLS throughout.
+- E2E (1 spec): record event + timeline; full exit clearance (4 items) + document.
+
 ## [1.6.0] — Phase 15: Payroll enhancements
 
 ### Added

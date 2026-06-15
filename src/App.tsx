@@ -28,6 +28,7 @@ import { RecruitmentPage } from '@/features/recruitment/RecruitmentPage'
 import { OnboardingPage } from '@/features/onboarding/OnboardingPage'
 import { DocumentsPage } from '@/features/documents/DocumentsPage'
 import { AssetsPage } from '@/features/assets/AssetsPage'
+import { LifecyclePage } from '@/features/lifecycle/LifecyclePage'
 
 export function App() {
   return (
@@ -178,6 +179,14 @@ export function App() {
           element={
             <RequirePermission perm={['assets.view', 'assets.manage']}>
               <AssetsPage />
+            </RequirePermission>
+          }
+        />
+        <Route
+          path="/admin/lifecycle"
+          element={
+            <RequirePermission perm="lifecycle.manage">
+              <LifecyclePage />
             </RequirePermission>
           }
         />
