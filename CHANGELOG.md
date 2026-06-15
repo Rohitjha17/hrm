@@ -3,6 +3,20 @@
 All notable changes to this project are documented here. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/); one section per build phase.
 
+## [0.9.0] — Phase 8: Reports & export
+
+### Added
+- Reports module (Attendance, Leave, Salary, Task, Performance/Appraisal) with
+  headings derived from the data; all RLS-gated (`reports.view`).
+- **Client-side export**: Excel via SheetJS and PDF via jsPDF + autotable.
+- Frontend: Reports page with report tabs, table view, and Excel/PDF export.
+- E2E (1 spec): reports render with data and every report exports to a non-empty
+  `.xlsx` and `.pdf` (download asserted).
+
+### Security
+- Use the **patched SheetJS build** (`xlsx@0.20.3` from the SheetJS CDN); the npm
+  `xlsx@0.18.5` has unpatched advisories. `npm audit` is clean.
+
 ## [0.8.0] — Phase 7: Appraisal management
 
 ### Added

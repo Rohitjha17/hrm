@@ -9,6 +9,7 @@ import {
   LayoutDashboard,
   ListChecks,
   LogOut,
+  FileBarChart,
   Menu,
   Network,
   Plane,
@@ -52,6 +53,7 @@ const adminNav: NavItem[] = [
   { to: '/admin/leave', label: 'Leave', icon: Plane, testid: 'nav-leave-admin', perm: 'leave.approve' },
   { to: '/admin/salary', label: 'Salary', icon: Wallet, testid: 'nav-salary-admin', perm: 'salary.view' },
   { to: '/admin/appraisal', label: 'Appraisals', icon: Award, testid: 'nav-appraisal-admin', perm: 'appraisal.view' },
+  { to: '/admin/reports', label: 'Reports', icon: FileBarChart, testid: 'nav-reports', perm: 'reports.view' },
   { to: '/admin/users', label: 'Employees', icon: Users, testid: 'nav-users', perm: 'users.view' },
   { to: '/admin/roles', label: 'Roles', icon: Shield, testid: 'nav-roles', perm: 'roles.view' },
   {

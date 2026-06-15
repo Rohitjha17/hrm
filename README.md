@@ -5,8 +5,8 @@ A production-oriented, multi-user **Human Resource Management System** built on 
 truth, with **real-time** visibility for admins. Deployable end-to-end on free
 hosting tiers.
 
-> Status: **Phase 7 complete** — relational core done (RBAC, attendance, tasks,
-> planning, leave, salary, appraisal). See [the roadmap](#roadmap) and
+> Status: **Phase 8 complete** — core + reports/export. (RBAC, attendance, tasks,
+> planning, leave, salary, appraisal, reports.) See [the roadmap](#roadmap) and
 > [`CHANGELOG.md`](./CHANGELOG.md).
 
 ## Stack
@@ -114,5 +114,8 @@ the full regression suite is green and is captured in one conventional commit.
   the dev machine. Revert in `supabase/config.toml` if not needed. The app reads
   ports dynamically via `npm run env:local`, so nothing else changes.
 - **Zod 4** + `@hookform/resolvers` v5 (current as of build).
+- **SheetJS (`xlsx`) is installed from the SheetJS CDN tarball** (patched
+  `0.20.3`), not npm — the npm build (`0.18.5`) has unpatched advisories. A fresh
+  `npm install` fetches it from `cdn.sheetjs.com`; `npm audit` is clean.
 - Cloud deployment is **documented** in [`docs/deploy.md`](./docs/deploy.md) but
   must be executed with your own Supabase/Vercel accounts (no creds in repo).

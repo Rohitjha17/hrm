@@ -19,6 +19,7 @@ import { SalaryPage } from '@/features/salary/SalaryPage'
 import { SalaryAdminPage } from '@/features/salary/SalaryAdminPage'
 import { AppraisalPage } from '@/features/appraisal/AppraisalPage'
 import { AppraisalAdminPage } from '@/features/appraisal/AppraisalAdminPage'
+import { ReportsPage } from '@/features/reports/ReportsPage'
 
 export function App() {
   return (
@@ -111,6 +112,14 @@ export function App() {
           element={
             <RequirePermission perm={['appraisal.view', 'appraisal.manage']}>
               <AppraisalAdminPage />
+            </RequirePermission>
+          }
+        />
+        <Route
+          path="/admin/reports"
+          element={
+            <RequirePermission perm="reports.view">
+              <ReportsPage />
             </RequirePermission>
           }
         />
