@@ -86,10 +86,23 @@ task_statuses (master, editable)   tasks >── created_by / assignee_id ─> p
   the initial status. History is read-only to clients (written by trigger/RPC).
 - `tasks` + `task_status_history` are in the realtime publication.
 
+**Planning (Phase 4)**
+
+```
+planning_config (singleton)   planning_slots >── user_id ─> profiles
+  slot_interval_hours,           plan_date, kind (day|next_day), slot_index,
+  day_start/end, policy          task_name, progress, challenges, remarks
+  (block_punch_out |          planning_history >── slot_id (before/after edits)
+   block_next_day_in | off)   planning_compliance (user/day): day_end_submitted,
+  require_day_end/next_day       next_day_submitted, unlocked, unlocked_by
+```
+
+- `attendance_punch` enforces the policy: Punch Out (or next-day Punch In) is
+  blocked until compliance is met; `unlock_planning()` (admin) overrides;
+  `submit_planning_compliance()` sets the flags.
+
 ## Planned entities (by phase)
 
-- **Phase 4** — `planning_slots`, `planning_updates`, `planning_config`,
-  `planning_compliance`.
 - **Phase 5** — `leave_types`, `leave_requests`, `leave_balances`, `holidays`.
 - **Phase 6** — `salary_components`, `salary_runs`, `payslips`.
 - **Phase 7** — `appraisal_cycles`, `appraisals`.

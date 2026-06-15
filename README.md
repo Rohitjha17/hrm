@@ -5,8 +5,8 @@ A production-oriented, multi-user **Human Resource Management System** built on 
 truth, with **real-time** visibility for admins. Deployable end-to-end on free
 hosting tiers.
 
-> Status: **Phase 3 complete** (RBAC + hierarchy, GPS-selfie attendance with
-> realtime, task management). See [the roadmap](#roadmap) and
+> Status: **Phase 4 complete** (RBAC, attendance, tasks, planning with the
+> mandatory punch-out policy). See [the roadmap](#roadmap) and
 > [`CHANGELOG.md`](./CHANGELOG.md).
 
 ## Stack

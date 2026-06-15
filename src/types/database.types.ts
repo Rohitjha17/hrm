@@ -298,6 +298,188 @@ export type Database = {
         }
         Relationships: []
       }
+      planning_compliance: {
+        Row: {
+          created_at: string
+          day_end_submitted: boolean
+          id: string
+          next_day_submitted: boolean
+          unlocked: boolean
+          unlocked_at: string | null
+          unlocked_by: string | null
+          updated_at: string
+          user_id: string
+          work_date: string
+        }
+        Insert: {
+          created_at?: string
+          day_end_submitted?: boolean
+          id?: string
+          next_day_submitted?: boolean
+          unlocked?: boolean
+          unlocked_at?: string | null
+          unlocked_by?: string | null
+          updated_at?: string
+          user_id: string
+          work_date: string
+        }
+        Update: {
+          created_at?: string
+          day_end_submitted?: boolean
+          id?: string
+          next_day_submitted?: boolean
+          unlocked?: boolean
+          unlocked_at?: string | null
+          unlocked_by?: string | null
+          updated_at?: string
+          user_id?: string
+          work_date?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "planning_compliance_unlocked_by_fkey"
+            columns: ["unlocked_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "planning_compliance_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      planning_config: {
+        Row: {
+          day_end: string
+          day_start: string
+          id: boolean
+          policy: string
+          require_day_end: boolean
+          require_next_day: boolean
+          slot_interval_hours: number
+          updated_at: string
+        }
+        Insert: {
+          day_end?: string
+          day_start?: string
+          id?: boolean
+          policy?: string
+          require_day_end?: boolean
+          require_next_day?: boolean
+          slot_interval_hours?: number
+          updated_at?: string
+        }
+        Update: {
+          day_end?: string
+          day_start?: string
+          id?: boolean
+          policy?: string
+          require_day_end?: boolean
+          require_next_day?: boolean
+          slot_interval_hours?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      planning_history: {
+        Row: {
+          after_data: Json | null
+          before_data: Json | null
+          changed_by: string | null
+          created_at: string
+          id: string
+          slot_id: string
+        }
+        Insert: {
+          after_data?: Json | null
+          before_data?: Json | null
+          changed_by?: string | null
+          created_at?: string
+          id?: string
+          slot_id: string
+        }
+        Update: {
+          after_data?: Json | null
+          before_data?: Json | null
+          changed_by?: string | null
+          created_at?: string
+          id?: string
+          slot_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "planning_history_changed_by_fkey"
+            columns: ["changed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "planning_history_slot_id_fkey"
+            columns: ["slot_id"]
+            isOneToOne: false
+            referencedRelation: "planning_slots"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      planning_slots: {
+        Row: {
+          challenges: string | null
+          created_at: string
+          id: string
+          kind: string
+          plan_date: string
+          progress: number
+          remarks: string | null
+          slot_index: number
+          slot_label: string
+          task_name: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          challenges?: string | null
+          created_at?: string
+          id?: string
+          kind?: string
+          plan_date: string
+          progress?: number
+          remarks?: string | null
+          slot_index: number
+          slot_label: string
+          task_name?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          challenges?: string | null
+          created_at?: string
+          id?: string
+          kind?: string
+          plan_date?: string
+          progress?: number
+          remarks?: string | null
+          slot_index?: number
+          slot_label?: string
+          task_name?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "planning_slots_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           created_at: string
@@ -685,6 +867,14 @@ export type Database = {
       recompute_attendance_day: {
         Args: { p_date: string; p_user: string }
         Returns: undefined
+      }
+      submit_planning_compliance: {
+        Args: { p_date: string; p_part: string }
+        Returns: Json
+      }
+      unlock_planning: {
+        Args: { p_date: string; p_user: string }
+        Returns: Json
       }
       update_task_status: {
         Args: { p_remarks?: string; p_status: string; p_task: string }

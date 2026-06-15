@@ -11,6 +11,8 @@ import { AuditPage } from '@/features/admin/audit/AuditPage'
 import { PunchPage } from '@/features/attendance/PunchPage'
 import { AttendanceMonitorPage } from '@/features/attendance/AttendanceMonitorPage'
 import { TasksPage } from '@/features/tasks/TasksPage'
+import { PlanningPage } from '@/features/planning/PlanningPage'
+import { PlanningAdminPage } from '@/features/planning/PlanningAdminPage'
 
 export function App() {
   return (
@@ -39,6 +41,22 @@ export function App() {
           element={
             <RequirePermission perm={['tasks.view_own', 'tasks.view_all']}>
               <TasksPage />
+            </RequirePermission>
+          }
+        />
+        <Route
+          path="/planning"
+          element={
+            <RequirePermission perm="planning.view_own">
+              <PlanningPage />
+            </RequirePermission>
+          }
+        />
+        <Route
+          path="/admin/planning"
+          element={
+            <RequirePermission perm="planning.view_all">
+              <PlanningAdminPage />
             </RequirePermission>
           }
         />

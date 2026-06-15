@@ -4,6 +4,7 @@ import {
   Building2,
   CalendarClock,
   Fingerprint,
+  CalendarRange,
   LayoutDashboard,
   ListChecks,
   LogOut,
@@ -38,6 +39,13 @@ const adminNav: NavItem[] = [
     perm: 'attendance.view_all',
   },
   { to: '/tasks', label: 'Tasks', icon: ListChecks, testid: 'nav-tasks', perm: 'tasks.view_all' },
+  {
+    to: '/admin/planning',
+    label: 'Planning',
+    icon: CalendarRange,
+    testid: 'nav-planning-admin',
+    perm: 'planning.view_all',
+  },
   { to: '/admin/users', label: 'Employees', icon: Users, testid: 'nav-users', perm: 'users.view' },
   { to: '/admin/roles', label: 'Roles', icon: Shield, testid: 'nav-roles', perm: 'roles.view' },
   {
@@ -60,6 +68,13 @@ const employeeNav: NavItem[] = [
     perm: 'attendance.view_own',
   },
   { to: '/tasks', label: 'Tasks', icon: ListChecks, testid: 'nav-tasks', perm: 'tasks.view_own' },
+  {
+    to: '/planning',
+    label: 'Planning',
+    icon: CalendarRange,
+    testid: 'nav-planning',
+    perm: 'planning.view_own',
+  },
 ]
 
 export function AppShell({ children }: { children: ReactNode }) {

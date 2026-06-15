@@ -3,6 +3,28 @@
 All notable changes to this project are documented here. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/); one section per build phase.
 
+## [0.5.0] — Phase 4: Planning & mandatory policy
+
+### Added
+- Schema: `planning_config` (cadence, window, policy), `planning_slots`
+  (per-slot task/progress/challenges/remarks), `planning_history` (edit trail),
+  `planning_compliance` (day-end + next-day flags, admin unlock).
+- **Mandatory-policy engine**: `attendance_punch` redefined to block Punch Out
+  (or next-day Punch In) until planning is complete — configurable, with admin
+  override via `unlock_planning()`. `submit_planning_compliance()` records the
+  day-end update and next-day plan. Compliance feeds salary/appraisal later.
+- Frontend: employee Planning page (2-hourly slots generated from config,
+  edit-with-history, submit day-end / next-day, compliance status); admin
+  Planning Monitor (per-employee compliance, unlock, combined plan view).
+- Punch modal surfaces the `planning_incomplete` reason.
+- E2E (3 specs): plan + edit history, punch-out blocked → admin unlock → allowed,
+  and complete-planning → punch-out allowed. Punch tests now own their state via
+  a service-role reset (deterministic across the full suite).
+
+### Changed
+- Punch RPC validates the in/out sequence before the planning gate (accurate
+  rejection reasons).
+
 ## [0.4.0] — Phase 3: Task management
 
 ### Added
