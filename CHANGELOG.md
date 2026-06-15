@@ -3,6 +3,26 @@
 All notable changes to this project are documented here. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/); one section per build phase.
 
+## [1.1.0] — Phase 10: Policy management + workflow engine
+
+### Added
+- **Policies**: `policies`, `policy_versions` (version control + change history),
+  `policy_acknowledgements`. `publish_policy_version()` and `acknowledge_policy()`
+  RPCs. Admin policy management (create, publish versions, history) + employee
+  read/acknowledge page.
+- **Configurable workflow engine**: `workflow_definitions`/`steps`/`instances`/
+  `actions` with `start_workflow()` and `act_on_workflow()` RPCs (multi-level,
+  per-step permission-gated). Workflow Builder + Approvals inbox.
+- New permissions `policy.manage`, `workflow.manage` (granted to HR; Super Admin
+  via `*`). RLS throughout.
+- E2E (2 specs): policy create → 2 versions (history) → employee acknowledges;
+  build a 2-level workflow → route an instance through both levels → approved.
+
+### Note
+- The engine is generic and ready to back core flows; existing leave/salary/task/
+  appraisal flows are left intact (no regressions) and can be migrated onto it
+  incrementally. Recruitment (Phase 11) will use it for offer approvals.
+
 ## [1.0.0] — Phase 9: Employee management & lifecycle (Core complete) 🎉
 
 ### Added

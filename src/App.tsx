@@ -20,6 +20,10 @@ import { SalaryAdminPage } from '@/features/salary/SalaryAdminPage'
 import { AppraisalPage } from '@/features/appraisal/AppraisalPage'
 import { AppraisalAdminPage } from '@/features/appraisal/AppraisalAdminPage'
 import { ReportsPage } from '@/features/reports/ReportsPage'
+import { PolicyPage } from '@/features/policy/PolicyPage'
+import { PolicyAdminPage } from '@/features/policy/PolicyAdminPage'
+import { WorkflowAdminPage } from '@/features/workflow/WorkflowAdminPage'
+import { ApprovalsPage } from '@/features/workflow/ApprovalsPage'
 
 export function App() {
   return (
@@ -120,6 +124,24 @@ export function App() {
           element={
             <RequirePermission perm="reports.view">
               <ReportsPage />
+            </RequirePermission>
+          }
+        />
+        <Route path="/policies" element={<PolicyPage />} />
+        <Route path="/approvals" element={<ApprovalsPage />} />
+        <Route
+          path="/admin/policies"
+          element={
+            <RequirePermission perm="policy.manage">
+              <PolicyAdminPage />
+            </RequirePermission>
+          }
+        />
+        <Route
+          path="/admin/workflows"
+          element={
+            <RequirePermission perm="workflow.manage">
+              <WorkflowAdminPage />
             </RequirePermission>
           }
         />

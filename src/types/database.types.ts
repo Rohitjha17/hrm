@@ -755,6 +755,117 @@ export type Database = {
           },
         ]
       }
+      policies: {
+        Row: {
+          category: string
+          created_at: string
+          current_version: number
+          id: string
+          is_active: boolean
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          category: string
+          created_at?: string
+          current_version?: number
+          id?: string
+          is_active?: boolean
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          current_version?: number
+          id?: string
+          is_active?: boolean
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      policy_acknowledgements: {
+        Row: {
+          acknowledged_at: string
+          id: string
+          policy_version_id: string
+          user_id: string
+        }
+        Insert: {
+          acknowledged_at?: string
+          id?: string
+          policy_version_id: string
+          user_id: string
+        }
+        Update: {
+          acknowledged_at?: string
+          id?: string
+          policy_version_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "policy_acknowledgements_policy_version_id_fkey"
+            columns: ["policy_version_id"]
+            isOneToOne: false
+            referencedRelation: "policy_versions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "policy_acknowledgements_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      policy_versions: {
+        Row: {
+          change_note: string | null
+          content: string
+          created_at: string
+          created_by: string | null
+          id: string
+          policy_id: string
+          version: number
+        }
+        Insert: {
+          change_note?: string | null
+          content: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          policy_id: string
+          version: number
+        }
+        Update: {
+          change_note?: string | null
+          content?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          policy_id?: string
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "policy_versions_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "policy_versions_policy_id_fkey"
+            columns: ["policy_id"]
+            isOneToOne: false
+            referencedRelation: "policies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           created_at: string
@@ -1319,11 +1430,171 @@ export type Database = {
           },
         ]
       }
+      workflow_actions: {
+        Row: {
+          actor_id: string | null
+          created_at: string
+          decision: string
+          id: string
+          instance_id: string
+          remarks: string | null
+          step_order: number
+        }
+        Insert: {
+          actor_id?: string | null
+          created_at?: string
+          decision: string
+          id?: string
+          instance_id: string
+          remarks?: string | null
+          step_order: number
+        }
+        Update: {
+          actor_id?: string | null
+          created_at?: string
+          decision?: string
+          id?: string
+          instance_id?: string
+          remarks?: string | null
+          step_order?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workflow_actions_actor_id_fkey"
+            columns: ["actor_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workflow_actions_instance_id_fkey"
+            columns: ["instance_id"]
+            isOneToOne: false
+            referencedRelation: "workflow_instances"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      workflow_definitions: {
+        Row: {
+          created_at: string
+          entity_type: string
+          id: string
+          is_active: boolean
+          name: string
+        }
+        Insert: {
+          created_at?: string
+          entity_type?: string
+          id?: string
+          is_active?: boolean
+          name: string
+        }
+        Update: {
+          created_at?: string
+          entity_type?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+        }
+        Relationships: []
+      }
+      workflow_instances: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          current_step: number
+          definition_id: string
+          entity_id: string | null
+          entity_type: string
+          id: string
+          status: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          current_step?: number
+          definition_id: string
+          entity_id?: string | null
+          entity_type?: string
+          id?: string
+          status?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          current_step?: number
+          definition_id?: string
+          entity_id?: string | null
+          entity_type?: string
+          id?: string
+          status?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workflow_instances_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workflow_instances_definition_id_fkey"
+            columns: ["definition_id"]
+            isOneToOne: false
+            referencedRelation: "workflow_definitions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      workflow_steps: {
+        Row: {
+          approver_permission: string
+          definition_id: string
+          id: string
+          name: string
+          step_order: number
+        }
+        Insert: {
+          approver_permission: string
+          definition_id: string
+          id?: string
+          name: string
+          step_order: number
+        }
+        Update: {
+          approver_permission?: string
+          definition_id?: string
+          id?: string
+          name?: string
+          step_order?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workflow_steps_definition_id_fkey"
+            columns: ["definition_id"]
+            isOneToOne: false
+            referencedRelation: "workflow_definitions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
+      acknowledge_policy: { Args: { p_version: string }; Returns: Json }
+      act_on_workflow: {
+        Args: { p_decision: string; p_instance: string; p_remarks?: string }
+        Returns: Json
+      }
       attendance_punch: {
         Args: {
           p_ip?: string
@@ -1347,9 +1618,22 @@ export type Database = {
       health_check: { Args: never; Returns: string }
       my_permissions: { Args: never; Returns: string[] }
       my_roles: { Args: never; Returns: string[] }
+      publish_policy_version: {
+        Args: { p_change_note?: string; p_content: string; p_policy: string }
+        Returns: Json
+      }
       recompute_attendance_day: {
         Args: { p_date: string; p_user: string }
         Returns: undefined
+      }
+      start_workflow: {
+        Args: {
+          p_definition: string
+          p_entity_id?: string
+          p_entity_type?: string
+          p_title: string
+        }
+        Returns: Json
       }
       submit_planning_compliance: {
         Args: { p_date: string; p_part: string }

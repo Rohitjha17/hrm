@@ -1,15 +1,18 @@
 import { useState, type ReactNode } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import {
+  Award,
+  BookText,
   Building2,
   CalendarClock,
-  Fingerprint,
   CalendarRange,
-  Award,
+  FileBarChart,
+  Fingerprint,
+  GitBranch,
+  Inbox,
   LayoutDashboard,
   ListChecks,
   LogOut,
-  FileBarChart,
   Menu,
   Network,
   Plane,
@@ -54,6 +57,9 @@ const adminNav: NavItem[] = [
   { to: '/admin/salary', label: 'Salary', icon: Wallet, testid: 'nav-salary-admin', perm: 'salary.view' },
   { to: '/admin/appraisal', label: 'Appraisals', icon: Award, testid: 'nav-appraisal-admin', perm: 'appraisal.view' },
   { to: '/admin/reports', label: 'Reports', icon: FileBarChart, testid: 'nav-reports', perm: 'reports.view' },
+  { to: '/admin/policies', label: 'Policies', icon: BookText, testid: 'nav-policies-admin', perm: 'policy.manage' },
+  { to: '/admin/workflows', label: 'Workflows', icon: GitBranch, testid: 'nav-workflows', perm: 'workflow.manage' },
+  { to: '/approvals', label: 'Approvals', icon: Inbox, testid: 'nav-approvals-admin' },
   { to: '/admin/users', label: 'Employees', icon: Users, testid: 'nav-users', perm: 'users.view' },
   { to: '/admin/roles', label: 'Roles', icon: Shield, testid: 'nav-roles', perm: 'roles.view' },
   {
@@ -86,6 +92,8 @@ const employeeNav: NavItem[] = [
   { to: '/leave', label: 'Leave', icon: Plane, testid: 'nav-leave', perm: 'leave.view_own' },
   { to: '/salary', label: 'Salary', icon: Wallet, testid: 'nav-salary', perm: 'salary.view_own' },
   { to: '/appraisal', label: 'Appraisals', icon: Award, testid: 'nav-appraisal', perm: 'appraisal.view_own' },
+  { to: '/policies', label: 'Policies', icon: BookText, testid: 'nav-policies' },
+  { to: '/approvals', label: 'Approvals', icon: Inbox, testid: 'nav-approvals' },
 ]
 
 export function AppShell({ children }: { children: ReactNode }) {
