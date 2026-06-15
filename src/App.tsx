@@ -29,6 +29,7 @@ import { OnboardingPage } from '@/features/onboarding/OnboardingPage'
 import { DocumentsPage } from '@/features/documents/DocumentsPage'
 import { AssetsPage } from '@/features/assets/AssetsPage'
 import { LifecyclePage } from '@/features/lifecycle/LifecyclePage'
+import { HelpdeskPage } from '@/features/helpdesk/HelpdeskPage'
 
 export function App() {
   return (
@@ -134,6 +135,7 @@ export function App() {
         />
         <Route path="/policies" element={<PolicyPage />} />
         <Route path="/approvals" element={<ApprovalsPage />} />
+        <Route path="/helpdesk" element={<HelpdeskPage />} />
         <Route
           path="/admin/policies"
           element={

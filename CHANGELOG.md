@@ -3,6 +3,17 @@
 All notable changes to this project are documented here. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/); one section per build phase.
 
+## [1.8.0] — Phase 17: Helpdesk / ticketing
+
+### Added
+- Schema: `tickets` (IT/HR/Salary/Leave/Asset, priority, status, **SLA due**,
+  escalation) + `ticket_updates`. SLA due date set by priority via trigger;
+  SLA-breach computed (overdue & unresolved).
+- Frontend: Helpdesk page — raise tickets (anyone), agent status updates +
+  escalation, SLA-breach flag. New perm `helpdesk.manage` (HR); RLS scopes
+  visibility to raiser/assignee/manager.
+- E2E (1 spec): raise → update → escalate; SLA breach flagged.
+
 ## [1.7.0] — Phase 16: Employee lifecycle & exit management
 
 ### Added

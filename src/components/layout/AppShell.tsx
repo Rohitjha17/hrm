@@ -14,6 +14,7 @@ import {
   GitBranch,
   Inbox,
   LayoutDashboard,
+  LifeBuoy,
   ListChecks,
   LogOut,
   Menu,
@@ -69,6 +70,7 @@ const adminNav: NavItem[] = [
   { to: '/admin/documents', label: 'Documents', icon: Files, testid: 'nav-documents', perm: 'documents.view' },
   { to: '/admin/assets', label: 'Assets', icon: Package, testid: 'nav-assets', perm: 'assets.view' },
   { to: '/admin/lifecycle', label: 'Lifecycle', icon: Milestone, testid: 'nav-lifecycle', perm: 'lifecycle.manage' },
+  { to: '/helpdesk', label: 'Helpdesk', icon: LifeBuoy, testid: 'nav-helpdesk-admin', perm: 'helpdesk.manage' },
   { to: '/approvals', label: 'Approvals', icon: Inbox, testid: 'nav-approvals-admin' },
   { to: '/admin/users', label: 'Employees', icon: Users, testid: 'nav-users', perm: 'users.view' },
   { to: '/admin/roles', label: 'Roles', icon: Shield, testid: 'nav-roles', perm: 'roles.view' },
@@ -104,6 +106,7 @@ const employeeNav: NavItem[] = [
   { to: '/appraisal', label: 'Appraisals', icon: Award, testid: 'nav-appraisal', perm: 'appraisal.view_own' },
   { to: '/policies', label: 'Policies', icon: BookText, testid: 'nav-policies' },
   { to: '/approvals', label: 'Approvals', icon: Inbox, testid: 'nav-approvals' },
+  { to: '/helpdesk', label: 'Helpdesk', icon: LifeBuoy, testid: 'nav-helpdesk' },
 ]
 
 export function AppShell({ children }: { children: ReactNode }) {
