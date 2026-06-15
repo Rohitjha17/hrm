@@ -5,9 +5,8 @@ A production-oriented, multi-user **Human Resource Management System** built on 
 truth, with **real-time** visibility for admins. Deployable end-to-end on free
 hosting tiers.
 
-> Status: **Core (v1.0-core) + Extended in progress.** Phases 0–13 done — core
-> plus policies/workflow, recruitment, onboarding and employee documents. 41 e2e
-> specs green. See [the roadmap](#roadmap) and [`CHANGELOG.md`](./CHANGELOG.md).
+> Status: **Core (v1.0-core) + Extended in progress.** Phases 0–14 done — core plus policies/workflow, recruitment,
+> onboarding, documents and assets. 42 e2e specs green. See [the roadmap](#roadmap) and [`CHANGELOG.md`](./CHANGELOG.md).
 
 ## Stack
 

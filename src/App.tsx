@@ -27,6 +27,7 @@ import { ApprovalsPage } from '@/features/workflow/ApprovalsPage'
 import { RecruitmentPage } from '@/features/recruitment/RecruitmentPage'
 import { OnboardingPage } from '@/features/onboarding/OnboardingPage'
 import { DocumentsPage } from '@/features/documents/DocumentsPage'
+import { AssetsPage } from '@/features/assets/AssetsPage'
 
 export function App() {
   return (
@@ -169,6 +170,14 @@ export function App() {
           element={
             <RequirePermission perm={['documents.view', 'documents.manage']}>
               <DocumentsPage />
+            </RequirePermission>
+          }
+        />
+        <Route
+          path="/admin/assets"
+          element={
+            <RequirePermission perm={['assets.view', 'assets.manage']}>
+              <AssetsPage />
             </RequirePermission>
           }
         />

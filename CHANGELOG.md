@@ -3,6 +3,16 @@
 All notable changes to this project are documented here. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/); one section per build phase.
 
+## [1.5.0] — Phase 14: Asset management
+
+### Added
+- Schema: `assets` (laptop/desktop/mobile/SIM/ID-card/headset) + `asset_assignments`
+  history. `assign_asset()`, `transfer_asset()`, `return_asset()` RPCs keep asset
+  status + assignment history consistent.
+- Frontend: Assets page (create, assign/transfer/return, full assignment history).
+  New perms `assets.view` / `assets.manage` (HR + Super Admin).
+- E2E (1 spec): assign → transfer → return with history preserved.
+
 ## [1.4.0] — Phase 13: Employee document management
 
 ### Added

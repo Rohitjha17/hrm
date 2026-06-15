@@ -140,6 +140,81 @@ export type Database = {
           },
         ]
       }
+      asset_assignments: {
+        Row: {
+          asset_id: string
+          assigned_at: string
+          assignee_id: string
+          created_at: string
+          id: string
+          note: string | null
+          returned_at: string | null
+        }
+        Insert: {
+          asset_id: string
+          assigned_at?: string
+          assignee_id: string
+          created_at?: string
+          id?: string
+          note?: string | null
+          returned_at?: string | null
+        }
+        Update: {
+          asset_id?: string
+          assigned_at?: string
+          assignee_id?: string
+          created_at?: string
+          id?: string
+          note?: string | null
+          returned_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "asset_assignments_asset_id_fkey"
+            columns: ["asset_id"]
+            isOneToOne: false
+            referencedRelation: "assets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "asset_assignments_assignee_id_fkey"
+            columns: ["assignee_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      assets: {
+        Row: {
+          asset_type: string
+          condition: string
+          created_at: string
+          id: string
+          name: string
+          serial: string | null
+          status: string
+        }
+        Insert: {
+          asset_type: string
+          condition?: string
+          created_at?: string
+          id?: string
+          name: string
+          serial?: string | null
+          status?: string
+        }
+        Update: {
+          asset_type?: string
+          condition?: string
+          created_at?: string
+          id?: string
+          name?: string
+          serial?: string | null
+          status?: string
+        }
+        Relationships: []
+      }
       attendance_config: {
         Row: {
           full_day_hours: number
@@ -1876,6 +1951,10 @@ export type Database = {
         Args: { p_decision: string; p_instance: string; p_remarks?: string }
         Returns: Json
       }
+      assign_asset: {
+        Args: { p_asset: string; p_assignee: string }
+        Returns: Json
+      }
       attendance_punch: {
         Args: {
           p_ip?: string
@@ -1907,6 +1986,7 @@ export type Database = {
         Args: { p_date: string; p_user: string }
         Returns: undefined
       }
+      return_asset: { Args: { p_asset: string }; Returns: Json }
       start_onboarding: { Args: { p_employee: string }; Returns: Json }
       start_workflow: {
         Args: {
@@ -1919,6 +1999,10 @@ export type Database = {
       }
       submit_planning_compliance: {
         Args: { p_date: string; p_part: string }
+        Returns: Json
+      }
+      transfer_asset: {
+        Args: { p_asset: string; p_new_assignee: string }
         Returns: Json
       }
       unlock_planning: {
