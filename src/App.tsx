@@ -15,6 +15,8 @@ import { PlanningPage } from '@/features/planning/PlanningPage'
 import { PlanningAdminPage } from '@/features/planning/PlanningAdminPage'
 import { LeavePage } from '@/features/leave/LeavePage'
 import { LeaveApprovalsPage } from '@/features/leave/LeaveApprovalsPage'
+import { SalaryPage } from '@/features/salary/SalaryPage'
+import { SalaryAdminPage } from '@/features/salary/SalaryAdminPage'
 
 export function App() {
   return (
@@ -75,6 +77,22 @@ export function App() {
           element={
             <RequirePermission perm={['leave.view_all', 'leave.approve']}>
               <LeaveApprovalsPage />
+            </RequirePermission>
+          }
+        />
+        <Route
+          path="/salary"
+          element={
+            <RequirePermission perm="salary.view_own">
+              <SalaryPage />
+            </RequirePermission>
+          }
+        />
+        <Route
+          path="/admin/salary"
+          element={
+            <RequirePermission perm={['salary.view', 'salary.manage']}>
+              <SalaryAdminPage />
             </RequirePermission>
           }
         />

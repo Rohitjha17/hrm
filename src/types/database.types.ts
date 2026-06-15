@@ -779,6 +779,209 @@ export type Database = {
         }
         Relationships: []
       }
+      salary_adjustments: {
+        Row: {
+          amount: number
+          created_at: string
+          created_by: string | null
+          id: string
+          kind: string
+          note: string | null
+          period_month: string
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          kind: string
+          note?: string | null
+          period_month: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          kind?: string
+          note?: string | null
+          period_month?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "salary_adjustments_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "salary_adjustments_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      salary_policy: {
+        Row: {
+          half_day_factor: number
+          id: boolean
+          late_penalty_per_day: number
+          overtime_rate_per_hour: number
+          paid_leave_paid: boolean
+          planning_penalty_per_day: number
+          quarter_day_factor: number
+          updated_at: string
+          working_days_per_month: number
+        }
+        Insert: {
+          half_day_factor?: number
+          id?: boolean
+          late_penalty_per_day?: number
+          overtime_rate_per_hour?: number
+          paid_leave_paid?: boolean
+          planning_penalty_per_day?: number
+          quarter_day_factor?: number
+          updated_at?: string
+          working_days_per_month?: number
+        }
+        Update: {
+          half_day_factor?: number
+          id?: boolean
+          late_penalty_per_day?: number
+          overtime_rate_per_hour?: number
+          paid_leave_paid?: boolean
+          planning_penalty_per_day?: number
+          quarter_day_factor?: number
+          updated_at?: string
+          working_days_per_month?: number
+        }
+        Relationships: []
+      }
+      salary_profiles: {
+        Row: {
+          id: string
+          monthly_ctc: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          monthly_ctc?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          id?: string
+          monthly_ctc?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "salary_profiles_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      salary_runs: {
+        Row: {
+          absent_days: number
+          base_earned: number
+          breakdown: Json | null
+          computed_at: string
+          computed_by: string | null
+          gross: number
+          half_days: number
+          id: string
+          incentives: number
+          increments: number
+          late_count: number
+          net: number
+          overtime_minutes: number
+          overtime_pay: number
+          paid_leave_days: number
+          penalties: number
+          period_month: string
+          planning_noncompliant_days: number
+          present_days: number
+          quarter_days: number
+          status: string
+          user_id: string
+        }
+        Insert: {
+          absent_days?: number
+          base_earned?: number
+          breakdown?: Json | null
+          computed_at?: string
+          computed_by?: string | null
+          gross?: number
+          half_days?: number
+          id?: string
+          incentives?: number
+          increments?: number
+          late_count?: number
+          net?: number
+          overtime_minutes?: number
+          overtime_pay?: number
+          paid_leave_days?: number
+          penalties?: number
+          period_month: string
+          planning_noncompliant_days?: number
+          present_days?: number
+          quarter_days?: number
+          status?: string
+          user_id: string
+        }
+        Update: {
+          absent_days?: number
+          base_earned?: number
+          breakdown?: Json | null
+          computed_at?: string
+          computed_by?: string | null
+          gross?: number
+          half_days?: number
+          id?: string
+          incentives?: number
+          increments?: number
+          late_count?: number
+          net?: number
+          overtime_minutes?: number
+          overtime_pay?: number
+          paid_leave_days?: number
+          penalties?: number
+          period_month?: string
+          planning_noncompliant_days?: number
+          present_days?: number
+          quarter_days?: number
+          status?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "salary_runs_computed_by_fkey"
+            columns: ["computed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "salary_runs_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       task_status_history: {
         Row: {
           changed_by: string | null

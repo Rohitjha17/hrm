@@ -14,6 +14,7 @@ import {
   ScrollText,
   Shield,
   Users,
+  Wallet,
   X,
 } from 'lucide-react'
 import { useAuth } from '@/features/auth/auth-context'
@@ -48,6 +49,7 @@ const adminNav: NavItem[] = [
     perm: 'planning.view_all',
   },
   { to: '/admin/leave', label: 'Leave', icon: Plane, testid: 'nav-leave-admin', perm: 'leave.approve' },
+  { to: '/admin/salary', label: 'Salary', icon: Wallet, testid: 'nav-salary-admin', perm: 'salary.view' },
   { to: '/admin/users', label: 'Employees', icon: Users, testid: 'nav-users', perm: 'users.view' },
   { to: '/admin/roles', label: 'Roles', icon: Shield, testid: 'nav-roles', perm: 'roles.view' },
   {
@@ -78,6 +80,7 @@ const employeeNav: NavItem[] = [
     perm: 'planning.view_own',
   },
   { to: '/leave', label: 'Leave', icon: Plane, testid: 'nav-leave', perm: 'leave.view_own' },
+  { to: '/salary', label: 'Salary', icon: Wallet, testid: 'nav-salary', perm: 'salary.view_own' },
 ]
 
 export function AppShell({ children }: { children: ReactNode }) {

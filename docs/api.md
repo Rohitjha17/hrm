@@ -54,14 +54,29 @@ calc inputs, etc.).
 
 ## Edge Functions (Deno)
 
-None yet. Added from **Phase 6** for logic that must not run in the client:
+Served locally by `supabase start` (from `supabase/functions/`); deployed with
+`supabase functions deploy <name>`. `SUPABASE_URL`, `SUPABASE_ANON_KEY` and
+`SUPABASE_SERVICE_ROLE_KEY` are injected automatically.
 
-- `calculate-salary` — policy-driven monthly salary (Phase 6).
-- `full-final-settlement` — F&F on exit (Phase 15/16).
-- document generation, and other privileged operations.
+### `POST /functions/v1/calculate-salary`
+- **Auth:** valid JWT; the function additionally requires the caller to hold
+  `salary.manage` (checked via `has_permission`) → otherwise **403**.
+- **Body:** `{ userId: string, month: "YYYY-MM" }`.
+- **Does:** with the service role, gathers the month's attendance
+  (present/half/quarter/absent, late, overtime), approved **paid** leave days,
+  planning non-compliance, the salary policy, the employee's base CTC and
+  adjustments (incentive/penalty/increment); computes the payslip and upserts a
+  `salary_runs` row.
+- **Returns:** `{ ok: true, run: {...gross, net, breakdown, counts...} }`.
+- **Formula:** `perDay = ctc / working_days_per_month`;
+  `base = perDay × (present + half×0.5 + quarter×0.25 + paidLeave)`;
+  `gross = base + overtimePay + incentives + increments`;
+  `net = gross − (penalties + late×latePenalty + nonCompliant×planningPenalty)`.
 
-Each Edge Function will document: route, method, auth/permission required,
-request schema (Zod), response schema, and side effects.
+Planned: `full-final-settlement` (Phase 15/16), document generation.
+
+Each Edge Function documents: route, method, auth/permission, request/response
+shape, and side effects.
 
 ## Conventions
 

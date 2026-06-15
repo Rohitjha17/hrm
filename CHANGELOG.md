@@ -3,6 +3,23 @@
 All notable changes to this project are documented here. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/); one section per build phase.
 
+## [0.7.0] — Phase 6: Salary management
+
+### Added
+- **Edge Function `calculate-salary`** (Deno): verifies `salary.manage`, gathers
+  attendance / paid leave / planning-compliance / adjustments with the service
+  role, and computes a policy-driven payslip → upserts `salary_runs`.
+- Schema: `salary_policy` (singleton), `salary_profiles` (CTC), `salary_adjustments`
+  (incentive/penalty/increment), `salary_runs` (full breakdown).
+- **Salary hidden from employees by default** (spec §6): the migration removes
+  `salary.view_own` from Employee/Intern; RLS gates all salary tables; the Edge
+  Function gates by permission.
+- Frontend: admin Salary page (base CTC, adjustments, compute, payslip
+  breakdown); employee self payslip page (requires explicit grant).
+- E2E (3 specs): full policy-driven computation through the UI (gross 49,600 /
+  net 48,800 from seeded inputs), and an employee blocked at the UI route, the
+  data layer (RLS), and the Edge Function (403).
+
 ## [0.6.0] — Phase 5: Leave management
 
 ### Added

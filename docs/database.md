@@ -114,9 +114,23 @@ leave_requests >── user_id ─> profiles   leave_balances (user/type/year):
   manager) and updates the balance. RLS: requests visible to owner / reports /
   `leave.view_all`. Realtime on `leave_requests`.
 
+**Salary (Phase 6)**
+
+```
+salary_policy (singleton)        salary_profiles (user → monthly_ctc)
+  working_days_per_month,        salary_adjustments (user/month, kind:
+  half/quarter factors,            incentive|penalty|increment, amount)
+  late/overtime/planning rates   salary_runs (user/month): counts + gross/net
+                                   + breakdown jsonb (written by Edge Function)
+```
+
+- Computed by the `calculate-salary` Edge Function (service role). RLS: salary is
+  visible only with `salary.view` (all) or `salary.view_own` (self) — the latter
+  is **removed from Employee/Intern by default**, so salary is hidden unless an
+  admin grants it.
+
 ## Planned entities (by phase)
 
-- **Phase 6** — `salary_components`, `salary_runs`, `payslips`.
 - **Phase 7** — `appraisal_cycles`, `appraisals`.
 - **Phases 9+** — employee lifecycle, plus the Extended-module entities.
 

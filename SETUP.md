@@ -99,3 +99,4 @@ Free-tier limits and caveats: [`docs/hosting.md`](./docs/hosting.md).
 | `vector`/analytics container won't start (Colima) | Already disabled (`[analytics] enabled = false`). |
 | App shows "Backend: offline" | Run `supabase start`, then `npm run env:local`, then restart `npm run dev`. |
 | e2e can't find the DB | Ensure `supabase start` ran; the suite resets but does not start the stack. |
+| Edge Function returns 404 ("Function not found") | The edge runtime loads functions at `supabase start`. If you add a function afterwards, run `supabase stop && supabase start` (the DB volume persists). A fresh clone is fine — the function already exists at start. |
