@@ -12,11 +12,13 @@ import {
   Files,
   Fingerprint,
   GitBranch,
+  IdCard,
   Inbox,
   LayoutDashboard,
   LifeBuoy,
   ListChecks,
   LogOut,
+  Megaphone,
   Menu,
   Milestone,
   Network,
@@ -24,6 +26,7 @@ import {
   Plane,
   ScrollText,
   Shield,
+  Sparkles,
   Users,
   Wallet,
   X,
@@ -72,6 +75,7 @@ const adminNav: NavItem[] = [
   { to: '/admin/lifecycle', label: 'Lifecycle', icon: Milestone, testid: 'nav-lifecycle', perm: 'lifecycle.manage' },
   { to: '/helpdesk', label: 'Helpdesk', icon: LifeBuoy, testid: 'nav-helpdesk-admin', perm: 'helpdesk.manage' },
   { to: '/approvals', label: 'Approvals', icon: Inbox, testid: 'nav-approvals-admin' },
+  { to: '/admin/visitors', label: 'Visitors', icon: IdCard, testid: 'nav-visitors', perm: 'visitors.manage' },
   { to: '/admin/users', label: 'Employees', icon: Users, testid: 'nav-users', perm: 'users.view' },
   { to: '/admin/roles', label: 'Roles', icon: Shield, testid: 'nav-roles', perm: 'roles.view' },
   {
@@ -107,6 +111,8 @@ const employeeNav: NavItem[] = [
   { to: '/policies', label: 'Policies', icon: BookText, testid: 'nav-policies' },
   { to: '/approvals', label: 'Approvals', icon: Inbox, testid: 'nav-approvals' },
   { to: '/helpdesk', label: 'Helpdesk', icon: LifeBuoy, testid: 'nav-helpdesk' },
+  { to: '/announcements', label: 'Notice Board', icon: Megaphone, testid: 'nav-announcements' },
+  { to: '/recognition', label: 'Recognition', icon: Sparkles, testid: 'nav-recognition' },
 ]
 
 export function AppShell({ children }: { children: ReactNode }) {

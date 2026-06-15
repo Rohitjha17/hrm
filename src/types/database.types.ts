@@ -34,6 +34,41 @@ export type Database = {
   }
   public: {
     Tables: {
+      announcements: {
+        Row: {
+          body: string
+          category: string
+          created_at: string
+          id: string
+          published_by: string | null
+          title: string
+        }
+        Insert: {
+          body: string
+          category?: string
+          created_at?: string
+          id?: string
+          published_by?: string | null
+          title: string
+        }
+        Update: {
+          body?: string
+          category?: string
+          created_at?: string
+          id?: string
+          published_by?: string | null
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "announcements_published_by_fkey"
+            columns: ["published_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       appraisal_cycles: {
         Row: {
           created_at: string
@@ -1465,6 +1500,51 @@ export type Database = {
           },
         ]
       }
+      recognitions: {
+        Row: {
+          award_type: string
+          awarded_by: string | null
+          created_at: string
+          employee_id: string
+          id: string
+          note: string | null
+          points: number
+        }
+        Insert: {
+          award_type: string
+          awarded_by?: string | null
+          created_at?: string
+          employee_id: string
+          id?: string
+          note?: string | null
+          points?: number
+        }
+        Update: {
+          award_type?: string
+          awarded_by?: string | null
+          created_at?: string
+          employee_id?: string
+          id?: string
+          note?: string | null
+          points?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "recognitions_awarded_by_fkey"
+            columns: ["awarded_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recognitions_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       resignations: {
         Row: {
           employee_id: string
@@ -2126,6 +2206,53 @@ export type Database = {
           {
             foreignKeyName: "user_roles_user_id_fkey"
             columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      visitors: {
+        Row: {
+          checked_in_at: string | null
+          checked_out_at: string | null
+          company: string | null
+          created_at: string
+          host_id: string | null
+          id: string
+          name: string
+          pass_code: string
+          purpose: string | null
+          visit_date: string
+        }
+        Insert: {
+          checked_in_at?: string | null
+          checked_out_at?: string | null
+          company?: string | null
+          created_at?: string
+          host_id?: string | null
+          id?: string
+          name: string
+          pass_code?: string
+          purpose?: string | null
+          visit_date: string
+        }
+        Update: {
+          checked_in_at?: string | null
+          checked_out_at?: string | null
+          company?: string | null
+          created_at?: string
+          host_id?: string | null
+          id?: string
+          name?: string
+          pass_code?: string
+          purpose?: string | null
+          visit_date?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "visitors_host_id_fkey"
+            columns: ["host_id"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]

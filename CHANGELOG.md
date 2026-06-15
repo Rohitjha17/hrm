@@ -3,6 +3,18 @@
 All notable changes to this project are documented here. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/); one section per build phase.
 
+## [1.9.0] — Phase 18: Announcements, recognition & visitors
+
+### Added
+- Schema: `announcements` (notice board), `recognitions` (star performer /
+  employee-of-month / appreciation + points), `visitors` (registration + pass code).
+- Frontend: Notice Board (publish + org-wide feed), Recognition & Rewards (award +
+  feed), Visitors & Meetings (register + **visitor pass PDF**). New perms
+  `announcements.manage`, `recognition.manage`, `visitors.manage` (HR). RLS:
+  announcements/recognition readable org-wide; visitors restricted to managers.
+- E2E (1 spec): publish announcement (visible to all) + award recognition +
+  register visitor & generate pass.
+
 ## [1.8.0] — Phase 17: Helpdesk / ticketing
 
 ### Added

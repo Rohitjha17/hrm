@@ -30,6 +30,9 @@ import { DocumentsPage } from '@/features/documents/DocumentsPage'
 import { AssetsPage } from '@/features/assets/AssetsPage'
 import { LifecyclePage } from '@/features/lifecycle/LifecyclePage'
 import { HelpdeskPage } from '@/features/helpdesk/HelpdeskPage'
+import { AnnouncementsPage } from '@/features/engagement/AnnouncementsPage'
+import { RecognitionPage } from '@/features/engagement/RecognitionPage'
+import { VisitorsPage } from '@/features/engagement/VisitorsPage'
 
 export function App() {
   return (
@@ -136,6 +139,16 @@ export function App() {
         <Route path="/policies" element={<PolicyPage />} />
         <Route path="/approvals" element={<ApprovalsPage />} />
         <Route path="/helpdesk" element={<HelpdeskPage />} />
+        <Route path="/announcements" element={<AnnouncementsPage />} />
+        <Route path="/recognition" element={<RecognitionPage />} />
+        <Route
+          path="/admin/visitors"
+          element={
+            <RequirePermission perm="visitors.manage">
+              <VisitorsPage />
+            </RequirePermission>
+          }
+        />
         <Route
           path="/admin/policies"
           element={
