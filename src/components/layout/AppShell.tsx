@@ -1,7 +1,19 @@
 import { useState, type ReactNode } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
-import { Building2, LayoutDashboard, LogOut, Menu, X } from 'lucide-react'
+import {
+  Building2,
+  LayoutDashboard,
+  LogOut,
+  Menu,
+  Network,
+  ScrollText,
+  Shield,
+  Users,
+  X,
+} from 'lucide-react'
 import { useAuth } from '@/features/auth/auth-context'
+import { useProfile } from '@/features/rbac/profile-context'
+import { useViewMode } from '@/features/view-mode/view-mode-context'
 import { HealthBadge } from '@/features/health/HealthBadge'
 import { cn } from '@/lib/cn'
 
@@ -10,17 +22,37 @@ interface NavItem {
   label: string
   icon: typeof LayoutDashboard
   testid: string
+  perm?: string
 }
 
-// Navigation grows per phase. Phase 0 ships the dashboard entry only.
-const navItems: NavItem[] = [
+const adminNav: NavItem[] = [
+  { to: '/', label: 'Dashboard', icon: LayoutDashboard, testid: 'nav-dashboard' },
+  { to: '/admin/users', label: 'Employees', icon: Users, testid: 'nav-users', perm: 'users.view' },
+  { to: '/admin/roles', label: 'Roles', icon: Shield, testid: 'nav-roles', perm: 'roles.view' },
+  {
+    to: '/admin/hierarchy',
+    label: 'Departments & Teams',
+    icon: Network,
+    testid: 'nav-hierarchy',
+    perm: 'hierarchy.view',
+  },
+  { to: '/admin/audit', label: 'Audit Log', icon: ScrollText, testid: 'nav-audit', perm: 'audit.view' },
+]
+
+const employeeNav: NavItem[] = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard, testid: 'nav-dashboard' },
 ]
 
 export function AppShell({ children }: { children: ReactNode }) {
   const { user, signOut } = useAuth()
+  const { hasPermission } = useProfile()
+  const { mode, canToggle, setMode } = useViewMode()
   const navigate = useNavigate()
   const [mobileOpen, setMobileOpen] = useState(false)
+
+  const items = (mode === 'admin' ? adminNav : employeeNav).filter(
+    (item) => !item.perm || hasPermission(item.perm),
+  )
 
   async function handleSignOut() {
     await signOut()
@@ -29,7 +61,6 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   return (
     <div className="flex min-h-screen bg-slate-50">
-      {/* Sidebar */}
       <aside
         className={cn(
           'fixed inset-y-0 left-0 z-40 w-64 transform border-r border-slate-200 bg-white transition-transform lg:static lg:translate-x-0',
@@ -43,8 +74,8 @@ export function AppShell({ children }: { children: ReactNode }) {
           </div>
           <span className="text-lg font-bold text-slate-900">HRMS</span>
         </div>
-        <nav className="space-y-1 p-3">
-          {navItems.map((item) => (
+        <nav className="space-y-1 p-3" data-testid={`nav-${mode}`}>
+          {items.map((item) => (
             <NavLink
               key={item.to}
               to={item.to}
@@ -67,7 +98,6 @@ export function AppShell({ children }: { children: ReactNode }) {
         </nav>
       </aside>
 
-      {/* Backdrop on mobile */}
       {mobileOpen && (
         <button
           aria-label="Close menu"
@@ -76,7 +106,6 @@ export function AppShell({ children }: { children: ReactNode }) {
         />
       )}
 
-      {/* Main column */}
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="flex h-16 items-center gap-3 border-b border-slate-200 bg-white px-4">
           <button
@@ -87,7 +116,41 @@ export function AppShell({ children }: { children: ReactNode }) {
           >
             {mobileOpen ? <X className="size-5" /> : <Menu className="size-5" />}
           </button>
+
+          {canToggle && (
+            <div
+              className="inline-flex rounded-lg border border-slate-200 bg-slate-50 p-0.5"
+              data-testid="view-mode-toggle"
+            >
+              <button
+                data-testid="view-mode-admin"
+                onClick={() => setMode('admin')}
+                aria-pressed={mode === 'admin'}
+                className={cn(
+                  'rounded-md px-3 py-1 text-xs font-medium',
+                  mode === 'admin' ? 'bg-white text-brand-700 shadow-sm' : 'text-slate-500',
+                )}
+              >
+                Admin View
+              </button>
+              <button
+                data-testid="view-mode-employee"
+                onClick={() => setMode('employee')}
+                aria-pressed={mode === 'employee'}
+                className={cn(
+                  'rounded-md px-3 py-1 text-xs font-medium',
+                  mode === 'employee' ? 'bg-white text-brand-700 shadow-sm' : 'text-slate-500',
+                )}
+              >
+                Employee View
+              </button>
+            </div>
+          )}
+
           <div className="flex-1" />
+          <span className="sr-only" data-testid="active-view-mode">
+            {mode}
+          </span>
           <HealthBadge />
           <div className="hidden text-sm text-slate-600 sm:block" data-testid="current-user-email">
             {user?.email}

@@ -17,20 +17,41 @@ The database is the system of record. Everything is reproducible from
 - **Types.** `src/types/database.types.ts` is regenerated each phase via
   `supabase gen types typescript --local`.
 
-## Current schema (Phase 0)
+## Current schema
 
-No domain tables yet. Foundation objects:
+**Foundation (Phase 0)**
 
 | Object | Type | Purpose |
 | --- | --- | --- |
-| `public.health_check()` | function | Returns `'ok'`; connectivity probe. Granted to `anon`, `authenticated`. |
+| `public.health_check()` | function | Returns `'ok'`; connectivity probe (anon + authenticated). |
 | `public.set_updated_at()` | trigger fn | Sets `updated_at = now()` on UPDATE. |
 | `storage.buckets` rows | data | Private buckets `selfies`, `documents`, `screenshots`. |
 
+**RBAC & hierarchy (Phase 1)**
+
+```
+companies ──< departments ──< teams
+                  │              │ reporting_manager_id ─┐
+                  │                                       ▼
+profiles >── department_id, team_id, reporting_manager_id (self-ref) ─> profiles
+profiles 1──< user_roles >──1 roles 1──< role_permissions >──1 permissions
+audit_log (append-only)
+```
+
+- `profiles.id` = `auth.users.id` (1:1). Status `active|inactive`.
+- RBAC is permission-based. `roles`↔`permissions` via `role_permissions`;
+  users get roles via `user_roles` (many-to-many → multiple roles per user).
+- **RLS helpers (SECURITY DEFINER, bypass RLS to avoid recursion):**
+  `has_permission(perm)`, `my_permissions() → text[]`, `my_roles() → text[]`.
+  Super Admin holds the `'*'` permission ⇒ `has_permission` returns true for all.
+- **Policy summary:** org chart readable by any authenticated user, mutated with
+  `hierarchy.manage`; `profiles` readable for self / direct reports / `users.view`,
+  mutated with `users.manage`; roles & catalog readable by all, mutated with
+  `roles.manage`; `user_roles` self/`users.manage`; `audit_log` read with
+  `audit.view`, written only by the audit trigger.
+
 ## Planned entities (by phase)
 
-- **Phase 1** — `profiles`, `roles`, `permissions`, `role_permissions`,
-  `user_roles`, `companies`, `departments`, `teams`, `audit_log`.
 - **Phase 2** — `attendance_punches`, `attendance_days`, `attendance_config`.
 - **Phase 3** — `tasks`, `task_status_history`, `task_statuses`.
 - **Phase 4** — `planning_slots`, `planning_updates`, `planning_config`,

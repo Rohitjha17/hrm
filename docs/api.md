@@ -15,6 +15,18 @@ Functions** (Deno) for privileged server-side logic.
 const { data, error } = await supabase.rpc('health_check') // 'ok'
 ```
 
+### `has_permission(perm text) → boolean`
+- **Auth:** authenticated. **SECURITY DEFINER** (bypasses RLS to avoid policy
+  recursion). True if the caller holds `perm` or the `'*'` wildcard.
+
+### `my_permissions() → text[]`
+- **Auth:** authenticated. All effective permission keys for the caller. The
+  frontend builds UI guards from this (`'*'` ⇒ all).
+
+### `my_roles() → text[]`
+- **Auth:** authenticated. Role slugs held by the caller (e.g. `['employee',
+  'super_admin']`) — drives the dual-view toggle.
+
 More RPCs are documented here as they are added (attendance hours engine,
 planning compliance, salary calc inputs, etc.).
 
