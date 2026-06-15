@@ -1,0 +1,12 @@
+-- ============================================================================
+-- Database seed — runs automatically on `supabase db reset`.
+--
+-- Reference / configuration data (roles, permissions, task statuses, leave
+-- types, holidays, attendance & planning config) is seeded here from Phase 1
+-- onward. Named auth users (Sunil, Riya, Aarti, Raj) are created separately by
+-- `npm run seed` (scripts/seed.mjs) using the Auth Admin API so passwords are
+-- securely hashed — their credentials are printed only to the developer's
+-- console, never stored in the app.
+-- ============================================================================
+
+-- (Phase 0: nothing to seed — buckets + health check live in the migration.)
