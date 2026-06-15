@@ -26,6 +26,7 @@ import { WorkflowAdminPage } from '@/features/workflow/WorkflowAdminPage'
 import { ApprovalsPage } from '@/features/workflow/ApprovalsPage'
 import { RecruitmentPage } from '@/features/recruitment/RecruitmentPage'
 import { OnboardingPage } from '@/features/onboarding/OnboardingPage'
+import { DocumentsPage } from '@/features/documents/DocumentsPage'
 
 export function App() {
   return (
@@ -160,6 +161,14 @@ export function App() {
           element={
             <RequirePermission perm="onboarding.manage">
               <OnboardingPage />
+            </RequirePermission>
+          }
+        />
+        <Route
+          path="/admin/documents"
+          element={
+            <RequirePermission perm={['documents.view', 'documents.manage']}>
+              <DocumentsPage />
             </RequirePermission>
           }
         />

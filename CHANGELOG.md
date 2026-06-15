@@ -3,6 +3,19 @@
 All notable changes to this project are documented here. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/); one section per build phase.
 
+## [1.4.0] — Phase 13: Employee document management
+
+### Added
+- Schema: `employee_documents` (categorized, **auto-versioned** per
+  employee+type) in the private `documents` bucket; storage policies scope file
+  access (own folder, or `documents.view`/`documents.manage`).
+- New perms `documents.view_own` (Employee/Intern), `documents.view` +
+  `documents.manage` (HR + Super Admin). RLS: self-with-view-own / view / manage.
+- Frontend: Documents page (upload + categorize + version list + signed-URL
+  download).
+- E2E (1 spec): upload → categorize → re-upload (v2) → data-layer access control
+  (employee cannot see others' documents).
+
 ## [1.3.0] — Phase 12: Onboarding
 
 ### Added
