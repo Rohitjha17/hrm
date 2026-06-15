@@ -685,6 +685,103 @@ export type Database = {
         }
         Relationships: []
       }
+      onboarding: {
+        Row: {
+          employee_id: string
+          id: string
+          started_at: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          employee_id: string
+          id?: string
+          started_at?: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          employee_id?: string
+          id?: string
+          started_at?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "onboarding_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      onboarding_items: {
+        Row: {
+          document_path: string | null
+          id: string
+          item_key: string
+          label: string
+          onboarding_id: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          document_path?: string | null
+          id?: string
+          item_key: string
+          label: string
+          onboarding_id: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          document_path?: string | null
+          id?: string
+          item_key?: string
+          label?: string
+          onboarding_id?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "onboarding_items_onboarding_id_fkey"
+            columns: ["onboarding_id"]
+            isOneToOne: false
+            referencedRelation: "onboarding"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      onboarding_templates: {
+        Row: {
+          body: string
+          created_at: string
+          designation: string | null
+          doc_type: string
+          id: string
+          title: string
+        }
+        Insert: {
+          body: string
+          created_at?: string
+          designation?: string | null
+          doc_type: string
+          id?: string
+          title: string
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          designation?: string | null
+          doc_type?: string
+          id?: string
+          title?: string
+        }
+        Relationships: []
+      }
       permissions: {
         Row: {
           category: string
@@ -1762,6 +1859,7 @@ export type Database = {
         Args: { p_date: string; p_user: string }
         Returns: undefined
       }
+      start_onboarding: { Args: { p_employee: string }; Returns: Json }
       start_workflow: {
         Args: {
           p_definition: string

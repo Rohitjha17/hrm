@@ -3,6 +3,19 @@
 All notable changes to this project are documented here. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/); one section per build phase.
 
+## [1.3.0] — Phase 12: Onboarding
+
+### Added
+- Schema: `onboarding_templates` (designation-based document templates),
+  `onboarding` + `onboarding_items` (per-employee joining checklist).
+  `start_onboarding()` RPC seeds the default checklist (Aadhaar, PAN, bank,
+  education, previous-company, emergency, photograph).
+- Frontend: Onboarding page — manage templates, generate documents from
+  templates (placeholder substitution → PDF), run the joining checklist.
+- New perm `onboarding.manage` (HR + Super Admin). RLS throughout.
+- E2E (1 spec): create template → start checklist (7 items) → progress item →
+  generate document (PDF).
+
 ## [1.2.0] — Phase 11: Recruitment & hiring
 
 ### Added
