@@ -550,6 +550,60 @@ export type Database = {
           },
         ]
       }
+      fnf_settlements: {
+        Row: {
+          breakdown: Json | null
+          computed_at: string
+          computed_by: string | null
+          dues: number
+          final_salary: number
+          id: string
+          last_working_date: string
+          leave_encashment: number
+          net_payable: number
+          user_id: string
+        }
+        Insert: {
+          breakdown?: Json | null
+          computed_at?: string
+          computed_by?: string | null
+          dues?: number
+          final_salary?: number
+          id?: string
+          last_working_date: string
+          leave_encashment?: number
+          net_payable?: number
+          user_id: string
+        }
+        Update: {
+          breakdown?: Json | null
+          computed_at?: string
+          computed_by?: string | null
+          dues?: number
+          final_salary?: number
+          id?: string
+          last_working_date?: string
+          leave_encashment?: number
+          net_payable?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fnf_settlements_computed_by_fkey"
+            columns: ["computed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fnf_settlements_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       holidays: {
         Row: {
           created_at: string
@@ -807,6 +861,44 @@ export type Database = {
           sort_order?: number
         }
         Relationships: []
+      }
+      loans_advances: {
+        Row: {
+          amount: number
+          created_at: string
+          id: string
+          kind: string
+          note: string | null
+          outstanding: number
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          id?: string
+          kind: string
+          note?: string | null
+          outstanding: number
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          id?: string
+          kind?: string
+          note?: string | null
+          outstanding?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "loans_advances_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       onboarding: {
         Row: {
@@ -1402,35 +1494,47 @@ export type Database = {
       }
       salary_policy: {
         Row: {
+          esic_percent: number
           half_day_factor: number
           id: boolean
           late_penalty_per_day: number
           overtime_rate_per_hour: number
           paid_leave_paid: boolean
+          pf_percent: number
           planning_penalty_per_day: number
+          professional_tax: number
           quarter_day_factor: number
+          tds_percent: number
           updated_at: string
           working_days_per_month: number
         }
         Insert: {
+          esic_percent?: number
           half_day_factor?: number
           id?: boolean
           late_penalty_per_day?: number
           overtime_rate_per_hour?: number
           paid_leave_paid?: boolean
+          pf_percent?: number
           planning_penalty_per_day?: number
+          professional_tax?: number
           quarter_day_factor?: number
+          tds_percent?: number
           updated_at?: string
           working_days_per_month?: number
         }
         Update: {
+          esic_percent?: number
           half_day_factor?: number
           id?: boolean
           late_penalty_per_day?: number
           overtime_rate_per_hour?: number
           paid_leave_paid?: boolean
+          pf_percent?: number
           planning_penalty_per_day?: number
+          professional_tax?: number
           quarter_day_factor?: number
+          tds_percent?: number
           updated_at?: string
           working_days_per_month?: number
         }
@@ -1472,6 +1576,7 @@ export type Database = {
           breakdown: Json | null
           computed_at: string
           computed_by: string | null
+          esic: number
           gross: number
           half_days: number
           id: string
@@ -1484,10 +1589,13 @@ export type Database = {
           paid_leave_days: number
           penalties: number
           period_month: string
+          pf: number
           planning_noncompliant_days: number
           present_days: number
+          professional_tax: number
           quarter_days: number
           status: string
+          tds: number
           user_id: string
         }
         Insert: {
@@ -1496,6 +1604,7 @@ export type Database = {
           breakdown?: Json | null
           computed_at?: string
           computed_by?: string | null
+          esic?: number
           gross?: number
           half_days?: number
           id?: string
@@ -1508,10 +1617,13 @@ export type Database = {
           paid_leave_days?: number
           penalties?: number
           period_month: string
+          pf?: number
           planning_noncompliant_days?: number
           present_days?: number
+          professional_tax?: number
           quarter_days?: number
           status?: string
+          tds?: number
           user_id: string
         }
         Update: {
@@ -1520,6 +1632,7 @@ export type Database = {
           breakdown?: Json | null
           computed_at?: string
           computed_by?: string | null
+          esic?: number
           gross?: number
           half_days?: number
           id?: string
@@ -1532,10 +1645,13 @@ export type Database = {
           paid_leave_days?: number
           penalties?: number
           period_month?: string
+          pf?: number
           planning_noncompliant_days?: number
           present_days?: number
+          professional_tax?: number
           quarter_days?: number
           status?: string
+          tds?: number
           user_id?: string
         }
         Relationships: [

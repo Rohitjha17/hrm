@@ -114,7 +114,14 @@ Deno.serve(async (req: Request) => {
     const adjPenalty = round2(sumKind(adjustments, 'penalty'))
     const penalties = round2(adjPenalty + latePenalty + planningPenalty)
     const gross = round2(baseEarned + overtimePay + incentives + increments)
-    const net = round2(gross - penalties)
+
+    // Statutory deductions (default 0 in policy → no effect unless configured).
+    const pf = round2((baseEarned * Number(policy.pf_percent)) / 100)
+    const esic = round2((gross * Number(policy.esic_percent)) / 100)
+    const professionalTax = round2(Number(policy.professional_tax))
+    const tds = round2((gross * Number(policy.tds_percent)) / 100)
+    const statutory = round2(pf + esic + professionalTax + tds)
+    const net = round2(gross - penalties - statutory)
 
     const row = {
       user_id: userId,
@@ -132,6 +139,10 @@ Deno.serve(async (req: Request) => {
       incentives,
       increments,
       penalties,
+      pf,
+      esic,
+      professional_tax: professionalTax,
+      tds,
       gross,
       net,
       breakdown: {
@@ -144,6 +155,11 @@ Deno.serve(async (req: Request) => {
         adjPenalty,
         incentives,
         increments,
+        pf,
+        esic,
+        professionalTax,
+        tds,
+        statutory,
       },
       status: 'finalized',
       computed_by: callerUser.data.user?.id ?? null,

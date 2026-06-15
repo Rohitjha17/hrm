@@ -1,13 +1,16 @@
 import { useState } from 'react'
-import { Calculator, Plus } from 'lucide-react'
+import { Calculator, FileText, Plus } from 'lucide-react'
 import {
   useAddAdjustment,
   useAdjustments,
+  useComputeFnf,
   useComputeSalary,
   useSalaryProfile,
   useUpsertSalaryProfile,
+  type FnfSettlement,
   type SalaryRun,
 } from './hooks'
+import { generateLetterPdf } from '@/lib/pdfLetter'
 import { useUsers } from '@/features/admin/users/hooks'
 import { useProfile } from '@/features/rbac/profile-context'
 import { useToast } from '@/components/ui/toast-context'
@@ -121,12 +124,104 @@ export function SalaryAdminPage() {
                   <Stat label="Incentives" value={run.incentives} />
                   <Stat label="Increments" value={run.increments} />
                   <Stat label="Penalties" value={run.penalties} />
+                  <Stat label="PF" value={run.pf} />
+                  <Stat label="ESIC" value={run.esic} />
+                  <Stat label="Prof. tax" value={run.professional_tax} />
+                  <Stat label="TDS" value={run.tds} />
                 </dl>
+                <div className="mt-4">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    data-testid="download-payslip"
+                    onClick={() =>
+                      generateLetterPdf(`payslip-${month}`, 'Salary Slip', [
+                        `Pay period: ${month}`,
+                        `Gross: ${run.gross}   Net: ${run.net}`,
+                        `Earnings — base ${run.base_earned}, overtime ${run.overtime_pay}, incentives ${run.incentives}, increments ${run.increments}`,
+                        `Deductions — penalties ${run.penalties}, PF ${run.pf}, ESIC ${run.esic}, professional tax ${run.professional_tax}, TDS ${run.tds}`,
+                      ])
+                    }
+                  >
+                    <FileText className="size-4" /> Download payslip
+                  </Button>
+                </div>
               </div>
             )}
           </CardBody>
         </Card>
       </div>
+
+      <FnfSection canManage={canManage} />
+    </div>
+  )
+}
+
+function FnfSection({ canManage }: { canManage: boolean }) {
+  const { data: users = [] } = useUsers()
+  const compute = useComputeFnf()
+  const toast = useToast()
+  const [userId, setUserId] = useState('')
+  const [lastDay, setLastDay] = useState('')
+  const [result, setResult] = useState<FnfSettlement | null>(null)
+  const effectiveUser = userId || users[0]?.id || ''
+
+  return (
+    <div className="mt-8" data-testid="fnf-section">
+      <h2 className="mb-3 text-lg font-semibold text-slate-900">Full &amp; Final settlement</h2>
+      <div className="flex flex-wrap items-end gap-3">
+        <div>
+          <Label htmlFor="fnf-user">Employee</Label>
+          <Select id="fnf-user" data-testid="fnf-user-select" value={effectiveUser} onChange={(e) => setUserId(e.target.value)} className="w-48">
+            {users.map((u) => (<option key={u.id} value={u.id}>{u.full_name || u.email}</option>))}
+          </Select>
+        </div>
+        <div>
+          <Label htmlFor="fnf-date">Last working day</Label>
+          <Input id="fnf-date" data-testid="fnf-date" type="date" value={lastDay} onChange={(e) => setLastDay(e.target.value)} className="w-44" />
+        </div>
+        <Button
+          data-testid="compute-fnf"
+          disabled={!canManage || !lastDay}
+          loading={compute.isPending}
+          onClick={() =>
+            compute.mutate(
+              { userId: effectiveUser, lastWorkingDate: lastDay },
+              { onSuccess: (r) => { setResult(r); toast.success('F&F computed') }, onError: (e) => toast.error('Failed', (e as Error).message) },
+            )
+          }
+        >
+          <Calculator className="size-4" /> Compute F&amp;F
+        </Button>
+      </div>
+
+      {result && (
+        <div className="mt-4 flex flex-wrap items-center gap-6" data-testid="fnf-result">
+          <Stat label="Final salary" value={result.final_salary} />
+          <Stat label="Leave encashment" value={result.leave_encashment} />
+          <Stat label="Dues" value={result.dues} />
+          <div>
+            <p className="text-xs text-slate-500">Net payable</p>
+            <p className="text-2xl font-bold text-emerald-700" data-testid="fnf-net">{result.net_payable}</p>
+          </div>
+          <Button
+            size="sm"
+            variant="outline"
+            data-testid="generate-fnf-letter"
+            onClick={() =>
+              generateLetterPdf(`fnf-${effectiveUser}`, 'Full & Final Settlement', [
+                `Last working day: ${result.last_working_date}`,
+                `Final salary: ${result.final_salary}`,
+                `Leave encashment: ${result.leave_encashment}`,
+                `Dues recovered: ${result.dues}`,
+                `Net payable: ${result.net_payable}`,
+              ])
+            }
+          >
+            <FileText className="size-4" /> Generate F&amp;F letter
+          </Button>
+        </div>
+      )}
     </div>
   )
 }

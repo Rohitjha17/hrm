@@ -87,6 +87,24 @@ export function useComputeSalary() {
   })
 }
 
+export interface FnfSettlement {
+  final_salary: number
+  leave_encashment: number
+  dues: number
+  net_payable: number
+  last_working_date: string
+}
+
+export function useComputeFnf() {
+  return useMutation({
+    mutationFn: async (args: { userId: string; lastWorkingDate: string }) => {
+      const { data, error } = await supabase.functions.invoke('full-final-settlement', { body: args })
+      if (error) throw error
+      return (data as { settlement: FnfSettlement }).settlement
+    },
+  })
+}
+
 export function useMySalaryRuns() {
   const { user } = useAuth()
   return useQuery({

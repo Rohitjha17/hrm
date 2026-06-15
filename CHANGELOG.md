@@ -3,6 +3,21 @@
 All notable changes to this project are documented here. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/); one section per build phase.
 
+## [1.6.0] — Phase 15: Payroll enhancements
+
+### Added
+- Statutory components on the salary policy + runs: **PF, ESIC, Professional Tax,
+  TDS** (all default 0 → existing salary results unchanged). `calculate-salary`
+  extended to deduct them; payslip breakdown + **Salary Slip PDF**.
+- `loans_advances` + `fnf_settlements`; **`full-final-settlement` Edge Function**
+  (final salary + paid-leave encashment − outstanding dues).
+- Frontend: payslip download + Full & Final settlement section (compute + letter).
+- E2E (1 spec): statutory payslip (net 20,080), payslip PDF, F&F (net 45,000) + letter.
+
+### Fixed
+- Phase 6 salary spec now sets the full policy (statutory = 0) — specs run
+  lexicographically, so it must own its shared-singleton state.
+
 ## [1.5.0] — Phase 14: Asset management
 
 ### Added

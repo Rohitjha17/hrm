@@ -16,6 +16,12 @@ async function seedSalaryMonth(): Promise<string> {
     late_penalty_per_day: 100,
     overtime_rate_per_hour: 50,
     planning_penalty_per_day: 200,
+    // Own the full policy state — other specs (run earlier lexicographically) may
+    // have set non-zero statutory rates on this shared singleton.
+    pf_percent: 0,
+    esic_percent: 0,
+    professional_tax: 0,
+    tds_percent: 0,
   }).eq('id', true)
   await admin.from('salary_profiles').upsert({ user_id: uid, monthly_ctc: 52000 }, { onConflict: 'user_id' })
 
