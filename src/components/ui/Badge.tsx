@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import type { HTMLAttributes, ReactNode } from 'react'
 import { cn } from '@/lib/cn'
 
 type Tone = 'slate' | 'green' | 'red' | 'amber' | 'brand' | 'blue'
@@ -12,15 +12,12 @@ const tones: Record<Tone, string> = {
   blue: 'bg-blue-100 text-blue-800',
 }
 
-export function Badge({
-  children,
-  tone = 'slate',
-  className,
-}: {
+interface BadgeProps extends HTMLAttributes<HTMLSpanElement> {
   children: ReactNode
   tone?: Tone
-  className?: string
-}) {
+}
+
+export function Badge({ children, tone = 'slate', className, ...rest }: BadgeProps) {
   return (
     <span
       className={cn(
@@ -28,6 +25,7 @@ export function Badge({
         tones[tone],
         className,
       )}
+      {...rest}
     >
       {children}
     </span>

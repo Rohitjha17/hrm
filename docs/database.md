@@ -72,9 +72,22 @@ attendance_config (singleton)   attendance_punches >── user_id ─> profiles
 - Status is derived from **worked minutes** vs configurable thresholds, not
   fixed clock times.
 
+**Tasks (Phase 3)**
+
+```
+task_statuses (master, editable)   tasks >── created_by / assignee_id ─> profiles
+  Pending/In Progress/On Hold/        title, task_type (self|assigned),
+  Completed (+ custom)                status_id, priority, due_date
+                                   task_status_history >── task_id ─> tasks
+                                      from/to status, changed_by, remarks
+```
+
+- `update_task_status()` RPC captures actor + remarks; an insert trigger logs
+  the initial status. History is read-only to clients (written by trigger/RPC).
+- `tasks` + `task_status_history` are in the realtime publication.
+
 ## Planned entities (by phase)
 
-- **Phase 3** — `tasks`, `task_status_history`, `task_statuses`.
 - **Phase 4** — `planning_slots`, `planning_updates`, `planning_config`,
   `planning_compliance`.
 - **Phase 5** — `leave_types`, `leave_requests`, `leave_balances`, `holidays`.

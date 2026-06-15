@@ -1,0 +1,385 @@
+import { useMemo, useState } from 'react'
+import { History, Plus, Settings2, Trash2 } from 'lucide-react'
+import {
+  useCreateStatus,
+  useCreateTask,
+  useDeleteStatus,
+  useTaskHistory,
+  useTaskStatuses,
+  useTasks,
+  useTasksRealtime,
+  useUpdateTaskStatus,
+  type TaskRow,
+} from './hooks'
+import { useUsers } from '@/features/admin/users/hooks'
+import { useAuth } from '@/features/auth/auth-context'
+import { useProfile } from '@/features/rbac/profile-context'
+import { useToast } from '@/components/ui/toast-context'
+import { PageHeader } from '@/components/ui/PageHeader'
+import { Button } from '@/components/ui/Button'
+import { Badge } from '@/components/ui/Badge'
+import { Modal } from '@/components/ui/Modal'
+import { Input } from '@/components/ui/Input'
+import { Label } from '@/components/ui/Label'
+import { Select } from '@/components/ui/Select'
+import { Textarea } from '@/components/ui/Textarea'
+import { Table, Tbody, Td, Th, Thead } from '@/components/ui/Table'
+import { EmptyState } from '@/components/ui/EmptyState'
+import { cn } from '@/lib/cn'
+
+const PRIORITY_TONE = { low: 'slate', medium: 'blue', high: 'red' } as const
+
+export function TasksPage() {
+  const { user } = useAuth()
+  const { hasPermission } = useProfile()
+  const canAssign = hasPermission('tasks.assign')
+  const canViewAll = hasPermission('tasks.view_all')
+  const canManageStatuses = hasPermission('tasks.manage')
+
+  useTasksRealtime()
+  const { data: tasks = [], isLoading } = useTasks()
+  const [filter, setFilter] = useState<'mine' | 'all'>(canViewAll ? 'all' : 'mine')
+  const [newOpen, setNewOpen] = useState(false)
+  const [statusTask, setStatusTask] = useState<TaskRow | null>(null)
+  const [historyTask, setHistoryTask] = useState<TaskRow | null>(null)
+  const [manageOpen, setManageOpen] = useState(false)
+
+  const visible = useMemo(() => {
+    if (filter === 'all' && canViewAll) return tasks
+    return tasks.filter((t) => t.created_by === user?.id || t.assignee_id === user?.id)
+  }, [tasks, filter, canViewAll, user?.id])
+
+  return (
+    <div data-testid="tasks-page">
+      <PageHeader
+        title="Tasks"
+        description="Create your own tasks or assign work. Status changes are tracked with history."
+        actions={
+          <div className="flex gap-2">
+            {canManageStatuses && (
+              <Button variant="outline" data-testid="manage-statuses-button" onClick={() => setManageOpen(true)}>
+                <Settings2 className="size-4" /> Statuses
+              </Button>
+            )}
+            <Button data-testid="new-task-button" onClick={() => setNewOpen(true)}>
+              <Plus className="size-4" /> New task
+            </Button>
+          </div>
+        }
+      />
+
+      {canViewAll && (
+        <div className="mb-4 inline-flex rounded-lg border border-slate-200 bg-slate-50 p-0.5">
+          {(['mine', 'all'] as const).map((f) => (
+            <button
+              key={f}
+              data-testid={`task-filter-${f}`}
+              onClick={() => setFilter(f)}
+              className={cn(
+                'rounded-md px-3 py-1 text-xs font-medium capitalize',
+                filter === f ? 'bg-white text-brand-700 shadow-sm' : 'text-slate-500',
+              )}
+            >
+              {f === 'mine' ? 'My tasks' : 'All tasks'}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {!isLoading && visible.length === 0 ? (
+        <EmptyState title="No tasks yet" description="Create your first task." testid="tasks-empty" />
+      ) : (
+        <Table data-testid="tasks-table">
+          <Thead>
+            <tr>
+              <Th>Task</Th>
+              <Th>Assignee</Th>
+              <Th>Created by</Th>
+              <Th>Priority</Th>
+              <Th>Status</Th>
+              <Th className="w-px" />
+            </tr>
+          </Thead>
+          <Tbody>
+            {visible.map((t) => (
+              <tr key={t.id} data-testid="task-row">
+                <Td className="font-medium text-slate-900">
+                  {t.title}
+                  {t.due_date && <div className="text-xs font-normal text-slate-400">due {t.due_date}</div>}
+                </Td>
+                <Td data-testid="task-assignee">{t.assignee?.full_name || t.assignee?.email || 'Unassigned'}</Td>
+                <Td className="text-slate-500">{t.creator?.full_name || t.creator?.email}</Td>
+                <Td>
+                  <Badge tone={PRIORITY_TONE[t.priority as keyof typeof PRIORITY_TONE]}>{t.priority}</Badge>
+                </Td>
+                <Td>
+                  <Badge tone={t.status?.is_terminal ? 'green' : 'slate'} data-testid="task-status">
+                    {t.status?.name}
+                  </Badge>
+                </Td>
+                <Td>
+                  <div className="flex justify-end gap-1">
+                    <button
+                      data-testid="update-status-button"
+                      aria-label={`Update status of ${t.title}`}
+                      className="rounded-md px-2 py-1 text-xs font-medium text-brand-600 hover:bg-brand-50"
+                      onClick={() => setStatusTask(t)}
+                    >
+                      Update
+                    </button>
+                    <button
+                      data-testid="task-history-button"
+                      aria-label={`History of ${t.title}`}
+                      className="rounded-md p-1 text-slate-400 hover:text-slate-700"
+                      onClick={() => setHistoryTask(t)}
+                    >
+                      <History className="size-4" />
+                    </button>
+                  </div>
+                </Td>
+              </tr>
+            ))}
+          </Tbody>
+        </Table>
+      )}
+
+      {newOpen && <NewTaskModal onClose={() => setNewOpen(false)} canAssign={canAssign} userId={user!.id} />}
+      {statusTask && <StatusModal task={statusTask} onClose={() => setStatusTask(null)} />}
+      {historyTask && <HistoryModal task={historyTask} onClose={() => setHistoryTask(null)} />}
+      {manageOpen && <StatusMasterModal onClose={() => setManageOpen(false)} />}
+    </div>
+  )
+}
+
+function NewTaskModal({
+  onClose,
+  canAssign,
+  userId,
+}: {
+  onClose: () => void
+  canAssign: boolean
+  userId: string
+}) {
+  const create = useCreateTask()
+  const toast = useToast()
+  const { data: statuses = [] } = useTaskStatuses()
+  const { data: users = [] } = useUsers()
+  const [title, setTitle] = useState('')
+  const [priority, setPriority] = useState<'low' | 'medium' | 'high'>('medium')
+  const [assigneeId, setAssigneeId] = useState(userId)
+  const [dueDate, setDueDate] = useState('')
+
+  return (
+    <Modal open onClose={onClose} title="New task" testid="task-modal">
+      <form
+        className="space-y-4"
+        onSubmit={(e) => {
+          e.preventDefault()
+          const firstStatus = statuses[0]?.id
+          if (!firstStatus) return
+          create.mutate(
+            {
+              title: title.trim(),
+              assigneeId: assigneeId || userId,
+              statusId: firstStatus,
+              priority,
+              dueDate: dueDate || null,
+              createdBy: userId,
+            },
+            {
+              onSuccess: () => {
+                toast.success('Task created')
+                onClose()
+              },
+              onError: (err) => toast.error('Could not create task', (err as Error).message),
+            },
+          )
+        }}
+      >
+        <div>
+          <Label htmlFor="task-title">Title</Label>
+          <Input id="task-title" data-testid="task-title-input" value={title} onChange={(e) => setTitle(e.target.value)} required />
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <Label htmlFor="task-priority">Priority</Label>
+            <Select id="task-priority" data-testid="task-priority-select" value={priority} onChange={(e) => setPriority(e.target.value as 'low' | 'medium' | 'high')}>
+              <option value="low">Low</option>
+              <option value="medium">Medium</option>
+              <option value="high">High</option>
+            </Select>
+          </div>
+          <div>
+            <Label htmlFor="task-due">Due date</Label>
+            <Input id="task-due" type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
+          </div>
+        </div>
+        <div>
+          <Label htmlFor="task-assignee">Assignee</Label>
+          <Select
+            id="task-assignee"
+            data-testid="task-assignee-select"
+            value={assigneeId}
+            onChange={(e) => setAssigneeId(e.target.value)}
+            disabled={!canAssign}
+          >
+            <option value={userId}>Myself</option>
+            {canAssign &&
+              users
+                .filter((u) => u.id !== userId)
+                .map((u) => (
+                  <option key={u.id} value={u.id}>
+                    {u.full_name || u.email}
+                  </option>
+                ))}
+          </Select>
+          {!canAssign && <p className="mt-1 text-xs text-slate-400">Only managers can assign to others.</p>}
+        </div>
+        <div className="flex justify-end gap-2">
+          <Button type="button" variant="outline" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button type="submit" data-testid="create-task-submit" loading={create.isPending}>
+            Create task
+          </Button>
+        </div>
+      </form>
+    </Modal>
+  )
+}
+
+function StatusModal({ task, onClose }: { task: TaskRow; onClose: () => void }) {
+  const { data: statuses = [] } = useTaskStatuses()
+  const update = useUpdateTaskStatus()
+  const toast = useToast()
+  const [statusId, setStatusId] = useState(task.status_id)
+  const [remarks, setRemarks] = useState('')
+
+  return (
+    <Modal open onClose={onClose} title={`Update: ${task.title}`} testid="status-modal">
+      <form
+        className="space-y-4"
+        onSubmit={(e) => {
+          e.preventDefault()
+          update.mutate(
+            { taskId: task.id, statusId, remarks: remarks.trim() || undefined },
+            {
+              onSuccess: () => {
+                toast.success('Status updated')
+                onClose()
+              },
+              onError: (err) => toast.error('Update failed', (err as Error).message),
+            },
+          )
+        }}
+      >
+        <div>
+          <Label htmlFor="status-select">New status</Label>
+          <Select id="status-select" data-testid="status-select" value={statusId} onChange={(e) => setStatusId(e.target.value)}>
+            {statuses.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.name}
+              </option>
+            ))}
+          </Select>
+        </div>
+        <div>
+          <Label htmlFor="status-remarks">Remarks</Label>
+          <Textarea id="status-remarks" data-testid="status-remarks" rows={2} value={remarks} onChange={(e) => setRemarks(e.target.value)} />
+        </div>
+        <div className="flex justify-end gap-2">
+          <Button type="button" variant="outline" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button type="submit" data-testid="save-status-submit" loading={update.isPending}>
+            Save
+          </Button>
+        </div>
+      </form>
+    </Modal>
+  )
+}
+
+function HistoryModal({ task, onClose }: { task: TaskRow; onClose: () => void }) {
+  const { data: history = [], isLoading } = useTaskHistory(task.id)
+  return (
+    <Modal open onClose={onClose} title={`History: ${task.title}`} testid="history-modal">
+      {isLoading ? (
+        <p className="text-sm text-slate-500">Loading…</p>
+      ) : (
+        <ul className="space-y-3">
+          {history.map((h) => (
+            <li key={h.id} data-testid="history-entry" className="border-l-2 border-brand-200 pl-3">
+              <p className="text-sm font-medium text-slate-800">
+                {h.from_status?.name ? `${h.from_status.name} → ` : ''}
+                {h.to_status?.name}
+              </p>
+              <p className="text-xs text-slate-500">
+                {h.changer?.full_name || 'System'} · {new Date(h.created_at).toLocaleString()}
+              </p>
+              {h.remarks && <p className="mt-0.5 text-sm text-slate-600">{h.remarks}</p>}
+            </li>
+          ))}
+        </ul>
+      )}
+    </Modal>
+  )
+}
+
+function StatusMasterModal({ onClose }: { onClose: () => void }) {
+  const { data: statuses = [] } = useTaskStatuses()
+  const create = useCreateStatus()
+  const del = useDeleteStatus()
+  const toast = useToast()
+  const [name, setName] = useState('')
+
+  return (
+    <Modal open onClose={onClose} title="Task statuses" testid="status-master-modal">
+      <div className="space-y-4">
+        <ul className="space-y-1">
+          {statuses.map((s) => (
+            <li key={s.id} className="flex items-center justify-between rounded-lg border border-slate-100 px-3 py-2 text-sm">
+              <span>{s.name}</span>
+              {s.is_system ? (
+                <Badge tone="slate">system</Badge>
+              ) : (
+                <button
+                  aria-label={`Delete ${s.name}`}
+                  className="text-slate-400 hover:text-red-600"
+                  onClick={() => del.mutate(s.id, { onError: (e) => toast.error('Delete failed', (e as Error).message) })}
+                >
+                  <Trash2 className="size-4" />
+                </button>
+              )}
+            </li>
+          ))}
+        </ul>
+        <form
+          className="flex gap-2"
+          onSubmit={(e) => {
+            e.preventDefault()
+            create.mutate(
+              {
+                name: name.trim(),
+                slug: name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '_'),
+                sortOrder: statuses.length + 1,
+              },
+              {
+                onSuccess: () => {
+                  toast.success('Status added')
+                  setName('')
+                },
+                onError: (err) => toast.error('Could not add', (err as Error).message),
+              },
+            )
+          }}
+        >
+          <Input data-testid="new-status-name" placeholder="New status name" value={name} onChange={(e) => setName(e.target.value)} required />
+          <Button type="submit" data-testid="create-status-submit" loading={create.isPending}>
+            Add
+          </Button>
+        </form>
+      </div>
+    </Modal>
+  )
+}

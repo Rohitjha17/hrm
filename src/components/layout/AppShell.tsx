@@ -5,6 +5,7 @@ import {
   CalendarClock,
   Fingerprint,
   LayoutDashboard,
+  ListChecks,
   LogOut,
   Menu,
   Network,
@@ -36,6 +37,7 @@ const adminNav: NavItem[] = [
     testid: 'nav-attendance',
     perm: 'attendance.view_all',
   },
+  { to: '/tasks', label: 'Tasks', icon: ListChecks, testid: 'nav-tasks', perm: 'tasks.view_all' },
   { to: '/admin/users', label: 'Employees', icon: Users, testid: 'nav-users', perm: 'users.view' },
   { to: '/admin/roles', label: 'Roles', icon: Shield, testid: 'nav-roles', perm: 'roles.view' },
   {
@@ -57,6 +59,7 @@ const employeeNav: NavItem[] = [
     testid: 'nav-my-attendance',
     perm: 'attendance.view_own',
   },
+  { to: '/tasks', label: 'Tasks', icon: ListChecks, testid: 'nav-tasks', perm: 'tasks.view_own' },
 ]
 
 export function AppShell({ children }: { children: ReactNode }) {

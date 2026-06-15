@@ -3,6 +3,24 @@
 All notable changes to this project are documented here. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/); one section per build phase.
 
+## [0.4.0] — Phase 3: Task management
+
+### Added
+- Schema: editable `task_statuses` master (Pending/In Progress/On Hold/
+  Completed seeded), `tasks` (self-created or assigned), `task_status_history`.
+- `update_task_status()` RPC records every change with actor, from/to, remarks;
+  a trigger logs the initial status on creation. Full per-task history.
+- RLS: see your own (created/assigned) tasks or all (`tasks.view_all`); assign
+  to others only with `tasks.assign`; status master editable with `tasks.manage`.
+- Realtime task updates (+ poll fallback). Frontend Tasks page: create
+  self/assigned tasks, change status with remarks, view history, manage statuses;
+  assignee always visible; My/All filter.
+- E2E (4 specs): self-task creation, status change + history, manager-assigns
+  with live employee sync, editable status master.
+
+### Fixed
+- `Badge` now forwards HTML attributes (e.g. `data-testid`).
+
 ## [0.3.0] — Phase 2: Attendance (GPS + live selfie + realtime)
 
 ### Added

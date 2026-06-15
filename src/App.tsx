@@ -10,6 +10,7 @@ import { HierarchyPage } from '@/features/admin/hierarchy/HierarchyPage'
 import { AuditPage } from '@/features/admin/audit/AuditPage'
 import { PunchPage } from '@/features/attendance/PunchPage'
 import { AttendanceMonitorPage } from '@/features/attendance/AttendanceMonitorPage'
+import { TasksPage } from '@/features/tasks/TasksPage'
 
 export function App() {
   return (
@@ -30,6 +31,14 @@ export function App() {
           element={
             <RequirePermission perm="attendance.view_all">
               <AttendanceMonitorPage />
+            </RequirePermission>
+          }
+        />
+        <Route
+          path="/tasks"
+          element={
+            <RequirePermission perm={['tasks.view_own', 'tasks.view_all']}>
+              <TasksPage />
             </RequirePermission>
           }
         />
