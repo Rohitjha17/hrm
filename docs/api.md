@@ -88,7 +88,20 @@ Served locally by `supabase start` (from `supabase/functions/`); deployed with
   - `delete`: `{ userId }` → deletes the auth user (cascades profile + related rows).
 - **Returns:** `{ ok: true, userId? }`.
 
-Planned: `full-final-settlement` (Phase 15/16), document generation.
+### `POST /functions/v1/full-final-settlement`
+- **Auth:** valid JWT + `salary.manage` → otherwise **403**.
+- **Body:** `{ userId, lastWorkingDate }`.
+- **Does:** computes final salary (last-month CTC) + paid-leave encashment −
+  outstanding loan/advance dues; upserts `fnf_settlements`.
+- **Returns:** `{ ok: true, settlement: {...final_salary, leave_encashment, dues,
+  net_payable} }`.
+
+### Key RPCs added by the Extended modules
+- `publish_policy_version`, `acknowledge_policy` (Phase 10)
+- `start_workflow`, `act_on_workflow` (Phase 10 engine; recruitment offers use it)
+- `assign_asset` / `transfer_asset` / `return_asset` (Phase 14)
+- `start_exit` / `clear_exit_item` (Phase 16)
+All are SECURITY DEFINER and permission-gated; see the migrations for signatures.
 
 Each Edge Function documents: route, method, auth/permission, request/response
 shape, and side effects.

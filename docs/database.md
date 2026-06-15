@@ -141,9 +141,27 @@ appraisals >── cycle_id, user_id ─> profiles
 - `compute_appraisal_scores()` (SECURITY DEFINER) scores from attendance/task/
   planning data in the cycle period and derives recommendations.
 
-## Planned entities (by phase)
+## Extended modules (Phases 10–19)
 
-- **Phases 9+** — employee lifecycle, plus the Extended-module entities.
+All RLS-enabled (default-deny) with their own permission keys; mutations that need
+atomicity or the Admin API go through SECURITY DEFINER RPCs / Edge Functions.
 
-The relational core (Phases 1–7) is complete; remaining phases add reports
-(8), full employee CRUD (9) and the Extended modules (10–19).
+| Phase | Tables |
+| --- | --- |
+| 10 Policies & workflow | `policies`, `policy_versions`, `policy_acknowledgements`, `workflow_definitions`, `workflow_steps`, `workflow_instances`, `workflow_actions` |
+| 11 Recruitment | `job_openings`, `candidates`, `interviews` (offer approval via the workflow engine) |
+| 12 Onboarding | `onboarding_templates`, `onboarding`, `onboarding_items` |
+| 13 Documents | `employee_documents` (auto-versioned, in the private `documents` bucket) |
+| 14 Assets | `assets`, `asset_assignments` |
+| 15 Payroll | `salary_policy` (+PF/ESIC/PT/TDS), `salary_runs` (+statutory), `loans_advances`, `fnf_settlements` |
+| 16 Lifecycle | `lifecycle_events`, `resignations`, `exit_clearances` |
+| 17 Helpdesk | `tickets`, `ticket_updates` |
+| 18 Engagement | `announcements`, `recognitions`, `visitors` |
+| 19 Monitoring | `monitoring_config`, `screenshots` (private `screenshots` bucket) |
+
+## Notes
+
+- **AI analytics** is deferred (Future Version) — no tables; a `src/services/ai`
+  boundary exists for later, behind a feature flag.
+- The full schema rebuilds from `supabase/migrations/*` + `seed.sql` via a single
+  `supabase db reset`; named users come from `scripts/seed.mjs`.
