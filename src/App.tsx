@@ -33,6 +33,7 @@ import { HelpdeskPage } from '@/features/helpdesk/HelpdeskPage'
 import { AnnouncementsPage } from '@/features/engagement/AnnouncementsPage'
 import { RecognitionPage } from '@/features/engagement/RecognitionPage'
 import { VisitorsPage } from '@/features/engagement/VisitorsPage'
+import { MyVisitorsPage } from '@/features/engagement/MyVisitorsPage'
 import { MonitoringPage } from '@/features/monitoring/MonitoringPage'
 import { MonitoringReportPage } from '@/features/monitoring/MonitoringReportPage'
 
@@ -142,6 +143,7 @@ export function App() {
         <Route path="/approvals" element={<ApprovalsPage />} />
         <Route path="/helpdesk" element={<HelpdeskPage />} />
         <Route path="/announcements" element={<AnnouncementsPage />} />
+        <Route path="/visitors" element={<MyVisitorsPage />} />
         <Route path="/recognition" element={<RecognitionPage />} />
         <Route
           path="/admin/visitors"

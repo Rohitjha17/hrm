@@ -115,6 +115,7 @@ const employeeNav: NavItem[] = [
   { to: '/helpdesk', label: 'Helpdesk', icon: LifeBuoy, testid: 'nav-helpdesk' },
   { to: '/announcements', label: 'Notice Board', icon: Megaphone, testid: 'nav-announcements' },
   { to: '/recognition', label: 'Recognition', icon: Sparkles, testid: 'nav-recognition' },
+  { to: '/visitors', label: 'My Visitors', icon: IdCard, testid: 'nav-visitors-self' },
   { to: '/monitoring', label: 'Monitoring', icon: Monitor, testid: 'nav-monitoring-self' },
 ]
 

@@ -1,6 +1,7 @@
-import { useState } from 'react'
-import { Plus } from 'lucide-react'
+import { useMemo, useState } from 'react'
+import { Plus, Search } from 'lucide-react'
 import {
+  useActiveAssignments,
   useAssetAssignments,
   useAssets,
   useAssignAsset,
@@ -19,19 +20,30 @@ import { Input } from '@/components/ui/Input'
 import { Label } from '@/components/ui/Label'
 import { Select } from '@/components/ui/Select'
 import { Table, Tbody, Td, Th, Thead } from '@/components/ui/Table'
+import { EmptyState } from '@/components/ui/EmptyState'
 
 const ASSET_TYPES = ['laptop', 'desktop', 'mobile', 'sim', 'id_card', 'headset', 'other']
 
 export function AssetsPage() {
   const { data: assets = [] } = useAssets()
+  const { data: holders } = useActiveAssignments()
   const [createOpen, setCreateOpen] = useState(false)
   const [manage, setManage] = useState<Asset | null>(null)
+  const [search, setSearch] = useState('')
+
+  const visible = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    if (!q) return assets
+    return assets.filter((a) =>
+      [a.name, a.serial, a.batch_no, a.asset_type].some((f) => (f ?? '').toLowerCase().includes(q)),
+    )
+  }, [assets, search])
 
   return (
     <div data-testid="assets-page">
       <PageHeader
         title="Assets"
-        description="Track company assets and their assignment history."
+        description="Track company assets by serial & batch number, and their assignment history."
         actions={
           <Button data-testid="new-asset-button" onClick={() => setCreateOpen(true)}>
             <Plus className="size-4" /> New asset
@@ -39,40 +51,63 @@ export function AssetsPage() {
         }
       />
 
-      <Table data-testid="assets-table">
-        <Thead>
-          <tr>
-            <Th>Asset</Th>
-            <Th>Type</Th>
-            <Th>Status</Th>
-            <Th className="text-right">Manage</Th>
-          </tr>
-        </Thead>
-        <Tbody>
-          {assets.map((a) => (
-            <tr key={a.id} data-testid="asset-row">
-              <Td className="font-medium text-slate-900">{a.name}</Td>
-              <Td>{a.asset_type}</Td>
-              <Td>
-                <Badge tone={a.status === 'assigned' ? 'amber' : a.status === 'retired' ? 'slate' : 'green'} data-testid="asset-status">
-                  {a.status}
-                </Badge>
-              </Td>
-              <Td>
-                <div className="flex justify-end">
-                  <button
-                    data-testid="manage-asset"
-                    className="rounded px-2 py-1 text-xs font-medium text-brand-600 hover:bg-brand-50"
-                    onClick={() => setManage(a)}
-                  >
-                    Manage
-                  </button>
-                </div>
-              </Td>
+      <div className="mb-4 flex items-center gap-2">
+        <div className="relative w-72">
+          <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
+          <Input
+            data-testid="asset-search"
+            placeholder="Search name, serial or batch no…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-8"
+          />
+        </div>
+      </div>
+
+      {visible.length === 0 ? (
+        <EmptyState title="No assets found" testid="assets-empty" />
+      ) : (
+        <Table data-testid="assets-table">
+          <Thead>
+            <tr>
+              <Th>Asset</Th>
+              <Th>Type</Th>
+              <Th>Serial no</Th>
+              <Th>Batch no</Th>
+              <Th>Status</Th>
+              <Th>Assigned to</Th>
+              <Th className="text-right">Manage</Th>
             </tr>
-          ))}
-        </Tbody>
-      </Table>
+          </Thead>
+          <Tbody>
+            {visible.map((a) => (
+              <tr key={a.id} data-testid="asset-row">
+                <Td className="font-medium text-slate-900">{a.name}</Td>
+                <Td>{a.asset_type}</Td>
+                <Td className="font-mono text-xs" data-testid="asset-serial-cell">{a.serial || '—'}</Td>
+                <Td className="font-mono text-xs" data-testid="asset-batch-cell">{a.batch_no || '—'}</Td>
+                <Td>
+                  <Badge tone={a.status === 'assigned' ? 'amber' : a.status === 'retired' ? 'slate' : 'green'} data-testid="asset-status">
+                    {a.status}
+                  </Badge>
+                </Td>
+                <Td className="text-slate-600" data-testid="asset-holder-cell">{holders?.get(a.id) ?? '—'}</Td>
+                <Td>
+                  <div className="flex justify-end">
+                    <button
+                      data-testid="manage-asset"
+                      className="rounded px-2 py-1 text-xs font-medium text-brand-600 hover:bg-brand-50"
+                      onClick={() => setManage(a)}
+                    >
+                      Manage
+                    </button>
+                  </div>
+                </Td>
+              </tr>
+            ))}
+          </Tbody>
+        </Table>
+      )}
 
       {createOpen && <CreateAssetModal onClose={() => setCreateOpen(false)} />}
       {manage && <AssetModal asset={manage} onClose={() => setManage(null)} />}
@@ -86,6 +121,7 @@ function CreateAssetModal({ onClose }: { onClose: () => void }) {
   const [assetType, setAssetType] = useState('laptop')
   const [name, setName] = useState('')
   const [serial, setSerial] = useState('')
+  const [batchNo, setBatchNo] = useState('')
   return (
     <Modal open onClose={onClose} title="New asset" testid="asset-modal-create">
       <form
@@ -93,7 +129,7 @@ function CreateAssetModal({ onClose }: { onClose: () => void }) {
         onSubmit={(e) => {
           e.preventDefault()
           create.mutate(
-            { assetType, name: name.trim(), serial: serial.trim() || undefined },
+            { assetType, name: name.trim(), serial: serial.trim() || undefined, batchNo: batchNo.trim() || undefined },
             { onSuccess: () => { toast.success('Asset created'); onClose() }, onError: (err) => toast.error('Failed', (err as Error).message) },
           )
         }}
@@ -108,9 +144,15 @@ function CreateAssetModal({ onClose }: { onClose: () => void }) {
           <Label htmlFor="as-name">Name</Label>
           <Input id="as-name" data-testid="asset-name" value={name} onChange={(e) => setName(e.target.value)} required />
         </div>
-        <div>
-          <Label htmlFor="as-serial">Serial</Label>
-          <Input id="as-serial" data-testid="asset-serial" value={serial} onChange={(e) => setSerial(e.target.value)} />
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <Label htmlFor="as-serial">Serial no</Label>
+            <Input id="as-serial" data-testid="asset-serial" value={serial} onChange={(e) => setSerial(e.target.value)} />
+          </div>
+          <div>
+            <Label htmlFor="as-batch">Batch no</Label>
+            <Input id="as-batch" data-testid="asset-batch" value={batchNo} onChange={(e) => setBatchNo(e.target.value)} />
+          </div>
         </div>
         <div className="flex justify-end gap-2">
           <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
@@ -136,6 +178,11 @@ function AssetModal({ asset, onClose }: { asset: Asset; onClose: () => void }) {
   return (
     <Modal open onClose={onClose} title={asset.name} testid="asset-modal">
       <div className="space-y-4">
+        <div className="flex flex-wrap gap-x-6 gap-y-1 text-xs text-slate-500">
+          <span>Type: <span className="font-medium text-slate-700">{asset.asset_type}</span></span>
+          <span>Serial no: <span className="font-mono font-medium text-slate-700">{asset.serial || '—'}</span></span>
+          <span>Batch no: <span className="font-mono font-medium text-slate-700">{asset.batch_no || '—'}</span></span>
+        </div>
         <p className="text-sm" data-testid="current-holder">
           Current holder: <strong>{current?.assignee?.full_name ?? 'Unassigned'}</strong>
         </p>

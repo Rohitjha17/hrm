@@ -229,6 +229,7 @@ export type Database = {
       assets: {
         Row: {
           asset_type: string
+          batch_no: string | null
           condition: string
           created_at: string
           id: string
@@ -238,6 +239,7 @@ export type Database = {
         }
         Insert: {
           asset_type: string
+          batch_no?: string | null
           condition?: string
           created_at?: string
           id?: string
@@ -247,6 +249,7 @@ export type Database = {
         }
         Update: {
           asset_type?: string
+          batch_no?: string | null
           condition?: string
           created_at?: string
           id?: string

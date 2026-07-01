@@ -22,13 +22,38 @@ export function useAssets() {
 export function useCreateAsset() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async (input: { assetType: string; name: string; serial?: string }) => {
-      const { error } = await supabase
-        .from('assets')
-        .insert({ asset_type: input.assetType, name: input.name, serial: input.serial || null })
+    mutationFn: async (input: { assetType: string; name: string; serial?: string; batchNo?: string }) => {
+      const { error } = await supabase.from('assets').insert({
+        asset_type: input.assetType,
+        name: input.name,
+        serial: input.serial || null,
+        batch_no: input.batchNo || null,
+      })
       if (error) throw error
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['assets'] }),
+  })
+}
+
+/** Active (unreturned) assignments → map asset_id → current holder name, for the list view. */
+export function useActiveAssignments() {
+  return useQuery({
+    queryKey: ['asset-assignments', 'active'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('asset_assignments')
+        .select('asset_id, assignee:profiles(full_name,email)')
+        .is('returned_at', null)
+      if (error) throw error
+      const map = new Map<string, string>()
+      for (const row of (data ?? []) as unknown as {
+        asset_id: string
+        assignee: { full_name: string | null; email: string } | null
+      }[]) {
+        map.set(row.asset_id, row.assignee?.full_name || row.assignee?.email || '—')
+      }
+      return map
+    },
   })
 }
 

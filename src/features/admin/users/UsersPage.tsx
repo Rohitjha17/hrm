@@ -176,6 +176,7 @@ function EditUserModal({
   const [roleIds, setRoleIds] = useState<Set<string>>(
     new Set(user.user_roles.map((ur) => ur.role_id)),
   )
+  const [fullName, setFullName] = useState(user.full_name ?? '')
   const [departmentId, setDepartmentId] = useState(user.department_id ?? '')
   const [teamId, setTeamId] = useState(user.team_id ?? '')
   const [managerId, setManagerId] = useState(user.reporting_manager_id ?? '')
@@ -187,6 +188,7 @@ function EditUserModal({
     try {
       await updateProfile.mutateAsync({
         id: user.id,
+        full_name: fullName.trim(),
         department_id: departmentId || null,
         team_id: teamId || null,
         reporting_manager_id: managerId || null,
@@ -203,6 +205,16 @@ function EditUserModal({
   return (
     <Modal open onClose={onClose} title={`Edit ${user.full_name || user.email}`} testid="user-modal">
       <div className="space-y-4">
+        <div>
+          <Label htmlFor="user-name">Full name</Label>
+          <Input
+            id="user-name"
+            data-testid="user-name-input"
+            value={fullName}
+            onChange={(e) => setFullName(e.target.value)}
+            placeholder="Employee full name"
+          />
+        </div>
         <div className="grid grid-cols-2 gap-3">
           <div>
             <Label htmlFor="user-dept">Department</Label>

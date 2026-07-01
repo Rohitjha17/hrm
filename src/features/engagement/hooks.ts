@@ -74,6 +74,24 @@ export function useVisitors() {
   })
 }
 
+/** Visitors hosted by the current employee (self-service view). */
+export function useMyVisitors() {
+  const { user } = useAuth()
+  return useQuery({
+    queryKey: ['my-visitors', user?.id],
+    enabled: !!user,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('visitors')
+        .select('*')
+        .eq('host_id', user!.id)
+        .order('visit_date', { ascending: false })
+      if (error) throw error
+      return data
+    },
+  })
+}
+
 export function useRegisterVisitor() {
   const qc = useQueryClient()
   return useMutation({
@@ -86,6 +104,9 @@ export function useRegisterVisitor() {
       if (error) throw error
       return data
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['visitors'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['visitors'] })
+      qc.invalidateQueries({ queryKey: ['my-visitors'] })
+    },
   })
 }
