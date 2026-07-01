@@ -36,6 +36,12 @@ export function LeavePage() {
   const toast = useToast()
   const [applyOpen, setApplyOpen] = useState(false)
 
+  const totalAllocated = balances.reduce((s, b) => s + Number(b.allocated), 0)
+  const totalUsed = balances.reduce((s, b) => s + Number(b.used), 0)
+  const totalRemaining = totalAllocated - totalUsed
+  const pendingCount = requests.filter((r) => r.status === 'pending').length
+  const approvedCount = requests.filter((r) => r.status === 'approved').length
+
   return (
     <div data-testid="leave-page">
       <PageHeader
@@ -48,6 +54,26 @@ export function LeavePage() {
         }
       />
 
+      <div className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-5" data-testid="leave-insights">
+        {[
+          { label: 'Total entitled', value: totalAllocated, tone: 'text-slate-900' },
+          { label: 'Used', value: totalUsed, tone: 'text-amber-600' },
+          { label: 'Remaining', value: totalRemaining, tone: 'text-emerald-600', testid: 'leave-remaining-total' },
+          { label: 'Approved', value: approvedCount, tone: 'text-slate-900' },
+          { label: 'Pending', value: pendingCount, tone: 'text-slate-900' },
+        ].map((s) => (
+          <Card key={s.label}>
+            <CardBody>
+              <p className="text-sm font-medium text-slate-500">{s.label}</p>
+              <p className={`mt-1 text-2xl font-bold ${s.tone}`} data-testid={s.testid}>
+                {s.value}
+              </p>
+            </CardBody>
+          </Card>
+        ))}
+      </div>
+
+      <h2 className="mb-3 text-sm font-semibold text-slate-700">Balance by leave type</h2>
       <div className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {balances.map((b) => (
           <Card key={b.id} data-testid={`balance-${b.leave_type?.name}`}>
@@ -76,6 +102,7 @@ export function LeavePage() {
               <Th>To</Th>
               <Th>Days</Th>
               <Th>Status</Th>
+              <Th>Admin remark</Th>
               <Th className="w-px" />
             </tr>
           </Thead>
@@ -90,6 +117,9 @@ export function LeavePage() {
                   <Badge tone={STATUS_TONE[r.status as keyof typeof STATUS_TONE]} data-testid="leave-status">
                     {r.status}
                   </Badge>
+                </Td>
+                <Td className="max-w-xs text-xs text-slate-500" data-testid="leave-admin-remark">
+                  {r.admin_remarks || r.decision_remarks || <span className="text-slate-300">—</span>}
                 </Td>
                 <Td>
                   {r.status === 'pending' && (

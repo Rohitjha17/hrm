@@ -51,6 +51,7 @@ export interface NewTask {
   priority: 'low' | 'medium' | 'high'
   dueDate: string | null
   createdBy: string
+  remarks?: string
 }
 
 export function useCreateTask() {
@@ -67,7 +68,23 @@ export function useCreateTask() {
         due_date: t.dueDate,
         created_by: t.createdBy,
         task_type: assigned ? 'assigned' : 'self',
+        remarks: t.remarks?.trim() || null,
       })
+      if (error) throw error
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['tasks'] }),
+  })
+}
+
+/** Update a task's persistent remarks. RLS allows creator, assignee or task manager. */
+export function useUpdateTaskRemarks() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (args: { taskId: string; remarks: string }) => {
+      const { error } = await supabase
+        .from('tasks')
+        .update({ remarks: args.remarks.trim() || null })
+        .eq('id', args.taskId)
       if (error) throw error
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['tasks'] }),

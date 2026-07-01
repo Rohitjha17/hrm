@@ -1,6 +1,17 @@
-import { useState } from 'react'
-import { Plus } from 'lucide-react'
-import { useCreatePolicy, usePolicies, usePolicyVersions, usePublishVersion } from './hooks'
+import { useRef, useState } from 'react'
+import { Download, Paperclip, Plus, Trash2 } from 'lucide-react'
+import {
+  getPolicyAttachmentUrl,
+  parseAttachments,
+  useAddPolicyAttachment,
+  useCreatePolicy,
+  useDeletePolicy,
+  usePolicies,
+  usePolicyVersions,
+  usePublishVersion,
+  useRemovePolicyAttachment,
+  type Policy,
+} from './hooks'
 import { useToast } from '@/components/ui/toast-context'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { Card, CardBody } from '@/components/ui/Card'
@@ -22,6 +33,7 @@ export function PolicyAdminPage() {
   const { data: versions = [] } = usePolicyVersions(selected?.id ?? null)
   const [newOpen, setNewOpen] = useState(false)
   const [publishOpen, setPublishOpen] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState<Policy | null>(null)
 
   return (
     <div data-testid="policy-admin-page">
@@ -63,10 +75,23 @@ export function PolicyAdminPage() {
                   <h2 className="text-lg font-semibold text-slate-900">{selected.title}</h2>
                   <Badge tone="slate">{selected.category}</Badge>
                 </div>
-                <Button size="sm" data-testid="publish-version-button" onClick={() => setPublishOpen(true)}>
-                  Publish new version
-                </Button>
+                <div className="flex gap-2">
+                  <Button size="sm" data-testid="publish-version-button" onClick={() => setPublishOpen(true)}>
+                    Publish new version
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="danger"
+                    data-testid="delete-policy-button"
+                    onClick={() => setConfirmDelete(selected)}
+                  >
+                    <Trash2 className="size-4" /> Delete
+                  </Button>
+                </div>
               </div>
+
+              <AttachmentsSection policy={selected} />
+
               <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
                 Version history
               </h3>
@@ -94,7 +119,148 @@ export function PolicyAdminPage() {
       {publishOpen && selected && (
         <PublishModal policyId={selected.id} onClose={() => setPublishOpen(false)} />
       )}
+      {confirmDelete && (
+        <DeleteConfirmModal
+          policy={confirmDelete}
+          onClose={() => setConfirmDelete(null)}
+          onDeleted={() => setSelectedId(null)}
+        />
+      )}
     </div>
+  )
+}
+
+function AttachmentsSection({ policy }: { policy: Policy }) {
+  const attachments = parseAttachments(policy.attachments)
+  const add = useAddPolicyAttachment()
+  const remove = useRemovePolicyAttachment()
+  const toast = useToast()
+  const fileRef = useRef<HTMLInputElement>(null)
+
+  async function openAttachment(path: string) {
+    const url = await getPolicyAttachmentUrl(path)
+    if (url) window.open(url, '_blank')
+    else toast.error('Could not open attachment')
+  }
+
+  return (
+    <div className="mb-4 rounded-lg border border-slate-100 p-3" data-testid="policy-attachments">
+      <div className="mb-2 flex items-center justify-between">
+        <h3 className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-slate-400">
+          <Paperclip className="size-3.5" /> Attachments
+        </h3>
+        <input
+          ref={fileRef}
+          type="file"
+          data-testid="policy-attachment-input"
+          className="hidden"
+          onChange={(e) => {
+            const file = e.target.files?.[0]
+            if (!file) return
+            add.mutate(
+              { policyId: policy.id, file },
+              {
+                onSuccess: () => toast.success('Attachment added'),
+                onError: (err) => toast.error('Upload failed', (err as Error).message),
+              },
+            )
+            e.target.value = ''
+          }}
+        />
+        <Button
+          size="sm"
+          variant="outline"
+          data-testid="add-attachment-button"
+          loading={add.isPending}
+          onClick={() => fileRef.current?.click()}
+        >
+          <Plus className="size-4" /> Add file
+        </Button>
+      </div>
+      {attachments.length === 0 ? (
+        <p className="text-xs text-slate-400">No attachments.</p>
+      ) : (
+        <ul className="space-y-1">
+          {attachments.map((a) => (
+            <li key={a.path} data-testid="attachment-row" className="flex items-center justify-between rounded-md bg-slate-50 px-2 py-1.5 text-sm">
+              <button
+                type="button"
+                data-testid="attachment-download"
+                className="flex items-center gap-1.5 text-slate-700 hover:text-brand-600"
+                onClick={() => openAttachment(a.path)}
+              >
+                <Download className="size-3.5" /> {a.name}
+              </button>
+              <button
+                type="button"
+                aria-label={`Remove ${a.name}`}
+                data-testid="remove-attachment"
+                className="text-slate-400 hover:text-red-600"
+                onClick={() =>
+                  remove.mutate(
+                    { policyId: policy.id, path: a.path },
+                    {
+                      onSuccess: () => toast.success('Attachment removed'),
+                      onError: (err) => toast.error('Remove failed', (err as Error).message),
+                    },
+                  )
+                }
+              >
+                <Trash2 className="size-4" />
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  )
+}
+
+function DeleteConfirmModal({
+  policy,
+  onClose,
+  onDeleted,
+}: {
+  policy: Policy
+  onClose: () => void
+  onDeleted: () => void
+}) {
+  const del = useDeletePolicy()
+  const toast = useToast()
+  return (
+    <Modal open onClose={onClose} title="Delete policy" testid="delete-policy-modal">
+      <div className="space-y-4">
+        <p className="text-sm text-slate-600">
+          Delete <span className="font-semibold text-slate-900">{policy.title}</span>? This removes all
+          versions and attachments. This action cannot be undone.
+        </p>
+        <div className="flex justify-end gap-2">
+          <Button type="button" variant="outline" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button
+            variant="danger"
+            data-testid="confirm-delete-policy"
+            loading={del.isPending}
+            onClick={() =>
+              del.mutate(
+                { id: policy.id, attachments: policy.attachments },
+                {
+                  onSuccess: () => {
+                    toast.success('Policy deleted')
+                    onDeleted()
+                    onClose()
+                  },
+                  onError: (err) => toast.error('Delete failed', (err as Error).message),
+                },
+              )
+            }
+          >
+            Delete policy
+          </Button>
+        </div>
+      </div>
+    </Modal>
   )
 }
 

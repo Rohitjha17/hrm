@@ -108,6 +108,8 @@ export type Database = {
           hr_feedback: string | null
           id: string
           increment_recommendation: number
+          kpi: string | null
+          kra: string | null
           manager_feedback: string | null
           overall_score: number
           performance_rating: number | null
@@ -125,6 +127,8 @@ export type Database = {
           hr_feedback?: string | null
           id?: string
           increment_recommendation?: number
+          kpi?: string | null
+          kra?: string | null
           manager_feedback?: string | null
           overall_score?: number
           performance_rating?: number | null
@@ -142,6 +146,8 @@ export type Database = {
           hr_feedback?: string | null
           id?: string
           increment_recommendation?: number
+          kpi?: string | null
+          kra?: string | null
           manager_feedback?: string | null
           overall_score?: number
           performance_rating?: number | null
@@ -838,6 +844,7 @@ export type Database = {
       }
       leave_requests: {
         Row: {
+          admin_remarks: string | null
           created_at: string
           days: number
           decided_at: string | null
@@ -853,6 +860,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          admin_remarks?: string | null
           created_at?: string
           days?: number
           decided_at?: string | null
@@ -868,6 +876,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          admin_remarks?: string | null
           created_at?: string
           days?: number
           decided_at?: string | null
@@ -1301,6 +1310,7 @@ export type Database = {
           remarks: string | null
           slot_index: number
           slot_label: string
+          start_time: string | null
           task_name: string
           updated_at: string
           user_id: string
@@ -1315,6 +1325,7 @@ export type Database = {
           remarks?: string | null
           slot_index: number
           slot_label: string
+          start_time?: string | null
           task_name?: string
           updated_at?: string
           user_id: string
@@ -1329,6 +1340,7 @@ export type Database = {
           remarks?: string | null
           slot_index?: number
           slot_label?: string
+          start_time?: string | null
           task_name?: string
           updated_at?: string
           user_id?: string
@@ -1345,6 +1357,7 @@ export type Database = {
       }
       policies: {
         Row: {
+          attachments: Json
           category: string
           created_at: string
           current_version: number
@@ -1354,6 +1367,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          attachments?: Json
           category: string
           created_at?: string
           current_version?: number
@@ -1363,6 +1377,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          attachments?: Json
           category?: string
           created_at?: string
           current_version?: number
@@ -1768,18 +1783,21 @@ export type Database = {
       }
       salary_profiles: {
         Row: {
+          components: Json
           id: string
           monthly_ctc: number
           updated_at: string
           user_id: string
         }
         Insert: {
+          components?: Json
           id?: string
           monthly_ctc?: number
           updated_at?: string
           user_id: string
         }
         Update: {
+          components?: Json
           id?: string
           monthly_ctc?: number
           updated_at?: string
@@ -2033,6 +2051,7 @@ export type Database = {
           due_date: string | null
           id: string
           priority: string
+          remarks: string | null
           status_id: string
           task_type: string
           title: string
@@ -2046,6 +2065,7 @@ export type Database = {
           due_date?: string | null
           id?: string
           priority?: string
+          remarks?: string | null
           status_id: string
           task_type?: string
           title: string
@@ -2059,6 +2079,7 @@ export type Database = {
           due_date?: string | null
           id?: string
           priority?: string
+          remarks?: string | null
           status_id?: string
           task_type?: string
           title?: string

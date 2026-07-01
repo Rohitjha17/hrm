@@ -1,11 +1,13 @@
 import { useState } from 'react'
-import { Calculator, Plus } from 'lucide-react'
+import { Calculator, Eye, Plus, Star } from 'lucide-react'
 import {
   useAppraisals,
   useComputeAppraisal,
   useCreateAppraisal,
   useCreateCycle,
   useCycles,
+  useUpdateAppraisal,
+  type AppraisalRow,
 } from './hooks'
 import { useUsers } from '@/features/admin/users/hooks'
 import { useToast } from '@/components/ui/toast-context'
@@ -17,8 +19,20 @@ import { Modal } from '@/components/ui/Modal'
 import { Input } from '@/components/ui/Input'
 import { Label } from '@/components/ui/Label'
 import { Select } from '@/components/ui/Select'
+import { Textarea } from '@/components/ui/Textarea'
 import { Table, Tbody, Td, Th, Thead } from '@/components/ui/Table'
 import { cn } from '@/lib/cn'
+
+function RatingStars({ value }: { value: number | null }) {
+  if (!value) return <span className="text-xs text-slate-400">—</span>
+  return (
+    <span className="inline-flex items-center gap-0.5" data-testid="appraisal-rating-stars" aria-label={`${value} of 5`}>
+      {[1, 2, 3, 4, 5].map((n) => (
+        <Star key={n} className={cn('size-3.5', n <= value ? 'fill-amber-400 text-amber-400' : 'text-slate-200')} />
+      ))}
+    </span>
+  )
+}
 
 export function AppraisalAdminPage() {
   const { data: cycles = [] } = useCycles()
@@ -29,6 +43,7 @@ export function AppraisalAdminPage() {
   const toast = useToast()
   const [cycleModal, setCycleModal] = useState(false)
   const [apprModal, setApprModal] = useState(false)
+  const [detailRow, setDetailRow] = useState<AppraisalRow | null>(null)
 
   return (
     <div data-testid="appraisal-admin-page">
@@ -76,6 +91,7 @@ export function AppraisalAdminPage() {
               <Thead>
                 <tr>
                   <Th>Employee</Th>
+                  <Th>Performance</Th>
                   <Th>Att</Th>
                   <Th>Task</Th>
                   <Th>Plan</Th>
@@ -90,6 +106,9 @@ export function AppraisalAdminPage() {
                   <tr key={a.id} data-testid={`appraisal-row-${a.employee?.email}`}>
                     <Td className="font-medium text-slate-900">
                       {a.employee?.full_name || a.employee?.email}
+                    </Td>
+                    <Td>
+                      <RatingStars value={a.performance_rating} />
                     </Td>
                     <Td>{a.attendance_score}</Td>
                     <Td>{a.task_score}</Td>
@@ -108,7 +127,15 @@ export function AppraisalAdminPage() {
                       )}
                     </Td>
                     <Td>
-                      <div className="flex justify-end">
+                      <div className="flex justify-end gap-1">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          data-testid={`appraisal-details-${a.employee?.email}`}
+                          onClick={() => setDetailRow(a)}
+                        >
+                          <Eye className="size-4" /> Details
+                        </Button>
                         <Button
                           size="sm"
                           variant="outline"
@@ -137,7 +164,119 @@ export function AppraisalAdminPage() {
       {apprModal && selected && (
         <AppraisalModal cycleId={selected.id} onClose={() => setApprModal(false)} />
       )}
+      {detailRow && <DetailsModal appraisal={detailRow} onClose={() => setDetailRow(null)} />}
     </div>
+  )
+}
+
+function DetailsModal({ appraisal, onClose }: { appraisal: AppraisalRow; onClose: () => void }) {
+  const update = useUpdateAppraisal()
+  const toast = useToast()
+  const [rating, setRating] = useState(appraisal.performance_rating ? String(appraisal.performance_rating) : '')
+  const [kra, setKra] = useState(appraisal.kra ?? '')
+  const [kpi, setKpi] = useState(appraisal.kpi ?? '')
+  const [managerFeedback, setManagerFeedback] = useState(appraisal.manager_feedback ?? '')
+  const [hrFeedback, setHrFeedback] = useState(appraisal.hr_feedback ?? '')
+
+  return (
+    <Modal
+      open
+      onClose={onClose}
+      title={`Appraisal · ${appraisal.employee?.full_name || appraisal.employee?.email}`}
+      testid="appraisal-details-modal"
+    >
+      <div className="space-y-4">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          {[
+            { label: 'Attendance', value: appraisal.attendance_score },
+            { label: 'Task', value: appraisal.task_score },
+            { label: 'Planning', value: appraisal.planning_score },
+            { label: 'Overall', value: appraisal.overall_score },
+          ].map((s) => (
+            <div key={s.label} className="rounded-lg bg-slate-50 p-3 text-center">
+              <p className="text-xs text-slate-500">{s.label}</p>
+              <p className="text-lg font-bold text-slate-900">{s.value}</p>
+            </div>
+          ))}
+        </div>
+        <div className="flex flex-wrap items-center gap-4 text-sm">
+          <span className="flex items-center gap-2">
+            <span className="text-slate-500">Performance</span>
+            <RatingStars value={appraisal.performance_rating} />
+          </span>
+          <span className="text-slate-500">
+            Increment <span className="font-semibold text-slate-800">{appraisal.increment_recommendation}%</span>
+          </span>
+          <span>
+            {appraisal.promotion_recommended ? (
+              <Badge tone="green">Promotion recommended</Badge>
+            ) : (
+              <Badge tone="slate">No promotion</Badge>
+            )}
+          </span>
+        </div>
+
+        <form
+          className="space-y-3"
+          onSubmit={(e) => {
+            e.preventDefault()
+            update.mutate(
+              {
+                id: appraisal.id,
+                performanceRating: rating ? Number(rating) : null,
+                managerFeedback,
+                hrFeedback,
+                kra,
+                kpi,
+              },
+              {
+                onSuccess: () => {
+                  toast.success('Appraisal updated')
+                  onClose()
+                },
+                onError: (err) => toast.error('Save failed', (err as Error).message),
+              },
+            )
+          }}
+        >
+          <div>
+            <Label htmlFor="det-rating">Performance rating (1–5)</Label>
+            <Select id="det-rating" data-testid="details-rating" value={rating} onChange={(e) => setRating(e.target.value)}>
+              <option value="">Not rated</option>
+              {[1, 2, 3, 4, 5].map((n) => (
+                <option key={n} value={n}>
+                  {n}
+                </option>
+              ))}
+            </Select>
+          </div>
+          <div>
+            <Label htmlFor="det-kra">KRA — Key Result Areas</Label>
+            <Textarea id="det-kra" data-testid="details-kra" rows={2} value={kra} onChange={(e) => setKra(e.target.value)} />
+          </div>
+          <div>
+            <Label htmlFor="det-kpi">KPI — Key Performance Indicators</Label>
+            <Textarea id="det-kpi" data-testid="details-kpi" rows={2} value={kpi} onChange={(e) => setKpi(e.target.value)} />
+          </div>
+          <div>
+            <Label htmlFor="det-mgr">Manager feedback</Label>
+            <Textarea id="det-mgr" data-testid="details-manager-feedback" rows={2} value={managerFeedback} onChange={(e) => setManagerFeedback(e.target.value)} />
+          </div>
+          <div>
+            <Label htmlFor="det-hr">HR feedback</Label>
+            <Textarea id="det-hr" data-testid="details-hr-feedback" rows={2} value={hrFeedback} onChange={(e) => setHrFeedback(e.target.value)} />
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="outline" onClick={onClose}>
+              Close
+            </Button>
+            <Button type="submit" data-testid="save-appraisal-details" loading={update.isPending}>
+              Save
+            </Button>
+          </div>
+        </form>
+      </div>
+    </Modal>
   )
 }
 
@@ -210,6 +349,9 @@ function AppraisalModal({ cycleId, onClose }: { cycleId: string; onClose: () => 
   const [userId, setUserId] = useState('')
   const [rating, setRating] = useState('4')
   const [managerFeedback, setManagerFeedback] = useState('')
+  const [hrFeedback, setHrFeedback] = useState('')
+  const [kra, setKra] = useState('')
+  const [kpi, setKpi] = useState('')
 
   return (
     <Modal open onClose={onClose} title="Add appraisal" testid="appraisal-modal">
@@ -223,6 +365,9 @@ function AppraisalModal({ cycleId, onClose }: { cycleId: string; onClose: () => 
               userId: userId || users[0]?.id,
               performanceRating: Number(rating),
               managerFeedback,
+              hrFeedback,
+              kra,
+              kpi,
             },
             {
               onSuccess: () => {
@@ -255,8 +400,20 @@ function AppraisalModal({ cycleId, onClose }: { cycleId: string; onClose: () => 
           </Select>
         </div>
         <div>
+          <Label htmlFor="appr-kra">KRA — Key Result Areas</Label>
+          <Textarea id="appr-kra" data-testid="appraisal-kra" rows={2} value={kra} onChange={(e) => setKra(e.target.value)} />
+        </div>
+        <div>
+          <Label htmlFor="appr-kpi">KPI — Key Performance Indicators</Label>
+          <Textarea id="appr-kpi" data-testid="appraisal-kpi" rows={2} value={kpi} onChange={(e) => setKpi(e.target.value)} />
+        </div>
+        <div>
           <Label htmlFor="appr-fb">Manager feedback</Label>
-          <Input id="appr-fb" value={managerFeedback} onChange={(e) => setManagerFeedback(e.target.value)} />
+          <Textarea id="appr-fb" data-testid="appraisal-manager-feedback" rows={2} value={managerFeedback} onChange={(e) => setManagerFeedback(e.target.value)} />
+        </div>
+        <div>
+          <Label htmlFor="appr-hr">HR feedback</Label>
+          <Textarea id="appr-hr" data-testid="appraisal-hr-feedback" rows={2} value={hrFeedback} onChange={(e) => setHrFeedback(e.target.value)} />
         </div>
         <div className="flex justify-end gap-2">
           <Button type="button" variant="outline" onClick={onClose}>

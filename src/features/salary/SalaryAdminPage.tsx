@@ -1,6 +1,7 @@
 import { useState } from 'react'
-import { Calculator, FileText, Plus } from 'lucide-react'
+import { Calculator, FileText, Plus, Trash2 } from 'lucide-react'
 import {
+  parseComponents,
   useAddAdjustment,
   useAdjustments,
   useComputeFnf,
@@ -8,6 +9,7 @@ import {
   useSalaryProfile,
   useUpsertSalaryProfile,
   type FnfSettlement,
+  type SalaryComponent,
   type SalaryRun,
 } from './hooks'
 import { generateLetterPdf } from '@/lib/pdfLetter'
@@ -235,6 +237,13 @@ function Stat({ label, value }: { label: string; value: number | string }) {
   )
 }
 
+const DEFAULT_COMPONENTS: SalaryComponent[] = [
+  { label: 'Basic', kind: 'earning', amount: 0 },
+  { label: 'HRA', kind: 'earning', amount: 0 },
+  { label: 'Special allowance', kind: 'earning', amount: 0 },
+  { label: 'Provident fund', kind: 'deduction', amount: 0 },
+]
+
 function BaseSalaryCard({
   userId,
   month,
@@ -249,33 +258,117 @@ function BaseSalaryCard({
   const { data: profile } = useSalaryProfile(userId)
   const upsertProfile = useUpsertSalaryProfile()
   const toast = useToast()
-  // Draft pattern: show profile value until the user edits — no sync effect.
-  const [draft, setDraft] = useState<string | null>(null)
-  const value = draft ?? (profile?.monthly_ctc != null ? String(profile.monthly_ctc) : '')
+
+  // Draft pattern (keyed by userId via parent `key`): seed from stored breakdown;
+  // fall back to a single Basic = monthly_ctc row for legacy CTC-only profiles.
+  const stored = parseComponents(profile?.components)
+  const initial =
+    stored.length > 0
+      ? stored
+      : profile?.monthly_ctc
+        ? [{ label: 'Basic', kind: 'earning' as const, amount: Number(profile.monthly_ctc) }]
+        : DEFAULT_COMPONENTS
+  const [rows, setRows] = useState<SalaryComponent[]>(initial)
+
+  const gross = rows.filter((r) => r.kind === 'earning').reduce((s, r) => s + Number(r.amount || 0), 0)
+  const deductions = rows.filter((r) => r.kind === 'deduction').reduce((s, r) => s + Number(r.amount || 0), 0)
+  const net = gross - deductions
+
+  const update = (i: number, patch: Partial<SalaryComponent>) =>
+    setRows((rs) => rs.map((r, idx) => (idx === i ? { ...r, ...patch } : r)))
+  const remove = (i: number) => setRows((rs) => rs.filter((_, idx) => idx !== i))
+  const add = () => setRows((rs) => [...rs, { label: '', kind: 'earning', amount: 0 }])
 
   return (
     <Card>
-      <CardBody className="space-y-3">
-        <p className="text-sm font-medium text-slate-500">Base salary</p>
-        <div className="flex items-end gap-2">
-          <div className="flex-1">
-            <Label htmlFor="ctc">Monthly CTC</Label>
-            <Input id="ctc" data-testid="salary-ctc-input" type="number" value={value} onChange={(e) => setDraft(e.target.value)} disabled={!canManage} />
-          </div>
-          <Button
-            data-testid="save-ctc"
-            disabled={!canManage}
-            loading={upsertProfile.isPending}
-            onClick={() =>
-              upsertProfile.mutate(
-                { userId, monthlyCtc: Number(value) },
-                { onSuccess: () => toast.success('Base salary saved') },
-              )
-            }
-          >
-            Save
-          </Button>
+      <CardBody className="space-y-3" data-testid="salary-breakdown-card">
+        <p className="text-sm font-medium text-slate-500">Salary breakdown</p>
+
+        <div className="space-y-2">
+          {rows.map((r, i) => (
+            <div key={i} className="flex items-center gap-1.5" data-testid="salary-component-row">
+              <Input
+                aria-label="Component name"
+                data-testid="component-label"
+                placeholder="Component"
+                value={r.label}
+                onChange={(e) => update(i, { label: e.target.value })}
+                disabled={!canManage}
+                className="h-9 flex-1"
+              />
+              <Select
+                aria-label="Component type"
+                data-testid="component-kind"
+                value={r.kind}
+                onChange={(e) => update(i, { kind: e.target.value as SalaryComponent['kind'] })}
+                disabled={!canManage}
+                className="h-9 w-28"
+              >
+                <option value="earning">Earning</option>
+                <option value="deduction">Deduction</option>
+              </Select>
+              <Input
+                aria-label="Component amount"
+                data-testid="component-amount"
+                type="number"
+                value={r.amount}
+                onChange={(e) => update(i, { amount: Number(e.target.value) })}
+                disabled={!canManage}
+                className="h-9 w-24"
+              />
+              <button
+                type="button"
+                aria-label="Remove component"
+                data-testid="remove-component"
+                className="rounded p-1 text-slate-400 hover:text-red-600 disabled:opacity-40"
+                disabled={!canManage}
+                onClick={() => remove(i)}
+              >
+                <Trash2 className="size-4" />
+              </button>
+            </div>
+          ))}
         </div>
+
+        {canManage && (
+          <Button type="button" size="sm" variant="outline" data-testid="add-component" onClick={add}>
+            <Plus className="size-4" /> Add component
+          </Button>
+        )}
+
+        <dl className="rounded-lg bg-slate-50 p-3 text-sm">
+          <div className="flex justify-between">
+            <dt className="text-slate-500">Gross (earnings)</dt>
+            <dd className="font-medium text-slate-800" data-testid="breakdown-gross">{gross}</dd>
+          </div>
+          <div className="flex justify-between">
+            <dt className="text-slate-500">Deductions</dt>
+            <dd className="font-medium text-slate-800" data-testid="breakdown-deductions">{deductions}</dd>
+          </div>
+          <div className="mt-1 flex justify-between border-t border-slate-200 pt-1">
+            <dt className="font-medium text-slate-600">Net (in-hand)</dt>
+            <dd className="font-bold text-emerald-700" data-testid="breakdown-net">{net}</dd>
+          </div>
+        </dl>
+
+        <Button
+          data-testid="save-breakdown"
+          className="w-full"
+          disabled={!canManage}
+          loading={upsertProfile.isPending}
+          onClick={() =>
+            upsertProfile.mutate(
+              { userId, components: rows.filter((r) => r.label.trim()) },
+              {
+                onSuccess: () => toast.success('Salary breakdown saved'),
+                onError: (e) => toast.error('Save failed', (e as Error).message),
+              },
+            )
+          }
+        >
+          Save breakdown
+        </Button>
+
         <AdjustmentForm userId={userId} month={month} />
         <ul className="space-y-1 text-sm">
           {adjustments.map((a) => (

@@ -6,6 +6,24 @@ import type { Tables } from '@/types/database.types'
 export type SalaryRun = Tables<'salary_runs'>
 export type SalaryAdjustment = Tables<'salary_adjustments'>
 
+export interface SalaryComponent {
+  label: string
+  kind: 'earning' | 'deduction'
+  amount: number
+}
+
+/** Parse the stored jsonb components into a typed, defensive array. */
+export function parseComponents(raw: unknown): SalaryComponent[] {
+  if (!Array.isArray(raw)) return []
+  return raw
+    .filter((c): c is Record<string, unknown> => !!c && typeof c === 'object')
+    .map((c) => ({
+      label: String(c.label ?? ''),
+      kind: c.kind === 'deduction' ? 'deduction' : 'earning',
+      amount: Number(c.amount ?? 0),
+    }))
+}
+
 export function useSalaryProfile(userId: string | null) {
   return useQuery({
     queryKey: ['salary-profile', userId],
@@ -25,10 +43,19 @@ export function useSalaryProfile(userId: string | null) {
 export function useUpsertSalaryProfile() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async (args: { userId: string; monthlyCtc: number }) => {
-      const { error } = await supabase
-        .from('salary_profiles')
-        .upsert({ user_id: args.userId, monthly_ctc: args.monthlyCtc }, { onConflict: 'user_id' })
+    mutationFn: async (args: { userId: string; components: SalaryComponent[] }) => {
+      // monthly_ctc (the figure the payroll engine prorates) = sum of earnings.
+      const monthlyCtc = args.components
+        .filter((c) => c.kind === 'earning')
+        .reduce((s, c) => s + Number(c.amount || 0), 0)
+      const { error } = await supabase.from('salary_profiles').upsert(
+        {
+          user_id: args.userId,
+          monthly_ctc: monthlyCtc,
+          components: args.components as unknown as Tables<'salary_profiles'>['components'],
+        },
+        { onConflict: 'user_id' },
+      )
       if (error) throw error
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['salary-profile'] }),

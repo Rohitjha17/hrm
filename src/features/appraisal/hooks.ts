@@ -69,6 +69,8 @@ export function useCreateAppraisal() {
       performanceRating: number | null
       managerFeedback?: string
       hrFeedback?: string
+      kra?: string
+      kpi?: string
     }) => {
       const { error } = await supabase.from('appraisals').insert({
         cycle_id: input.cycleId,
@@ -76,7 +78,37 @@ export function useCreateAppraisal() {
         performance_rating: input.performanceRating,
         manager_feedback: input.managerFeedback || null,
         hr_feedback: input.hrFeedback || null,
+        kra: input.kra || null,
+        kpi: input.kpi || null,
       })
+      if (error) throw error
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['appraisals'] }),
+  })
+}
+
+/** Update the qualitative fields admins use to decide an appraisal. */
+export function useUpdateAppraisal() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: {
+      id: string
+      performanceRating: number | null
+      managerFeedback: string
+      hrFeedback: string
+      kra: string
+      kpi: string
+    }) => {
+      const { error } = await supabase
+        .from('appraisals')
+        .update({
+          performance_rating: input.performanceRating,
+          manager_feedback: input.managerFeedback || null,
+          hr_feedback: input.hrFeedback || null,
+          kra: input.kra || null,
+          kpi: input.kpi || null,
+        })
+        .eq('id', input.id)
       if (error) throw error
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['appraisals'] }),

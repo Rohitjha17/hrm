@@ -1,10 +1,23 @@
-import { useAcknowledgePolicy, useAllVersions, useMyAcknowledgements, usePolicies } from './hooks'
+import { Download } from 'lucide-react'
+import {
+  getPolicyAttachmentUrl,
+  parseAttachments,
+  useAcknowledgePolicy,
+  useAllVersions,
+  useMyAcknowledgements,
+  usePolicies,
+} from './hooks'
 import { useToast } from '@/components/ui/toast-context'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { Card, CardBody } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
 import { EmptyState } from '@/components/ui/EmptyState'
+
+async function openAttachment(path: string) {
+  const url = await getPolicyAttachmentUrl(path)
+  if (url) window.open(url, '_blank')
+}
 
 export function PolicyPage() {
   const { data: policies = [] } = usePolicies()
@@ -38,6 +51,21 @@ export function PolicyPage() {
                       <p className="mt-2 whitespace-pre-wrap text-sm text-slate-600">
                         {current?.content}
                       </p>
+                      {parseAttachments(p.attachments).length > 0 && (
+                        <div className="mt-3 flex flex-wrap gap-2" data-testid={`policy-attachments-${p.category}`}>
+                          {parseAttachments(p.attachments).map((a) => (
+                            <button
+                              key={a.path}
+                              type="button"
+                              data-testid="policy-attachment-download"
+                              className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-xs text-slate-700 hover:text-brand-600"
+                              onClick={() => openAttachment(a.path)}
+                            >
+                              <Download className="size-3.5" /> {a.name}
+                            </button>
+                          ))}
+                        </div>
+                      )}
                     </div>
                     {acked ? (
                       <Badge tone="green" data-testid={`policy-acked-${p.category}`}>

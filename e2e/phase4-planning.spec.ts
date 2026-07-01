@@ -44,16 +44,23 @@ test.describe('Phase 4 — planning & mandatory policy', () => {
     await page.goto('/planning')
     await expect(page.getByTestId('planning-page')).toBeVisible()
 
-    const task = page.getByTestId('slot-task-day-0')
+    // Add a flexible slot (fixed-length window starting at any chosen time).
+    await page.getByTestId('new-slot-start').fill('09:00')
+    await page.getByTestId('add-slot').click()
+
+    const card = page.locator('[data-testid^="slot-card-"]').first()
+    await expect(card).toBeVisible({ timeout: 10_000 })
+    const task = card.locator('[data-testid^="slot-task-"]')
     await task.fill('Draft the report')
-    await page.getByTestId('slot-save-day-0').click()
-    await expect(page.getByTestId('slot-history-day-0')).toBeVisible({ timeout: 10_000 })
+    await card.locator('[data-testid^="slot-save-"]').click()
+    const history = card.locator('[data-testid^="slot-history-"]')
+    await expect(history).toBeVisible({ timeout: 10_000 })
 
     // Edit the slot → recorded in history.
     await task.fill('Draft the report (v2)')
-    await page.getByTestId('slot-save-day-0').click()
+    await card.locator('[data-testid^="slot-save-"]').click()
 
-    await page.getByTestId('slot-history-day-0').click()
+    await history.click()
     await expect(page.getByTestId('planning-history-modal')).toBeVisible()
     await expect(page.getByTestId('planning-history-entry').first()).toContainText('v2')
   })
@@ -91,7 +98,7 @@ test.describe('Phase 4 — planning & mandatory policy', () => {
     await adminCtx.close()
   })
 
-  test('completing day-end + next-day planning lets the employee punch out', async ({ browser }) => {
+  test('completing day-end planning lets the employee punch out', async ({ browser }) => {
     await resetTodayFor(aarti.email)
     const { context, page } = await openApp(browser)
     await loginAs(page, aarti)
@@ -106,7 +113,6 @@ test.describe('Phase 4 — planning & mandatory policy', () => {
     // Complete planning.
     await page.goto('/planning')
     await page.getByTestId('submit-day-end').click()
-    await page.getByTestId('submit-next-day').click()
     await expect(page.getByTestId('compliance-status')).toHaveAttribute('data-compliant', 'true', {
       timeout: 10_000,
     })

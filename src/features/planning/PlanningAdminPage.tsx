@@ -15,12 +15,14 @@ import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
 import { Input } from '@/components/ui/Input'
 import { Label } from '@/components/ui/Label'
+import { Select } from '@/components/ui/Select'
 import { Modal } from '@/components/ui/Modal'
 import { Table, Tbody, Td, Th, Thead } from '@/components/ui/Table'
 
 export function PlanningAdminPage() {
   const { data: config } = usePlanningConfig()
   const [date, setDate] = useState(todayInTz('Asia/Kolkata'))
+  const [employeeFilter, setEmployeeFilter] = useState('')
   const { data: users = [] } = useUsers()
   const { data: compliance = [] } = useComplianceForDate(date)
   const unlock = useUnlockPlanning()
@@ -30,17 +32,39 @@ export function PlanningAdminPage() {
   usePlanningRealtime()
 
   const compByUser = new Map(compliance.map((c) => [c.user_id, c]))
-  const required = { dayEnd: config?.require_day_end ?? true, nextDay: config?.require_next_day ?? true }
+  const required = { dayEnd: config?.require_day_end ?? true }
+  const visibleUsers = employeeFilter ? users.filter((u) => u.id === employeeFilter) : users
 
   return (
     <div data-testid="planning-admin-page">
       <PageHeader title="Planning Monitor" description={`Policy: ${config?.policy ?? '—'}. Unlock to override the punch-out block.`} />
 
-      <div className="mb-4 flex items-center gap-2">
-        <Label htmlFor="pa-date" className="mb-0">
-          Date
-        </Label>
-        <Input id="pa-date" data-testid="planning-admin-date" type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-44" />
+      <div className="mb-4 flex flex-wrap items-center gap-3">
+        <div className="flex items-center gap-2">
+          <Label htmlFor="pa-date" className="mb-0">
+            Date
+          </Label>
+          <Input id="pa-date" data-testid="planning-admin-date" type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-44" />
+        </div>
+        <div className="flex items-center gap-2">
+          <Label htmlFor="pa-employee" className="mb-0">
+            Employee
+          </Label>
+          <Select
+            id="pa-employee"
+            data-testid="planning-admin-employee"
+            value={employeeFilter}
+            onChange={(e) => setEmployeeFilter(e.target.value)}
+            className="w-56"
+          >
+            <option value="">All employees</option>
+            {users.map((u) => (
+              <option key={u.id} value={u.id}>
+                {u.full_name || u.email}
+              </option>
+            ))}
+          </Select>
+        </div>
       </div>
 
       <Table data-testid="planning-compliance-table">
@@ -48,23 +72,18 @@ export function PlanningAdminPage() {
           <tr>
             <Th>Employee</Th>
             <Th>Day-End</Th>
-            <Th>Next-Day</Th>
             <Th>Status</Th>
             <Th className="text-right">Actions</Th>
           </tr>
         </Thead>
         <Tbody>
-          {users.map((u) => {
+          {visibleUsers.map((u) => {
             const c = compByUser.get(u.id)
-            const compliant =
-              !!c &&
-              (c.unlocked ||
-                ((!required.dayEnd || c.day_end_submitted) && (!required.nextDay || c.next_day_submitted)))
+            const compliant = !!c && (c.unlocked || !required.dayEnd || c.day_end_submitted)
             return (
               <tr key={u.id} data-testid={`compliance-row-${u.email}`}>
                 <Td className="font-medium text-slate-900">{u.full_name || u.email}</Td>
                 <Td>{c?.day_end_submitted ? <Badge tone="green">✓</Badge> : <Badge tone="slate">—</Badge>}</Td>
-                <Td>{c?.next_day_submitted ? <Badge tone="green">✓</Badge> : <Badge tone="slate">—</Badge>}</Td>
                 <Td>
                   <Badge tone={compliant ? 'green' : 'amber'} data-testid={`compliance-${u.email}`} data-compliant={compliant}>
                     {compliant ? (c?.unlocked ? 'unlocked' : 'complete') : 'pending'}

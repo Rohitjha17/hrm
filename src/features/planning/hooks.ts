@@ -51,6 +51,7 @@ export function useUpsertSlot() {
       progress: number
       challenges?: string
       remarks?: string
+      startTime?: string | null
     }) => {
       const { error } = await supabase.from('planning_slots').upsert(
         {
@@ -63,9 +64,21 @@ export function useUpsertSlot() {
           progress: s.progress,
           challenges: s.challenges || null,
           remarks: s.remarks || null,
+          start_time: s.startTime || null,
         },
         { onConflict: 'user_id,plan_date,kind,slot_index' },
       )
+      if (error) throw error
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['planning-slots'] }),
+  })
+}
+
+export function useDeleteSlot() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (slotId: string) => {
+      const { error } = await supabase.from('planning_slots').delete().eq('id', slotId)
       if (error) throw error
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['planning-slots'] }),

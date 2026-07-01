@@ -1,7 +1,8 @@
-import { useState } from 'react'
-import { History, Save } from 'lucide-react'
+import { useMemo, useState } from 'react'
+import { History, Plus, Save, Trash2 } from 'lucide-react'
 import {
   useCompliance,
+  useDeleteSlot,
   usePlanningConfig,
   usePlanningHistory,
   usePlanningSlots,
@@ -9,7 +10,7 @@ import {
   useUpsertSlot,
   type PlanningSlot,
 } from './hooks'
-import { generateSlots, nextDay, type SlotBoundary } from './util'
+import { slotLabelFromStart } from './util'
 import { todayInTz } from '@/features/attendance/geo'
 import { useToast } from '@/components/ui/toast-context'
 import { PageHeader } from '@/components/ui/PageHeader'
@@ -20,35 +21,60 @@ import { Input } from '@/components/ui/Input'
 import { Label } from '@/components/ui/Label'
 import { Textarea } from '@/components/ui/Textarea'
 import { Modal } from '@/components/ui/Modal'
+import { EmptyState } from '@/components/ui/EmptyState'
 
 export function PlanningPage() {
   const { data: config } = usePlanningConfig()
   const tz = 'Asia/Kolkata'
   const today = todayInTz(tz)
-  const tomorrow = nextDay(today)
+  const interval = config?.slot_interval_hours ?? 2
   const { data: compliance } = useCompliance(today)
+  const { data: slots = [] } = usePlanningSlots(today, 'day')
   const submit = useSubmitCompliance()
+  const upsert = useUpsertSlot()
   const toast = useToast()
 
-  const boundaries = config
-    ? generateSlots(config.day_start, config.day_end, config.slot_interval_hours)
-    : []
+  const [newStart, setNewStart] = useState(config?.day_start?.slice(0, 5) ?? '10:00')
 
-  const required = {
-    dayEnd: config?.require_day_end ?? true,
-    nextDay: config?.require_next_day ?? true,
-  }
+  const required = { dayEnd: config?.require_day_end ?? true }
   const isCompliant =
-    !!compliance &&
-    (compliance.unlocked ||
-      ((!required.dayEnd || compliance.day_end_submitted) &&
-        (!required.nextDay || compliance.next_day_submitted)))
+    !!compliance && (compliance.unlocked || !required.dayEnd || compliance.day_end_submitted)
+
+  // Slots ordered by their chosen start time (fallback to slot_index).
+  const ordered = useMemo(
+    () =>
+      [...slots].sort(
+        (a, b) =>
+          (a.start_time ?? '').localeCompare(b.start_time ?? '') || a.slot_index - b.slot_index,
+      ),
+    [slots],
+  )
+  const nextIndex = slots.reduce((mx, s) => Math.max(mx, s.slot_index), -1) + 1
+
+  function addSlot() {
+    if (!newStart) return
+    upsert.mutate(
+      {
+        planDate: today,
+        kind: 'day',
+        slotIndex: nextIndex,
+        slotLabel: slotLabelFromStart(newStart, interval),
+        taskName: '',
+        progress: 0,
+        startTime: newStart,
+      },
+      {
+        onSuccess: () => toast.success('Slot added'),
+        onError: (e) => toast.error('Could not add slot', (e as Error).message),
+      },
+    )
+  }
 
   return (
     <div data-testid="planning-page">
       <PageHeader
         title="Planning & Updates"
-        description={`Plan your day in ${config?.slot_interval_hours ?? 2}-hour slots, then submit a day-end update and tomorrow's plan.`}
+        description={`Plan your day in flexible ${interval}-hour slots that can start at any time, then submit your day-end update.`}
         actions={
           <Badge tone={isCompliant ? 'green' : 'amber'} data-testid="compliance-status" data-compliant={isCompliant}>
             {isCompliant ? 'Planning complete' : 'Planning pending'}
@@ -56,10 +82,26 @@ export function PlanningPage() {
         }
       />
 
-      <div className="space-y-8">
-        <section data-testid="day-plan-section">
-          <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-slate-900">Today · {today}</h2>
+      <section data-testid="day-plan-section">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+          <h2 className="text-lg font-semibold text-slate-900">Today · {today}</h2>
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-2 py-1">
+              <Label htmlFor="new-slot-start" className="mb-0 text-xs text-slate-500">
+                Start
+              </Label>
+              <Input
+                id="new-slot-start"
+                data-testid="new-slot-start"
+                type="time"
+                value={newStart}
+                onChange={(e) => setNewStart(e.target.value)}
+                className="h-8 w-28 border-0 p-0 focus:ring-0"
+              />
+              <Button size="sm" data-testid="add-slot" loading={upsert.isPending} onClick={addSlot}>
+                <Plus className="size-4" /> Add slot
+              </Button>
+            </div>
             <Button
               variant="outline"
               data-testid="submit-day-end"
@@ -74,89 +116,88 @@ export function PlanningPage() {
               Submit Day-End Update
             </Button>
           </div>
-          <SlotList kind="day" planDate={today} boundaries={boundaries} />
-        </section>
+        </div>
 
-        <section data-testid="next-day-section">
-          <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-slate-900">Next day · {tomorrow}</h2>
-            <Button
-              variant="outline"
-              data-testid="submit-next-day"
-              loading={submit.isPending}
-              onClick={() =>
-                submit.mutate(
-                  { date: today, part: 'next_day' },
-                  { onSuccess: () => toast.success('Next-day plan submitted') },
-                )
-              }
-            >
-              Submit Next-Day Plan
-            </Button>
+        {ordered.length === 0 ? (
+          <EmptyState
+            title="No slots planned yet"
+            description="Pick a start time and add your first slot."
+            testid="planning-empty"
+          />
+        ) : (
+          <div className="grid gap-3 md:grid-cols-2">
+            {ordered.map((s) => (
+              <SlotCard key={s.id} planDate={today} slot={s} intervalHours={interval} />
+            ))}
           </div>
-          <SlotList kind="next_day" planDate={tomorrow} boundaries={boundaries} />
-        </section>
-      </div>
-    </div>
-  )
-}
-
-function SlotList({
-  kind,
-  planDate,
-  boundaries,
-}: {
-  kind: 'day' | 'next_day'
-  planDate: string
-  boundaries: SlotBoundary[]
-}) {
-  const { data: slots = [] } = usePlanningSlots(planDate, kind)
-  const byIndex = new Map(slots.map((s) => [s.slot_index, s]))
-  return (
-    <div className="grid gap-3 md:grid-cols-2">
-      {boundaries.map((b) => (
-        <SlotCard key={b.index} kind={kind} planDate={planDate} boundary={b} existing={byIndex.get(b.index) ?? null} />
-      ))}
+        )}
+      </section>
     </div>
   )
 }
 
 function SlotCard({
-  kind,
   planDate,
-  boundary,
-  existing,
+  slot,
+  intervalHours,
 }: {
-  kind: 'day' | 'next_day'
   planDate: string
-  boundary: SlotBoundary
-  existing: PlanningSlot | null
+  slot: PlanningSlot
+  intervalHours: number
 }) {
   const upsert = useUpsertSlot()
+  const del = useDeleteSlot()
   const toast = useToast()
-  const [task, setTask] = useState(existing?.task_name ?? '')
-  const [progress, setProgress] = useState(existing?.progress ?? 0)
-  const [challenges, setChallenges] = useState(existing?.challenges ?? '')
-  const [remarks, setRemarks] = useState(existing?.remarks ?? '')
+  const [start, setStart] = useState(slot.start_time?.slice(0, 5) ?? '10:00')
+  const [task, setTask] = useState(slot.task_name ?? '')
+  const [progress, setProgress] = useState(slot.progress ?? 0)
+  const [challenges, setChallenges] = useState(slot.challenges ?? '')
+  const [remarks, setRemarks] = useState(slot.remarks ?? '')
   const [historyOpen, setHistoryOpen] = useState(false)
 
-  const tid = `${kind}-${boundary.index}`
+  const tid = slot.slot_index
+  const label = slotLabelFromStart(start, intervalHours)
 
   return (
     <Card data-testid={`slot-card-${tid}`}>
       <CardBody className="space-y-2">
         <div className="flex items-center justify-between">
-          <span className="text-sm font-semibold text-slate-700">{boundary.label}</span>
-          {existing?.id && (
+          <span className="text-sm font-semibold text-slate-700" data-testid={`slot-label-${tid}`}>
+            {label}
+          </span>
+          <div className="flex items-center gap-1">
             <button
               data-testid={`slot-history-${tid}`}
-              aria-label={`History for ${boundary.label}`}
+              aria-label={`History for ${label}`}
               className="text-slate-400 hover:text-slate-700"
               onClick={() => setHistoryOpen(true)}
             >
               <History className="size-4" />
             </button>
-          )}
+            <button
+              data-testid={`slot-delete-${tid}`}
+              aria-label={`Delete slot ${label}`}
+              className="text-slate-400 hover:text-red-600"
+              onClick={() =>
+                del.mutate(slot.id, {
+                  onSuccess: () => toast.success('Slot removed'),
+                  onError: (e) => toast.error('Delete failed', (e as Error).message),
+                })
+              }
+            >
+              <Trash2 className="size-4" />
+            </button>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <Label className="mb-0 text-xs text-slate-500">Start</Label>
+          <Input
+            data-testid={`slot-start-${tid}`}
+            type="time"
+            value={start}
+            onChange={(e) => setStart(e.target.value)}
+            className="h-9 w-32"
+          />
         </div>
         <Input
           data-testid={`slot-task-${tid}`}
@@ -199,13 +240,14 @@ function SlotCard({
             upsert.mutate(
               {
                 planDate,
-                kind,
-                slotIndex: boundary.index,
-                slotLabel: boundary.label,
+                kind: 'day',
+                slotIndex: slot.slot_index,
+                slotLabel: slotLabelFromStart(start, intervalHours),
                 taskName: task,
                 progress,
                 challenges,
                 remarks,
+                startTime: start,
               },
               { onSuccess: () => toast.success('Slot saved'), onError: (e) => toast.error('Save failed', (e as Error).message) },
             )
@@ -214,8 +256,8 @@ function SlotCard({
           <Save className="size-4" /> Save
         </Button>
       </CardBody>
-      {historyOpen && existing?.id && (
-        <SlotHistoryModal slotId={existing.id} label={boundary.label} onClose={() => setHistoryOpen(false)} />
+      {historyOpen && (
+        <SlotHistoryModal slotId={slot.id} label={label} onClose={() => setHistoryOpen(false)} />
       )}
     </Card>
   )

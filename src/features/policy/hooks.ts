@@ -6,6 +6,25 @@ import type { Tables } from '@/types/database.types'
 export type Policy = Tables<'policies'>
 export type PolicyVersion = Tables<'policy_versions'>
 
+export interface PolicyAttachment {
+  path: string
+  name: string
+}
+
+export function parseAttachments(raw: unknown): PolicyAttachment[] {
+  if (!Array.isArray(raw)) return []
+  return raw
+    .filter((a): a is Record<string, unknown> => !!a && typeof a === 'object')
+    .map((a) => ({ path: String(a.path ?? ''), name: String(a.name ?? '') }))
+    .filter((a) => a.path)
+}
+
+export async function getPolicyAttachmentUrl(path: string): Promise<string | null> {
+  const { data, error } = await supabase.storage.from('documents').createSignedUrl(path, 60)
+  if (error) return null
+  return data.signedUrl
+}
+
 export function usePolicies() {
   return useQuery({
     queryKey: ['policies'],
@@ -72,6 +91,71 @@ export function useCreatePolicy() {
       if (error) throw error
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['policies'] }),
+  })
+}
+
+export function useAddPolicyAttachment() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: { policyId: string; file: File }) => {
+      const path = `policies/${input.policyId}/${crypto.randomUUID()}-${input.file.name}`
+      const up = await supabase.storage.from('documents').upload(path, input.file, { upsert: false })
+      if (up.error) throw up.error
+      // Read-modify-write the attachments array.
+      const { data: current, error: readErr } = await supabase
+        .from('policies')
+        .select('attachments')
+        .eq('id', input.policyId)
+        .single()
+      if (readErr) throw readErr
+      const list = parseAttachments(current?.attachments)
+      list.push({ path, name: input.file.name })
+      const { error } = await supabase
+        .from('policies')
+        .update({ attachments: list as unknown as Tables<'policies'>['attachments'] })
+        .eq('id', input.policyId)
+      if (error) throw error
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['policies'] }),
+  })
+}
+
+export function useRemovePolicyAttachment() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: { policyId: string; path: string }) => {
+      await supabase.storage.from('documents').remove([input.path])
+      const { data: current, error: readErr } = await supabase
+        .from('policies')
+        .select('attachments')
+        .eq('id', input.policyId)
+        .single()
+      if (readErr) throw readErr
+      const list = parseAttachments(current?.attachments).filter((a) => a.path !== input.path)
+      const { error } = await supabase
+        .from('policies')
+        .update({ attachments: list as unknown as Tables<'policies'>['attachments'] })
+        .eq('id', input.policyId)
+      if (error) throw error
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['policies'] }),
+  })
+}
+
+export function useDeletePolicy() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (policy: { id: string; attachments?: unknown }) => {
+      // Best-effort cleanup of attachment objects (versions cascade via FK).
+      const paths = parseAttachments(policy.attachments).map((a) => a.path)
+      if (paths.length) await supabase.storage.from('documents').remove(paths)
+      const { error } = await supabase.from('policies').delete().eq('id', policy.id)
+      if (error) throw error
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['policies'] })
+      qc.invalidateQueries({ queryKey: ['policy-versions-all'] })
+    },
   })
 }
 

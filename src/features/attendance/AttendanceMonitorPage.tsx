@@ -124,6 +124,7 @@ function ConfigModal({ onClose }: { onClose: () => void }) {
   const [radius, setRadius] = useState(String(config?.radius_meters ?? 50))
   const [fullDay, setFullDay] = useState(String(config?.full_day_hours ?? 8))
   const [halfDay, setHalfDay] = useState(String(config?.half_day_hours ?? 4))
+  const [quarterDay, setQuarterDay] = useState(String(config?.quarter_day_hours ?? 2))
   const [grace, setGrace] = useState(String(config?.grace_minutes ?? 10))
 
   return (
@@ -137,6 +138,7 @@ function ConfigModal({ onClose }: { onClose: () => void }) {
               radius_meters: Number(radius),
               full_day_hours: Number(fullDay),
               half_day_hours: Number(halfDay),
+              quarter_day_hours: Number(quarterDay),
               grace_minutes: Number(grace),
             },
             {
@@ -164,7 +166,11 @@ function ConfigModal({ onClose }: { onClose: () => void }) {
           </div>
           <div>
             <Label htmlFor="cfg-half">Half day (hrs)</Label>
-            <Input id="cfg-half" type="number" step="0.5" value={halfDay} onChange={(e) => setHalfDay(e.target.value)} />
+            <Input id="cfg-half" data-testid="cfg-half-day" type="number" step="0.5" value={halfDay} onChange={(e) => setHalfDay(e.target.value)} />
+          </div>
+          <div>
+            <Label htmlFor="cfg-quarter">Quarter day (hrs)</Label>
+            <Input id="cfg-quarter" data-testid="cfg-quarter-day" type="number" step="0.5" value={quarterDay} onChange={(e) => setQuarterDay(e.target.value)} />
           </div>
         </div>
         <div className="flex justify-end gap-2">

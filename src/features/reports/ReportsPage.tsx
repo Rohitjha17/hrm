@@ -1,9 +1,13 @@
 import { useState } from 'react'
-import { FileSpreadsheet, FileText } from 'lucide-react'
+import { FileSpreadsheet, FileText, X } from 'lucide-react'
 import { REPORT_LABELS, useReport, type ReportType } from './hooks'
 import { exportExcel, exportPdf } from './export'
+import { useUsers } from '@/features/admin/users/hooks'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { Button } from '@/components/ui/Button'
+import { Input } from '@/components/ui/Input'
+import { Label } from '@/components/ui/Label'
+import { Select } from '@/components/ui/Select'
 import { Table, Tbody, Td, Th, Thead } from '@/components/ui/Table'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { cn } from '@/lib/cn'
@@ -12,7 +16,16 @@ const TYPES: ReportType[] = ['attendance', 'leave', 'salary', 'task', 'appraisal
 
 export function ReportsPage() {
   const [type, setType] = useState<ReportType>('attendance')
-  const { data, isLoading } = useReport(type)
+  const [from, setFrom] = useState('')
+  const [to, setTo] = useState('')
+  const [userId, setUserId] = useState('')
+  const { data: users = [] } = useUsers()
+  const { data, isLoading } = useReport(type, {
+    from: from || undefined,
+    to: to || undefined,
+    userId: userId || undefined,
+  })
+  const hasFilters = !!(from || to || userId)
 
   return (
     <div data-testid="reports-page">
@@ -55,6 +68,47 @@ export function ReportsPage() {
             {REPORT_LABELS[t]}
           </button>
         ))}
+      </div>
+
+      <div className="mb-4 flex flex-wrap items-end gap-3" data-testid="report-filters">
+        <div>
+          <Label htmlFor="report-from" className="text-xs text-slate-500">
+            From
+          </Label>
+          <Input id="report-from" data-testid="report-from" type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="w-40" />
+        </div>
+        <div>
+          <Label htmlFor="report-to" className="text-xs text-slate-500">
+            To
+          </Label>
+          <Input id="report-to" data-testid="report-to" type="date" value={to} onChange={(e) => setTo(e.target.value)} className="w-40" />
+        </div>
+        <div>
+          <Label htmlFor="report-employee" className="text-xs text-slate-500">
+            Employee
+          </Label>
+          <Select id="report-employee" data-testid="report-employee" value={userId} onChange={(e) => setUserId(e.target.value)} className="w-56">
+            <option value="">All employees</option>
+            {users.map((u) => (
+              <option key={u.id} value={u.id}>
+                {u.full_name || u.email}
+              </option>
+            ))}
+          </Select>
+        </div>
+        {hasFilters && (
+          <Button
+            variant="outline"
+            data-testid="clear-report-filters"
+            onClick={() => {
+              setFrom('')
+              setTo('')
+              setUserId('')
+            }}
+          >
+            <X className="size-4" /> Clear
+          </Button>
+        )}
       </div>
 
       {isLoading || !data ? (

@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { History, Plus, Settings2, Trash2 } from 'lucide-react'
+import { History, MessageSquarePlus, Plus, Settings2, Trash2 } from 'lucide-react'
 import {
   useCreateStatus,
   useCreateTask,
@@ -8,6 +8,7 @@ import {
   useTaskStatuses,
   useTasks,
   useTasksRealtime,
+  useUpdateTaskRemarks,
   useUpdateTaskStatus,
   type TaskRow,
 } from './hooks'
@@ -38,16 +39,25 @@ export function TasksPage() {
 
   useTasksRealtime()
   const { data: tasks = [], isLoading } = useTasks()
+  const { data: users = [] } = useUsers()
   const [filter, setFilter] = useState<'mine' | 'all'>(canViewAll ? 'all' : 'mine')
+  const [employeeFilter, setEmployeeFilter] = useState('')
   const [newOpen, setNewOpen] = useState(false)
   const [statusTask, setStatusTask] = useState<TaskRow | null>(null)
   const [historyTask, setHistoryTask] = useState<TaskRow | null>(null)
+  const [remarkTask, setRemarkTask] = useState<TaskRow | null>(null)
   const [manageOpen, setManageOpen] = useState(false)
 
   const visible = useMemo(() => {
-    if (filter === 'all' && canViewAll) return tasks
-    return tasks.filter((t) => t.created_by === user?.id || t.assignee_id === user?.id)
-  }, [tasks, filter, canViewAll, user?.id])
+    let list =
+      filter === 'all' && canViewAll
+        ? tasks
+        : tasks.filter((t) => t.created_by === user?.id || t.assignee_id === user?.id)
+    if (canViewAll && employeeFilter) {
+      list = list.filter((t) => t.assignee_id === employeeFilter || t.created_by === employeeFilter)
+    }
+    return list
+  }, [tasks, filter, canViewAll, user?.id, employeeFilter])
 
   return (
     <div data-testid="tasks-page">
@@ -69,20 +79,43 @@ export function TasksPage() {
       />
 
       {canViewAll && (
-        <div className="mb-4 inline-flex rounded-lg border border-slate-200 bg-slate-50 p-0.5">
-          {(['mine', 'all'] as const).map((f) => (
-            <button
-              key={f}
-              data-testid={`task-filter-${f}`}
-              onClick={() => setFilter(f)}
-              className={cn(
-                'rounded-md px-3 py-1 text-xs font-medium capitalize',
-                filter === f ? 'bg-white text-brand-700 shadow-sm' : 'text-slate-500',
-              )}
-            >
-              {f === 'mine' ? 'My tasks' : 'All tasks'}
-            </button>
-          ))}
+        <div className="mb-4 flex flex-wrap items-center gap-3">
+          <div className="inline-flex rounded-lg border border-slate-200 bg-slate-50 p-0.5">
+            {(['mine', 'all'] as const).map((f) => (
+              <button
+                key={f}
+                data-testid={`task-filter-${f}`}
+                onClick={() => setFilter(f)}
+                className={cn(
+                  'rounded-md px-3 py-1 text-xs font-medium capitalize',
+                  filter === f ? 'bg-white text-brand-700 shadow-sm' : 'text-slate-500',
+                )}
+              >
+                {f === 'mine' ? 'My tasks' : 'All tasks'}
+              </button>
+            ))}
+          </div>
+          {filter === 'all' && (
+            <div className="flex items-center gap-2">
+              <Label htmlFor="task-employee-filter" className="mb-0 text-xs text-slate-500">
+                Employee
+              </Label>
+              <Select
+                id="task-employee-filter"
+                data-testid="task-employee-filter"
+                value={employeeFilter}
+                onChange={(e) => setEmployeeFilter(e.target.value)}
+                className="h-9 w-56"
+              >
+                <option value="">All employees</option>
+                {users.map((u) => (
+                  <option key={u.id} value={u.id}>
+                    {u.full_name || u.email}
+                  </option>
+                ))}
+              </Select>
+            </div>
+          )}
         </div>
       )}
 
@@ -106,6 +139,15 @@ export function TasksPage() {
                 <Td className="font-medium text-slate-900">
                   {t.title}
                   {t.due_date && <div className="text-xs font-normal text-slate-400">due {t.due_date}</div>}
+                  {t.remarks && (
+                    <div
+                      data-testid="task-remark"
+                      className="mt-1 flex items-start gap-1 text-xs font-normal text-slate-500"
+                    >
+                      <MessageSquarePlus className="mt-0.5 size-3 shrink-0 text-slate-400" />
+                      <span className="italic">{t.remarks}</span>
+                    </div>
+                  )}
                 </Td>
                 <Td data-testid="task-assignee">{t.assignee?.full_name || t.assignee?.email || 'Unassigned'}</Td>
                 <Td className="text-slate-500">{t.creator?.full_name || t.creator?.email}</Td>
@@ -128,6 +170,14 @@ export function TasksPage() {
                       Update
                     </button>
                     <button
+                      data-testid="task-remark-button"
+                      aria-label={`Remarks for ${t.title}`}
+                      className="rounded-md p-1 text-slate-400 hover:text-brand-600"
+                      onClick={() => setRemarkTask(t)}
+                    >
+                      <MessageSquarePlus className="size-4" />
+                    </button>
+                    <button
                       data-testid="task-history-button"
                       aria-label={`History of ${t.title}`}
                       className="rounded-md p-1 text-slate-400 hover:text-slate-700"
@@ -145,6 +195,7 @@ export function TasksPage() {
 
       {newOpen && <NewTaskModal onClose={() => setNewOpen(false)} canAssign={canAssign} userId={user!.id} />}
       {statusTask && <StatusModal task={statusTask} onClose={() => setStatusTask(null)} />}
+      {remarkTask && <RemarkModal task={remarkTask} onClose={() => setRemarkTask(null)} />}
       {historyTask && <HistoryModal task={historyTask} onClose={() => setHistoryTask(null)} />}
       {manageOpen && <StatusMasterModal onClose={() => setManageOpen(false)} />}
     </div>
@@ -168,6 +219,7 @@ function NewTaskModal({
   const [priority, setPriority] = useState<'low' | 'medium' | 'high'>('medium')
   const [assigneeId, setAssigneeId] = useState(userId)
   const [dueDate, setDueDate] = useState('')
+  const [remarks, setRemarks] = useState('')
 
   return (
     <Modal open onClose={onClose} title="New task" testid="task-modal">
@@ -185,6 +237,7 @@ function NewTaskModal({
               priority,
               dueDate: dueDate || null,
               createdBy: userId,
+              remarks,
             },
             {
               onSuccess: () => {
@@ -235,12 +288,70 @@ function NewTaskModal({
           </Select>
           {!canAssign && <p className="mt-1 text-xs text-slate-400">Only managers can assign to others.</p>}
         </div>
+        <div>
+          <Label htmlFor="task-remarks">Remarks</Label>
+          <Textarea
+            id="task-remarks"
+            data-testid="task-remarks-input"
+            rows={2}
+            placeholder="Optional notes about this task"
+            value={remarks}
+            onChange={(e) => setRemarks(e.target.value)}
+          />
+        </div>
         <div className="flex justify-end gap-2">
           <Button type="button" variant="outline" onClick={onClose}>
             Cancel
           </Button>
           <Button type="submit" data-testid="create-task-submit" loading={create.isPending}>
             Create task
+          </Button>
+        </div>
+      </form>
+    </Modal>
+  )
+}
+
+function RemarkModal({ task, onClose }: { task: TaskRow; onClose: () => void }) {
+  const update = useUpdateTaskRemarks()
+  const toast = useToast()
+  const [remarks, setRemarks] = useState(task.remarks ?? '')
+
+  return (
+    <Modal open onClose={onClose} title={`Remarks: ${task.title}`} testid="remark-modal">
+      <form
+        className="space-y-4"
+        onSubmit={(e) => {
+          e.preventDefault()
+          update.mutate(
+            { taskId: task.id, remarks },
+            {
+              onSuccess: () => {
+                toast.success('Remarks saved')
+                onClose()
+              },
+              onError: (err) => toast.error('Save failed', (err as Error).message),
+            },
+          )
+        }}
+      >
+        <div>
+          <Label htmlFor="task-remark-text">Remarks</Label>
+          <Textarea
+            id="task-remark-text"
+            data-testid="task-remark-textarea"
+            rows={4}
+            placeholder="Add a remark visible to the task owner, assignee and managers"
+            value={remarks}
+            onChange={(e) => setRemarks(e.target.value)}
+          />
+        </div>
+        <div className="flex justify-end gap-2">
+          <Button type="button" variant="outline" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button type="submit" data-testid="save-remark-submit" loading={update.isPending}>
+            Save
           </Button>
         </div>
       </form>

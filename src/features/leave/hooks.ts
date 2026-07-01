@@ -132,6 +132,43 @@ export function usePendingApprovals() {
   })
 }
 
+/** All leave requests across the org — for admin insights + remark management. */
+export function useAllLeaveRequests() {
+  return useQuery({
+    queryKey: ['leave-all'],
+    refetchInterval: 5000,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('leave_requests')
+        .select(
+          '*, leave_type:leave_types(name,is_paid), requester:profiles!leave_requests_user_id_fkey(full_name,email)',
+        )
+        .order('created_at', { ascending: false })
+      if (error) throw error
+      return (data ?? []) as unknown as LeaveRequestRow[]
+    },
+  })
+}
+
+/** Set/clear the free-form admin remark on a leave request (any status). */
+export function useSetLeaveRemark() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (args: { id: string; remark: string }) => {
+      const { error } = await supabase
+        .from('leave_requests')
+        .update({ admin_remarks: args.remark.trim() || null })
+        .eq('id', args.id)
+      if (error) throw error
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['leave-all'] })
+      qc.invalidateQueries({ queryKey: ['leave-approvals'] })
+      qc.invalidateQueries({ queryKey: ['my-leave'] })
+    },
+  })
+}
+
 export function useDecideLeave() {
   const qc = useQueryClient()
   return useMutation({

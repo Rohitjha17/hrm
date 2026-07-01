@@ -4,6 +4,12 @@ import type { ReportColumn } from './export'
 
 export type ReportType = 'attendance' | 'leave' | 'salary' | 'task' | 'appraisal'
 
+export interface ReportFilters {
+  from?: string
+  to?: string
+  userId?: string
+}
+
 export interface ReportData {
   title: string
   filename: string
@@ -63,13 +69,15 @@ interface ApprRow {
   cycle: { name: string } | null
 }
 
-const fetchers: Record<ReportType, () => Promise<ReportData>> = {
-  attendance: async () => {
-    const { data, error } = await supabase
+const fetchers: Record<ReportType, (f: ReportFilters) => Promise<ReportData>> = {
+  attendance: async (f) => {
+    let q = supabase
       .from('attendance_days')
       .select('work_date,status,worked_minutes,is_late,overtime_minutes, profiles(full_name,email)')
-      .order('work_date', { ascending: false })
-      .limit(1000)
+    if (f.userId) q = q.eq('user_id', f.userId)
+    if (f.from) q = q.gte('work_date', f.from)
+    if (f.to) q = q.lte('work_date', f.to)
+    const { data, error } = await q.order('work_date', { ascending: false }).limit(1000)
     if (error) throw error
     const list = (data ?? []) as unknown as AttRow[]
     return {
@@ -93,14 +101,16 @@ const fetchers: Record<ReportType, () => Promise<ReportData>> = {
       })),
     }
   },
-  leave: async () => {
-    const { data, error } = await supabase
+  leave: async (f) => {
+    let q = supabase
       .from('leave_requests')
       .select(
         'start_date,end_date,days,status, leave_type:leave_types(name), requester:profiles!leave_requests_user_id_fkey(full_name,email)',
       )
-      .order('created_at', { ascending: false })
-      .limit(1000)
+    if (f.userId) q = q.eq('user_id', f.userId)
+    if (f.from) q = q.gte('start_date', f.from)
+    if (f.to) q = q.lte('start_date', f.to)
+    const { data, error } = await q.order('created_at', { ascending: false }).limit(1000)
     if (error) throw error
     const list = (data ?? []) as unknown as LeaveRow[]
     return {
@@ -124,12 +134,14 @@ const fetchers: Record<ReportType, () => Promise<ReportData>> = {
       })),
     }
   },
-  salary: async () => {
-    const { data, error } = await supabase
+  salary: async (f) => {
+    let q = supabase
       .from('salary_runs')
       .select('period_month,present_days,gross,net, employee:profiles!salary_runs_user_id_fkey(full_name,email)')
-      .order('period_month', { ascending: false })
-      .limit(1000)
+    if (f.userId) q = q.eq('user_id', f.userId)
+    if (f.from) q = q.gte('period_month', f.from)
+    if (f.to) q = q.lte('period_month', f.to)
+    const { data, error } = await q.order('period_month', { ascending: false }).limit(1000)
     if (error) throw error
     const list = (data ?? []) as unknown as SalaryRow[]
     return {
@@ -151,14 +163,16 @@ const fetchers: Record<ReportType, () => Promise<ReportData>> = {
       })),
     }
   },
-  task: async () => {
-    const { data, error } = await supabase
+  task: async (f) => {
+    let q = supabase
       .from('tasks')
       .select(
         'title,priority,due_date, status:task_statuses(name), assignee:profiles!tasks_assignee_id_fkey(full_name,email)',
       )
-      .order('created_at', { ascending: false })
-      .limit(1000)
+    if (f.userId) q = q.eq('assignee_id', f.userId)
+    if (f.from) q = q.gte('created_at', f.from)
+    if (f.to) q = q.lte('created_at', `${f.to}T23:59:59`)
+    const { data, error } = await q.order('created_at', { ascending: false }).limit(1000)
     if (error) throw error
     const list = (data ?? []) as unknown as TaskRow[]
     return {
@@ -180,14 +194,16 @@ const fetchers: Record<ReportType, () => Promise<ReportData>> = {
       })),
     }
   },
-  appraisal: async () => {
-    const { data, error } = await supabase
+  appraisal: async (f) => {
+    let q = supabase
       .from('appraisals')
       .select(
         'attendance_score,task_score,planning_score,overall_score,increment_recommendation,promotion_recommended, employee:profiles!appraisals_user_id_fkey(full_name,email), cycle:appraisal_cycles(name)',
       )
-      .order('created_at', { ascending: false })
-      .limit(1000)
+    if (f.userId) q = q.eq('user_id', f.userId)
+    if (f.from) q = q.gte('created_at', f.from)
+    if (f.to) q = q.lte('created_at', `${f.to}T23:59:59`)
+    const { data, error } = await q.order('created_at', { ascending: false }).limit(1000)
     if (error) throw error
     const list = (data ?? []) as unknown as ApprRow[]
     return {
@@ -217,9 +233,9 @@ const fetchers: Record<ReportType, () => Promise<ReportData>> = {
   },
 }
 
-export function useReport(type: ReportType) {
+export function useReport(type: ReportType, filters: ReportFilters = {}) {
   return useQuery({
-    queryKey: ['report', type],
-    queryFn: () => fetchers[type](),
+    queryKey: ['report', type, filters.from ?? '', filters.to ?? '', filters.userId ?? ''],
+    queryFn: () => fetchers[type](filters),
   })
 }
