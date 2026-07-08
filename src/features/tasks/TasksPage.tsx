@@ -8,7 +8,8 @@ import {
   useTaskStatuses,
   useTasks,
   useTasksRealtime,
-  useUpdateTaskRemarks,
+  useAddTaskRemark,
+  useTaskRemarks,
   useUpdateTaskStatus,
   type TaskRow,
 } from './hooks'
@@ -313,9 +314,10 @@ function NewTaskModal({
 }
 
 function RemarkModal({ task, onClose }: { task: TaskRow; onClose: () => void }) {
-  const update = useUpdateTaskRemarks()
+  const addRemark = useAddTaskRemark()
+  const { data: remarkHistory = [], isLoading } = useTaskRemarks(task.id)
   const toast = useToast()
-  const [remarks, setRemarks] = useState(task.remarks ?? '')
+  const [remarks, setRemarks] = useState('')
 
   return (
     <Modal open onClose={onClose} title={`Remarks: ${task.title}`} testid="remark-modal">
@@ -323,12 +325,13 @@ function RemarkModal({ task, onClose }: { task: TaskRow; onClose: () => void }) 
         className="space-y-4"
         onSubmit={(e) => {
           e.preventDefault()
-          update.mutate(
-            { taskId: task.id, remarks },
+          if (!remarks.trim()) return
+          addRemark.mutate(
+            { taskId: task.id, body: remarks },
             {
               onSuccess: () => {
-                toast.success('Remarks saved')
-                onClose()
+                toast.success('Remark added')
+                setRemarks('')
               },
               onError: (err) => toast.error('Save failed', (err as Error).message),
             },
@@ -336,11 +339,11 @@ function RemarkModal({ task, onClose }: { task: TaskRow; onClose: () => void }) 
         }}
       >
         <div>
-          <Label htmlFor="task-remark-text">Remarks</Label>
+          <Label htmlFor="task-remark-text">Add a remark</Label>
           <Textarea
             id="task-remark-text"
             data-testid="task-remark-textarea"
-            rows={4}
+            rows={3}
             placeholder="Add a remark visible to the task owner, assignee and managers"
             value={remarks}
             onChange={(e) => setRemarks(e.target.value)}
@@ -348,13 +351,47 @@ function RemarkModal({ task, onClose }: { task: TaskRow; onClose: () => void }) 
         </div>
         <div className="flex justify-end gap-2">
           <Button type="button" variant="outline" onClick={onClose}>
-            Cancel
+            Close
           </Button>
-          <Button type="submit" data-testid="save-remark-submit" loading={update.isPending}>
-            Save
+          <Button
+            type="submit"
+            data-testid="save-remark-submit"
+            disabled={!remarks.trim()}
+            loading={addRemark.isPending}
+          >
+            Add remark
           </Button>
         </div>
       </form>
+
+      <div className="mt-4 border-t border-slate-200 pt-3">
+        <h4 className="mb-2 text-xs font-semibold tracking-wide text-slate-500 uppercase">
+          Remark history
+        </h4>
+        {isLoading ? (
+          <p className="text-sm text-slate-400">Loading…</p>
+        ) : remarkHistory.length === 0 ? (
+          <p className="text-sm text-slate-400" data-testid="remark-history-empty">
+            No remarks yet.
+          </p>
+        ) : (
+          <ul className="max-h-64 space-y-2 overflow-y-auto" data-testid="remark-history">
+            {remarkHistory.map((r) => (
+              <li
+                key={r.id}
+                data-testid="remark-entry"
+                className="border-l-2 border-slate-200 pl-3 text-sm"
+              >
+                <div className="text-xs text-slate-500">
+                  {r.author?.full_name || r.author?.email || 'Unknown'} ·{' '}
+                  {new Date(r.created_at).toLocaleString()}
+                </div>
+                <div className="whitespace-pre-wrap text-slate-700">{r.body}</div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
     </Modal>
   )
 }

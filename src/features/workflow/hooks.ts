@@ -76,6 +76,28 @@ export function useAddStep() {
   })
 }
 
+export function useDeleteStep() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (stepId: string) => {
+      const { error } = await supabase.from('workflow_steps').delete().eq('id', stepId)
+      if (error) throw error
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['wf-steps'] }),
+  })
+}
+
+export function useDeleteDefinition() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (definitionId: string) => {
+      const { error } = await supabase.from('workflow_definitions').delete().eq('id', definitionId)
+      if (error) throw error
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['wf-definitions'] }),
+  })
+}
+
 export function useStartInstance() {
   const qc = useQueryClient()
   return useMutation({

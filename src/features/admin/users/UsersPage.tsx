@@ -41,8 +41,8 @@ export function UsersPage() {
   return (
     <div data-testid="users-page">
       <PageHeader
-        title="Employees"
-        description="View employees, assign roles, departments, teams and reporting managers."
+        title="Users"
+        description="View users, assign roles, departments, teams and reporting managers."
         actions={
           canManage && (
             <Button data-testid="add-employee-button" onClick={() => setAdding(true)}>

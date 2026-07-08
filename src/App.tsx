@@ -36,6 +36,8 @@ import { VisitorsPage } from '@/features/engagement/VisitorsPage'
 import { MyVisitorsPage } from '@/features/engagement/MyVisitorsPage'
 import { MonitoringPage } from '@/features/monitoring/MonitoringPage'
 import { MonitoringReportPage } from '@/features/monitoring/MonitoringReportPage'
+import { TrainingPage } from '@/features/training/TrainingPage'
+import { MyTrainingPage } from '@/features/training/MyTrainingPage'
 
 export function App() {
   return (
@@ -218,6 +220,15 @@ export function App() {
             </RequirePermission>
           }
         />
+        <Route
+          path="/admin/training"
+          element={
+            <RequirePermission perm="training.manage">
+              <TrainingPage />
+            </RequirePermission>
+          }
+        />
+        <Route path="/training" element={<MyTrainingPage />} />
         <Route
           path="/admin/users"
           element={

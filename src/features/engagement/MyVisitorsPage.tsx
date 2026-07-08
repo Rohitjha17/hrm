@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { IdCard, Plus } from 'lucide-react'
 import { useMyVisitors, useRegisterVisitor } from './hooks'
+import { MeetingsSection } from './MeetingsSection'
 import { useAuth } from '@/features/auth/auth-context'
 import { useToast } from '@/components/ui/toast-context'
 import { generateLetterPdf } from '@/lib/pdfLetter'
@@ -27,8 +28,8 @@ export function MyVisitorsPage() {
   return (
     <div data-testid="my-visitors-page">
       <PageHeader
-        title="My Visitors"
-        description="Register the visitors you're expecting and issue their passes."
+        title="Visitors & Meetings"
+        description="Register the visitors you're expecting, and host or respond to internal meetings."
       />
 
       <Card className="mb-4">
@@ -124,6 +125,8 @@ export function MyVisitorsPage() {
           </Tbody>
         </Table>
       )}
+
+      <MeetingsSection />
     </div>
   )
 }

@@ -12,7 +12,25 @@ import { Table, Tbody, Td, Th, Thead } from '@/components/ui/Table'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { cn } from '@/lib/cn'
 
-const TYPES: ReportType[] = ['attendance', 'leave', 'salary', 'task', 'appraisal']
+const TYPES: ReportType[] = [
+  'attendance',
+  'leave',
+  'salary',
+  'task',
+  'appraisal',
+  'planning',
+  'recruitment',
+  'communication',
+  'documents',
+  'assets',
+  'lifecycle',
+  'helpdesk',
+  'visitors',
+  'meetings',
+  'training',
+  'policies',
+  'workflows',
+]
 
 export function ReportsPage() {
   const [type, setType] = useState<ReportType>('attendance')
@@ -31,7 +49,7 @@ export function ReportsPage() {
     <div data-testid="reports-page">
       <PageHeader
         title="Reports"
-        description="Attendance, leave, salary, task & performance reports. Export to Excel or PDF."
+        description="Reports across every module — export any of them to Excel or PDF."
         actions={
           data && (
             <div className="flex gap-2">

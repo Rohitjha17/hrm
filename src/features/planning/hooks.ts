@@ -52,6 +52,7 @@ export function useUpsertSlot() {
       challenges?: string
       remarks?: string
       startTime?: string | null
+      endTime?: string | null
     }) => {
       const { error } = await supabase.from('planning_slots').upsert(
         {
@@ -65,6 +66,7 @@ export function useUpsertSlot() {
           challenges: s.challenges || null,
           remarks: s.remarks || null,
           start_time: s.startTime || null,
+          end_time: s.endTime || null,
         },
         { onConflict: 'user_id,plan_date,kind,slot_index' },
       )

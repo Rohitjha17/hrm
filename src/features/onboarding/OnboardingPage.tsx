@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { FileText, Plus } from 'lucide-react'
 import {
-  useCreateTemplate,
   useOnboarding,
   useOnboardingItems,
   useStartOnboarding,
@@ -10,6 +9,7 @@ import {
   type OnboardingItem,
   type OnboardingTemplate,
 } from './hooks'
+import { TemplateModal } from './TemplateModal'
 import { useUsers } from '@/features/admin/users/hooks'
 import { useToast } from '@/components/ui/toast-context'
 import { generateLetterPdf } from '@/lib/pdfLetter'
@@ -17,18 +17,15 @@ import { PageHeader } from '@/components/ui/PageHeader'
 import { Card, CardBody } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
-import { Modal } from '@/components/ui/Modal'
-import { Input } from '@/components/ui/Input'
 import { Label } from '@/components/ui/Label'
 import { Select } from '@/components/ui/Select'
-import { Textarea } from '@/components/ui/Textarea'
 
 const DOC_TYPES = ['offer', 'appointment', 'joining', 'nda', 'contract', 'confidentiality', 'welcome']
 const ITEM_STATUS: OnboardingItem['status'][] = ['pending', 'submitted', 'verified']
 
 export function OnboardingPage() {
   const { data: users = [] } = useUsers()
-  const { data: templates = [] } = useTemplates()
+  const { data: templates = [] } = useTemplates(DOC_TYPES)
   const [employeeId, setEmployeeId] = useState('')
   const effectiveUser = employeeId || users[0]?.id || ''
   const employee = users.find((u) => u.id === effectiveUser)
@@ -50,8 +47,8 @@ export function OnboardingPage() {
   return (
     <div data-testid="onboarding-page">
       <PageHeader
-        title="Onboarding"
-        description="Document templates and the new-joiner checklist."
+        title="Communication"
+        description="Document templates and the new-joiner checklist — your channel with new hires."
         actions={
           <Button data-testid="new-template-button" onClick={() => setTplOpen(true)}>
             <Plus className="size-4" /> New template
@@ -130,49 +127,7 @@ export function OnboardingPage() {
         </Card>
       </div>
 
-      {tplOpen && <TemplateModal onClose={() => setTplOpen(false)} />}
+      {tplOpen && <TemplateModal docTypes={DOC_TYPES} onClose={() => setTplOpen(false)} />}
     </div>
-  )
-}
-
-function TemplateModal({ onClose }: { onClose: () => void }) {
-  const create = useCreateTemplate()
-  const toast = useToast()
-  const [docType, setDocType] = useState('welcome')
-  const [title, setTitle] = useState('')
-  const [body, setBody] = useState('')
-
-  return (
-    <Modal open onClose={onClose} title="New document template" testid="template-modal">
-      <form
-        className="space-y-4"
-        onSubmit={(e) => {
-          e.preventDefault()
-          create.mutate(
-            { docType, title: title.trim(), body },
-            { onSuccess: () => { toast.success('Template created'); onClose() }, onError: (err) => toast.error('Failed', (err as Error).message) },
-          )
-        }}
-      >
-        <div>
-          <Label htmlFor="tpl-type">Document type</Label>
-          <Select id="tpl-type" data-testid="tpl-doctype" value={docType} onChange={(e) => setDocType(e.target.value)}>
-            {DOC_TYPES.map((d) => (<option key={d} value={d}>{d}</option>))}
-          </Select>
-        </div>
-        <div>
-          <Label htmlFor="tpl-title">Title</Label>
-          <Input id="tpl-title" data-testid="tpl-title" value={title} onChange={(e) => setTitle(e.target.value)} required />
-        </div>
-        <div>
-          <Label htmlFor="tpl-body">Body (use {'{{full_name}}'}, {'{{employee_code}}'}, {'{{date}}'})</Label>
-          <Textarea id="tpl-body" data-testid="tpl-body" rows={5} value={body} onChange={(e) => setBody(e.target.value)} required />
-        </div>
-        <div className="flex justify-end gap-2">
-          <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
-          <Button type="submit" data-testid="create-template" loading={create.isPending}>Create</Button>
-        </div>
-      </form>
-    </Modal>
   )
 }

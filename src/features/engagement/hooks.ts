@@ -110,3 +110,109 @@ export function useRegisterVisitor() {
     },
   })
 }
+
+// ── Internal meetings ────────────────────────────────────────────────────────
+
+export type Meeting = Tables<'meetings'>
+export type MeetingInvitee = Tables<'meeting_invitees'>
+
+export interface MeetingRow extends Meeting {
+  meeting_invitees: MeetingInvitee[]
+}
+
+export interface DirectoryEntry {
+  id: string
+  full_name: string | null
+  email: string
+}
+
+/** Minimal company directory (id/name/email) — visible to every employee. */
+export function useDirectory() {
+  return useQuery({
+    queryKey: ['directory'],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('directory')
+      if (error) throw error
+      return (data ?? []) as DirectoryEntry[]
+    },
+  })
+}
+
+/** Meetings I host, am invited to, or (admins) all — RLS decides. */
+export function useMeetings() {
+  return useQuery({
+    queryKey: ['meetings'],
+    refetchInterval: 5000,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('meetings')
+        .select('*, meeting_invitees(*)')
+        .order('starts_at', { ascending: false })
+      if (error) throw error
+      return (data ?? []) as unknown as MeetingRow[]
+    },
+  })
+}
+
+export function useCreateMeeting() {
+  const qc = useQueryClient()
+  const { user } = useAuth()
+  return useMutation({
+    mutationFn: async (input: {
+      title: string
+      description?: string
+      link?: string
+      startsAt: string
+      endsAt?: string
+      inviteeIds: string[]
+    }) => {
+      const { data: meeting, error } = await supabase
+        .from('meetings')
+        .insert({
+          title: input.title,
+          description: input.description || null,
+          meeting_link: input.link || null,
+          starts_at: input.startsAt,
+          ends_at: input.endsAt || null,
+          host_id: user!.id,
+        })
+        .select('id')
+        .single()
+      if (error) throw error
+      if (input.inviteeIds.length) {
+        const { error: iErr } = await supabase.from('meeting_invitees').insert(
+          input.inviteeIds.map((uid) => ({ meeting_id: meeting.id, user_id: uid })),
+        )
+        if (iErr) throw iErr
+      }
+      return meeting
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['meetings'] }),
+  })
+}
+
+/** Accept or decline my invitation. */
+export function useRespondToInvite() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: { inviteeRowId: string; status: 'accepted' | 'declined' }) => {
+      const { error } = await supabase
+        .from('meeting_invitees')
+        .update({ status: input.status, responded_at: new Date().toISOString() })
+        .eq('id', input.inviteeRowId)
+      if (error) throw error
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['meetings'] }),
+  })
+}
+
+export function useDeleteMeeting() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (meetingId: string) => {
+      const { error } = await supabase.from('meetings').delete().eq('id', meetingId)
+      if (error) throw error
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['meetings'] }),
+  })
+}

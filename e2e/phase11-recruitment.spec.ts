@@ -9,10 +9,10 @@ test.describe('Phase 11 — recruitment & hiring', () => {
     await page.goto('/admin/recruitment')
     await expect(page.getByTestId('recruitment-page')).toBeVisible()
 
-    // Opening.
+    // Opening (department + designation, no free-text title).
     await page.getByTestId('new-opening-button').click()
-    await page.getByTestId('opening-title').fill('Senior Engineer')
-    await page.getByTestId('opening-designation').fill('SE-3')
+    await page.getByTestId('opening-department').selectOption({ index: 1 })
+    await page.getByTestId('opening-designation').fill('Senior Engineer')
     await page.getByTestId('create-opening-submit').click()
     await page.getByTestId('opening-item').filter({ hasText: 'Senior Engineer' }).click()
 

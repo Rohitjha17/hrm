@@ -1,7 +1,10 @@
 import { useState } from 'react'
-import { Plus, FileText } from 'lucide-react'
+import { Plus, FileText, ExternalLink, ListChecks } from 'lucide-react'
 import {
+  getCandidateDocUrl,
   useAddCandidate,
+  useCandidateChecklist,
+  useCandidateDocuments,
   useCandidates,
   useCreateOpening,
   useInterviews,
@@ -9,10 +12,14 @@ import {
   useSaveFeedback,
   useScheduleInterview,
   useSendOffer,
+  useStartCandidateChecklist,
   useUpdateCandidate,
+  useUpdateChecklistItem,
+  useUploadCandidateDocument,
   type Candidate,
   type InterviewRow,
 } from './hooks'
+import { useDepartments } from '@/features/admin/hierarchy/hooks'
 import { useUsers } from '@/features/admin/users/hooks'
 import { useToast } from '@/components/ui/toast-context'
 import { generateLetterPdf } from '@/lib/pdfLetter'
@@ -64,8 +71,8 @@ export function RecruitmentPage() {
                   selected?.id === o.id ? 'bg-brand-50 text-brand-800' : 'hover:bg-slate-100',
                 )}
               >
-                <span className="font-medium">{o.title}</span>
-                <span className="text-xs text-slate-400">{o.designation}</span>
+                <span className="font-medium">{o.designation}</span>
+                <span className="text-xs text-slate-400">{o.department?.name ?? 'No department'}</span>
               </button>
             ))}
           </CardBody>
@@ -92,7 +99,10 @@ export function RecruitmentPage() {
                   <tr key={c.id} data-testid="candidate-row">
                     <Td className="font-medium text-slate-900">
                       {c.full_name}
-                      <div className="text-xs font-normal text-slate-500">{c.email}</div>
+                      <div className="text-xs font-normal text-slate-500">
+                        {c.email}
+                        {c.phone ? ` · ${c.phone}` : ''}
+                      </div>
                     </Td>
                     <Td>
                       <Badge tone="slate" data-testid="candidate-status">
@@ -134,8 +144,9 @@ export function RecruitmentPage() {
 
 function OpeningModal({ onClose }: { onClose: () => void }) {
   const create = useCreateOpening()
+  const { data: departments = [] } = useDepartments()
   const toast = useToast()
-  const [title, setTitle] = useState('')
+  const [departmentId, setDepartmentId] = useState('')
   const [designation, setDesignation] = useState('')
   return (
     <Modal open onClose={onClose} title="New opening" testid="opening-modal">
@@ -144,18 +155,23 @@ function OpeningModal({ onClose }: { onClose: () => void }) {
         onSubmit={(e) => {
           e.preventDefault()
           create.mutate(
-            { title: title.trim(), designation: designation.trim() },
+            { departmentId, designation: designation.trim() },
             { onSuccess: () => { toast.success('Opening created'); onClose() }, onError: (err) => toast.error('Failed', (err as Error).message) },
           )
         }}
       >
         <div>
-          <Label htmlFor="op-title">Title</Label>
-          <Input id="op-title" data-testid="opening-title" value={title} onChange={(e) => setTitle(e.target.value)} required />
+          <Label htmlFor="op-dept">Department</Label>
+          <Select id="op-dept" data-testid="opening-department" value={departmentId} onChange={(e) => setDepartmentId(e.target.value)} required>
+            <option value="">— Select department —</option>
+            {departments.map((d) => (
+              <option key={d.id} value={d.id}>{d.name}</option>
+            ))}
+          </Select>
         </div>
         <div>
           <Label htmlFor="op-desig">Designation</Label>
-          <Input id="op-desig" data-testid="opening-designation" value={designation} onChange={(e) => setDesignation(e.target.value)} required />
+          <Input id="op-desig" data-testid="opening-designation" placeholder="e.g. Senior Frontend Engineer" value={designation} onChange={(e) => setDesignation(e.target.value)} required />
         </div>
         <div className="flex justify-end gap-2">
           <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
@@ -168,18 +184,42 @@ function OpeningModal({ onClose }: { onClose: () => void }) {
 
 function CandidateModal({ openingId, onClose }: { openingId: string; onClose: () => void }) {
   const add = useAddCandidate()
+  const upload = useUploadCandidateDocument()
   const toast = useToast()
   const [fullName, setFullName] = useState('')
   const [email, setEmail] = useState('')
+  const [phone, setPhone] = useState('')
+  const [files, setFiles] = useState<File[]>([])
+  const [saving, setSaving] = useState(false)
   return (
     <Modal open onClose={onClose} title="Add candidate" testid="add-candidate-modal">
       <form
         className="space-y-4"
         onSubmit={(e) => {
           e.preventDefault()
+          setSaving(true)
           add.mutate(
-            { openingId, fullName: fullName.trim(), email: email.trim() },
-            { onSuccess: () => { toast.success('Candidate added'); onClose() }, onError: (err) => toast.error('Failed', (err as Error).message) },
+            { openingId, fullName: fullName.trim(), email: email.trim(), phone: phone.trim() || undefined },
+            {
+              onSuccess: async (created) => {
+                try {
+                  for (const file of files) {
+                    await upload.mutateAsync({ candidateId: created.id, title: file.name, file })
+                  }
+                  toast.success('Candidate added', files.length ? `${files.length} document(s) attached` : undefined)
+                  onClose()
+                } catch (err) {
+                  toast.error('Candidate saved, but a document failed to upload', (err as Error).message)
+                  onClose()
+                } finally {
+                  setSaving(false)
+                }
+              },
+              onError: (err) => {
+                setSaving(false)
+                toast.error('Failed', (err as Error).message)
+              },
+            },
           )
         }}
       >
@@ -191,9 +231,26 @@ function CandidateModal({ openingId, onClose }: { openingId: string; onClose: ()
           <Label htmlFor="cd-email">Email</Label>
           <Input id="cd-email" data-testid="candidate-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
         </div>
+        <div>
+          <Label htmlFor="cd-phone">Phone</Label>
+          <Input id="cd-phone" data-testid="candidate-phone" type="tel" placeholder="+91 98765 43210" value={phone} onChange={(e) => setPhone(e.target.value)} />
+        </div>
+        <div>
+          <Label htmlFor="cd-files">Attachments (resume, documents)</Label>
+          <Input
+            id="cd-files"
+            data-testid="candidate-files"
+            type="file"
+            multiple
+            onChange={(e) => setFiles(Array.from(e.target.files ?? []))}
+          />
+          {files.length > 0 && (
+            <p className="mt-1 text-xs text-slate-500">{files.map((f) => f.name).join(', ')}</p>
+          )}
+        </div>
         <div className="flex justify-end gap-2">
           <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
-          <Button type="submit" data-testid="create-candidate-submit" loading={add.isPending}>Add</Button>
+          <Button type="submit" data-testid="create-candidate-submit" loading={add.isPending || saving}>Add</Button>
         </div>
       </form>
     </Modal>
@@ -291,6 +348,9 @@ function ManageCandidateModal({ candidate, onClose }: { candidate: Candidate; on
           )}
         </div>
 
+        <CandidateDocumentsSection candidateId={candidate.id} />
+        <CandidateChecklistSection candidateId={candidate.id} />
+
         <div className="flex justify-end">
           <Button variant="outline" data-testid="close-candidate" onClick={onClose}>
             Close
@@ -298,6 +358,138 @@ function ManageCandidateModal({ candidate, onClose }: { candidate: Candidate; on
         </div>
       </div>
     </Modal>
+  )
+}
+
+function CandidateDocumentsSection({ candidateId }: { candidateId: string }) {
+  const { data: docs = [] } = useCandidateDocuments(candidateId)
+  const upload = useUploadCandidateDocument()
+  const toast = useToast()
+
+  return (
+    <div className="border-t border-slate-100 pt-3" data-testid="candidate-documents">
+      <div className="mb-2 flex items-center justify-between">
+        <h3 className="text-sm font-semibold text-slate-700">Documents</h3>
+        <label className="cursor-pointer rounded px-2 py-1 text-xs font-medium text-brand-600 hover:bg-brand-50">
+          Upload
+          <input
+            type="file"
+            data-testid="candidate-doc-upload"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0]
+              if (!file) return
+              upload.mutate(
+                { candidateId, title: file.name, file },
+                {
+                  onSuccess: () => toast.success('Document uploaded'),
+                  onError: (err) => toast.error('Upload failed', (err as Error).message),
+                },
+              )
+              e.target.value = ''
+            }}
+          />
+        </label>
+      </div>
+      {docs.length === 0 ? (
+        <p className="text-xs text-slate-400" data-testid="candidate-docs-empty">No documents yet.</p>
+      ) : (
+        <ul className="space-y-1">
+          {docs.map((d) => (
+            <li key={d.id} data-testid="candidate-doc-row" className="flex items-center justify-between rounded border border-slate-100 px-2 py-1.5 text-sm">
+              <span className="truncate text-slate-700">{d.title}</span>
+              <button
+                data-testid="candidate-doc-view"
+                className="ml-2 flex shrink-0 items-center gap-1 text-xs font-medium text-brand-600 hover:underline"
+                onClick={async () => {
+                  try {
+                    const url = await getCandidateDocUrl(d.storage_path)
+                    window.open(url, '_blank', 'noopener')
+                  } catch (err) {
+                    toast.error('Could not open document', (err as Error).message)
+                  }
+                }}
+              >
+                <ExternalLink className="size-3" /> View
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  )
+}
+
+const CHECKLIST_STATUSES = ['pending', 'sent', 'received', 'verified'] as const
+const CHECKLIST_TONE: Record<string, 'slate' | 'blue' | 'amber' | 'green'> = {
+  pending: 'slate',
+  sent: 'blue',
+  received: 'amber',
+  verified: 'green',
+}
+
+function CandidateChecklistSection({ candidateId }: { candidateId: string }) {
+  const { data: items = [], isLoading } = useCandidateChecklist(candidateId)
+  const start = useStartCandidateChecklist()
+  const update = useUpdateChecklistItem()
+  const toast = useToast()
+
+  return (
+    <div className="border-t border-slate-100 pt-3" data-testid="candidate-checklist">
+      <div className="mb-2 flex items-center justify-between">
+        <h3 className="text-sm font-semibold text-slate-700">Communication checklist</h3>
+        {!isLoading && items.length === 0 && (
+          <Button
+            size="sm"
+            variant="outline"
+            data-testid="start-checklist"
+            loading={start.isPending}
+            onClick={() =>
+              start.mutate(candidateId, {
+                onSuccess: () => toast.success('Checklist started'),
+                onError: (err) => toast.error('Failed', (err as Error).message),
+              })
+            }
+          >
+            <ListChecks className="size-4" /> Start checklist
+          </Button>
+        )}
+      </div>
+      {items.length === 0 ? (
+        <p className="text-xs text-slate-400" data-testid="checklist-empty">
+          Track documents sent to and received from this candidate — start the checklist.
+        </p>
+      ) : (
+        <ul className="space-y-1" data-testid="checklist-items">
+          {items.map((it) => (
+            <li key={it.id} data-testid={`checklist-item-${it.item_key}`} className="flex items-center justify-between gap-2 rounded border border-slate-100 px-2 py-1.5 text-sm">
+              <span className="text-slate-700">{it.label}</span>
+              <div className="flex items-center gap-2">
+                <Badge tone={CHECKLIST_TONE[it.status] ?? 'slate'}>{it.status}</Badge>
+                <Select
+                  data-testid={`checklist-status-${it.item_key}`}
+                  value={it.status}
+                  onChange={(e) =>
+                    update.mutate(
+                      { id: it.id, status: e.target.value },
+                      {
+                        onSuccess: () => toast.success('Checklist updated'),
+                        onError: (err) => toast.error('Failed', (err as Error).message),
+                      },
+                    )
+                  }
+                  className="h-8 w-32"
+                >
+                  {CHECKLIST_STATUSES.map((s) => (
+                    <option key={s} value={s}>{s}</option>
+                  ))}
+                </Select>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   )
 }
 

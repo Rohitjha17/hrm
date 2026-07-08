@@ -5,14 +5,13 @@ import type { Tables } from '@/types/database.types'
 export type OnboardingTemplate = Tables<'onboarding_templates'>
 export type OnboardingItem = Tables<'onboarding_items'>
 
-export function useTemplates() {
+export function useTemplates(docTypes?: readonly string[]) {
   return useQuery({
-    queryKey: ['onboarding-templates'],
+    queryKey: ['onboarding-templates', docTypes ?? 'all'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('onboarding_templates')
-        .select('*')
-        .order('created_at')
+      let q = supabase.from('onboarding_templates').select('*').order('created_at')
+      if (docTypes?.length) q = q.in('doc_type', [...docTypes])
+      const { data, error } = await q
       if (error) throw error
       return data
     },

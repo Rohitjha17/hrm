@@ -88,9 +88,10 @@ export interface AdminAttendanceRow extends AttendanceDay {
   profiles: { full_name: string; email: string } | null
 }
 
-export function useAdminAttendance(workDate: string) {
+export function useAdminAttendance(from: string, to: string) {
   return useQuery({
-    queryKey: ['admin-attendance', workDate],
+    queryKey: ['admin-attendance', from, to],
+    enabled: !!from && !!to,
     // Realtime drives instant updates; this poll is a resilience fallback so the
     // live monitor stays correct even if a websocket drops.
     refetchInterval: 5000,
@@ -98,7 +99,9 @@ export function useAdminAttendance(workDate: string) {
       const { data, error } = await supabase
         .from('attendance_days')
         .select('*, profiles(full_name,email)')
-        .eq('work_date', workDate)
+        .gte('work_date', from)
+        .lte('work_date', to)
+        .order('work_date', { ascending: false })
         .order('updated_at', { ascending: false })
       if (error) throw error
       return (data ?? []) as unknown as AdminAttendanceRow[]

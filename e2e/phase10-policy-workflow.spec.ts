@@ -41,7 +41,7 @@ test.describe('Phase 10 — policies & workflow engine', () => {
     await empCtx.close()
   })
 
-  test('workflow: build a multi-level approval and route an item through it', async ({ page }) => {
+  test('workflow: build a multi-step rulebook (view-only, no execution)', async ({ page }) => {
     await loginAs(page, sunil)
     await page.goto('/admin/workflows')
     await expect(page.getByTestId('workflow-admin-page')).toBeVisible()
@@ -62,19 +62,12 @@ test.describe('Phase 10 — policies & workflow engine', () => {
     await page.getByTestId('add-step').click()
     await expect(page.getByTestId('step-row')).toHaveCount(2)
 
-    // Start an instance and route it through both levels.
-    await page.getByTestId('instance-title').fill('Laptop purchase')
-    await page.getByTestId('start-instance').click()
+    // Workflows are a rulebook, not an automation: no execution controls.
+    await expect(page.getByTestId('start-instance')).toHaveCount(0)
+    await expect(page.getByTestId('instance-title')).toHaveCount(0)
 
-    await page.goto('/approvals')
-    const row = page.getByTestId('instance-row').filter({ hasText: 'Laptop purchase' })
-    await expect(row).toBeVisible({ timeout: 10_000 })
-    await expect(row.getByTestId('instance-step')).toHaveText('Step 1')
-
-    await row.getByTestId('approve-instance').click()
-    await expect(row.getByTestId('instance-step')).toHaveText('Step 2', { timeout: 10_000 })
-
-    await row.getByTestId('approve-instance').click()
-    await expect(row.getByTestId('instance-status')).toHaveText('approved', { timeout: 10_000 })
+    // Steps can be removed (rulebook stays editable).
+    await page.getByTestId('delete-step-2').click()
+    await expect(page.getByTestId('step-row')).toHaveCount(1)
   })
 })

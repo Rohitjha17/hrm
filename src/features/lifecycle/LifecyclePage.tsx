@@ -8,6 +8,8 @@ import {
   useResignation,
   useStartExit,
 } from './hooks'
+import { useTemplates, type OnboardingTemplate } from '@/features/onboarding/hooks'
+import { TemplateModal } from '@/features/onboarding/TemplateModal'
 import { useUsers } from '@/features/admin/users/hooks'
 import { useToast } from '@/components/ui/toast-context'
 import { generateLetterPdf } from '@/lib/pdfLetter'
@@ -20,6 +22,7 @@ import { Label } from '@/components/ui/Label'
 import { Select } from '@/components/ui/Select'
 
 const EVENT_TYPES = ['joining', 'confirmation', 'promotion', 'transfer', 'department_change', 'salary_revision', 'exit']
+const EXIT_DOC_TYPES = ['experience', 'relieving', 'no_due', 'exit_other']
 
 export function LifecyclePage() {
   const { data: users = [] } = useUsers()
@@ -37,6 +40,21 @@ export function LifecyclePage() {
   const [eventType, setEventType] = useState('promotion')
   const [eventDate, setEventDate] = useState('')
   const [exitDate, setExitDate] = useState('')
+  const [tplOpen, setTplOpen] = useState(false)
+  const { data: exitTemplates = [] } = useTemplates(EXIT_DOC_TYPES)
+
+  function genFromTemplate(tpl: OnboardingTemplate) {
+    const body = tpl.body
+      .replaceAll('{{full_name}}', employee?.full_name || '')
+      .replaceAll('{{employee_code}}', employee?.employee_code || '')
+      .replaceAll('{{date}}', new Date().toLocaleDateString())
+      .replaceAll('{{last_working_date}}', resignation?.last_working_date ?? '—')
+    generateLetterPdf(
+      `${tpl.doc_type}-${(employee?.full_name || 'doc').replace(/\s+/g, '-').toLowerCase()}`,
+      tpl.title,
+      body.split('\n\n'),
+    )
+  }
 
   function genDoc(kind: 'Experience Letter' | 'Relieving Letter' | 'No-Due Certificate') {
     generateLetterPdf(`${kind.replace(/\s+/g, '-').toLowerCase()}-${employee?.full_name?.replace(/\s+/g, '-').toLowerCase()}`, kind, [
@@ -148,9 +166,47 @@ export function LifecyclePage() {
                 </div>
               </>
             )}
+
+            <div className="border-t border-slate-100 pt-3" data-testid="exit-templates">
+              <div className="mb-2 flex items-center justify-between">
+                <h3 className="text-sm font-semibold text-slate-700">Exit document templates</h3>
+                <Button size="sm" variant="outline" data-testid="new-exit-template" onClick={() => setTplOpen(true)}>
+                  <Plus className="size-4" /> New template
+                </Button>
+              </div>
+              {exitTemplates.length === 0 ? (
+                <p className="text-xs text-slate-400" data-testid="exit-templates-empty">
+                  No exit templates yet — create experience, relieving or no-due letter templates.
+                </p>
+              ) : (
+                <ul className="space-y-2">
+                  {exitTemplates.map((t) => (
+                    <li key={t.id} data-testid="exit-template-row" className="flex items-center justify-between rounded-lg border border-slate-100 p-2 text-sm">
+                      <span className="flex items-center gap-2">
+                        <Badge tone="slate">{t.doc_type}</Badge>
+                        {t.title}
+                      </span>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        data-testid={`generate-exit-${t.doc_type}`}
+                        disabled={!employee}
+                        onClick={() => genFromTemplate(t)}
+                      >
+                        <FileText className="size-4" /> Generate
+                      </Button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
           </CardBody>
         </Card>
       </div>
+
+      {tplOpen && (
+        <TemplateModal docTypes={EXIT_DOC_TYPES} title="New exit document template" onClose={() => setTplOpen(false)} />
+      )}
     </div>
   )
 }

@@ -4,6 +4,12 @@ import type { Tables } from '@/types/database.types'
 
 export type Opening = Tables<'job_openings'>
 export type Candidate = Tables<'candidates'>
+export type CandidateDocument = Tables<'candidate_documents'>
+export type CandidateChecklistItem = Tables<'candidate_checklist_items'>
+
+export interface OpeningRow extends Opening {
+  department: { name: string } | null
+}
 
 export interface InterviewRow extends Tables<'interviews'> {
   interviewer: { full_name: string } | null
@@ -15,10 +21,10 @@ export function useOpenings() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('job_openings')
-        .select('*')
+        .select('*, department:departments(name)')
         .order('created_at', { ascending: false })
       if (error) throw error
-      return data
+      return (data ?? []) as unknown as OpeningRow[]
     },
   })
 }
@@ -26,8 +32,15 @@ export function useOpenings() {
 export function useCreateOpening() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async (input: { title: string; designation: string; description?: string }) => {
-      const { error } = await supabase.from('job_openings').insert(input)
+    mutationFn: async (input: { departmentId: string; designation: string; description?: string }) => {
+      const { error } = await supabase.from('job_openings').insert({
+        // Openings are identified by department + designation; title mirrors the
+        // designation for backwards compatibility (column is NOT NULL).
+        title: input.designation,
+        designation: input.designation,
+        department_id: input.departmentId,
+        description: input.description || null,
+      })
       if (error) throw error
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['openings'] }),
@@ -108,6 +121,95 @@ export function useSendOffer() {
       if (uErr) throw uErr
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['candidates'] }),
+  })
+}
+
+export interface CandidateDocRow extends CandidateDocument {
+  uploader: { full_name: string } | null
+}
+
+export function useCandidateDocuments(candidateId: string | null) {
+  return useQuery({
+    queryKey: ['candidate-documents', candidateId],
+    enabled: !!candidateId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('candidate_documents')
+        .select('*, uploader:profiles(full_name)')
+        .eq('candidate_id', candidateId!)
+        .order('created_at', { ascending: false })
+      if (error) throw error
+      return (data ?? []) as unknown as CandidateDocRow[]
+    },
+  })
+}
+
+export function useUploadCandidateDocument() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: { candidateId: string; title: string; file: File }) => {
+      const path = `candidates/${input.candidateId}/${crypto.randomUUID()}-${input.file.name}`
+      const up = await supabase.storage.from('documents').upload(path, input.file, { upsert: false })
+      if (up.error) throw up.error
+      const { data: auth } = await supabase.auth.getUser()
+      const { error } = await supabase.from('candidate_documents').insert({
+        candidate_id: input.candidateId,
+        title: input.title || input.file.name,
+        storage_path: path,
+        uploaded_by: auth.user?.id ?? null,
+      })
+      if (error) throw error
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['candidate-documents'] }),
+  })
+}
+
+export async function getCandidateDocUrl(path: string) {
+  const { data, error } = await supabase.storage.from('documents').createSignedUrl(path, 60)
+  if (error) throw error
+  return data.signedUrl
+}
+
+export function useCandidateChecklist(candidateId: string | null) {
+  return useQuery({
+    queryKey: ['candidate-checklist', candidateId],
+    enabled: !!candidateId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('candidate_checklist_items')
+        .select('*')
+        .eq('candidate_id', candidateId!)
+        .order('item_key')
+      if (error) throw error
+      return data
+    },
+  })
+}
+
+export function useStartCandidateChecklist() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (candidateId: string) => {
+      const { error } = await supabase.rpc('start_candidate_checklist', { p_candidate: candidateId })
+      if (error) throw error
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['candidate-checklist'] }),
+  })
+}
+
+export function useUpdateChecklistItem() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: { id: string; status: string; note?: string }) => {
+      const patch: { status: string; note?: string | null } = { status: input.status }
+      if (input.note !== undefined) patch.note = input.note || null
+      const { error } = await supabase
+        .from('candidate_checklist_items')
+        .update(patch)
+        .eq('id', input.id)
+      if (error) throw error
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['candidate-checklist'] }),
   })
 }
 

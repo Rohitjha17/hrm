@@ -1,10 +1,11 @@
 import { useState } from 'react'
-import { Plus, Play } from 'lucide-react'
+import { Plus, Trash2 } from 'lucide-react'
 import {
   useAddStep,
   useCreateDefinition,
   useDefinitions,
-  useStartInstance,
+  useDeleteDefinition,
+  useDeleteStep,
   useSteps,
 } from './hooks'
 import { usePermissionsCatalog } from '@/features/admin/roles/hooks'
@@ -26,18 +27,18 @@ export function WorkflowAdminPage() {
   const { data: steps = [] } = useSteps(selected?.id ?? null)
   const { data: permissions = [] } = usePermissionsCatalog()
   const addStep = useAddStep()
-  const startInstance = useStartInstance()
+  const deleteStep = useDeleteStep()
+  const deleteDefinition = useDeleteDefinition()
   const toast = useToast()
   const [defModal, setDefModal] = useState(false)
   const [stepName, setStepName] = useState('')
   const [stepPerm, setStepPerm] = useState('leave.approve')
-  const [startTitle, setStartTitle] = useState('')
 
   return (
     <div data-testid="workflow-admin-page">
       <PageHeader
-        title="Workflow Builder"
-        description="Configure no-code multi-level approval workflows."
+        title="Workflows"
+        description="A rulebook of your processes — document each workflow as an ordered plan of steps. These are reference plans, not automations."
         actions={
           <Button data-testid="new-definition-button" onClick={() => setDefModal(true)}>
             <Plus className="size-4" /> New workflow
@@ -68,14 +69,45 @@ export function WorkflowAdminPage() {
         {selected && (
           <Card>
             <CardBody className="space-y-4">
-              <h2 className="text-lg font-semibold text-slate-900">{selected.name}</h2>
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-semibold text-slate-900">{selected.name}</h2>
+                <button
+                  data-testid="delete-definition"
+                  aria-label={`Delete workflow ${selected.name}`}
+                  className="text-slate-400 hover:text-red-600"
+                  onClick={() =>
+                    deleteDefinition.mutate(selected.id, {
+                      onSuccess: () => {
+                        toast.success('Workflow deleted')
+                        setSelectedId(null)
+                      },
+                      onError: (err) => toast.error('Delete failed', (err as Error).message),
+                    })
+                  }
+                >
+                  <Trash2 className="size-4" />
+                </button>
+              </div>
 
               <ol className="space-y-2" data-testid="steps-list">
                 {steps.map((s) => (
                   <li key={s.id} data-testid="step-row" className="flex items-center gap-3 rounded-lg border border-slate-100 p-2 text-sm">
                     <Badge tone="brand">Step {s.step_order}</Badge>
                     <span className="font-medium">{s.name}</span>
-                    <span className="text-xs text-slate-400">requires {s.approver_permission}</span>
+                    <span className="text-xs text-slate-400">owned by {s.approver_permission}</span>
+                    <button
+                      data-testid={`delete-step-${s.step_order}`}
+                      aria-label={`Delete step ${s.name}`}
+                      className="ml-auto text-slate-300 hover:text-red-600"
+                      onClick={() =>
+                        deleteStep.mutate(s.id, {
+                          onSuccess: () => toast.success('Step removed'),
+                          onError: (err) => toast.error('Delete failed', (err as Error).message),
+                        })
+                      }
+                    >
+                      <Trash2 className="size-4" />
+                    </button>
                   </li>
                 ))}
               </ol>
@@ -106,7 +138,7 @@ export function WorkflowAdminPage() {
                   <Input data-testid="step-name" value={stepName} onChange={(e) => setStepName(e.target.value)} required className="w-40" />
                 </div>
                 <div>
-                  <Label className="text-xs">Approver permission</Label>
+                  <Label className="text-xs">Responsible permission</Label>
                   <Select data-testid="step-permission" value={stepPerm} onChange={(e) => setStepPerm(e.target.value)} className="w-52">
                     {permissions
                       .filter((p) => p.key !== '*')
@@ -122,30 +154,6 @@ export function WorkflowAdminPage() {
                 </Button>
               </form>
 
-              <div className="border-t border-slate-100 pt-3">
-                <Label className="text-xs">Start an instance (demo)</Label>
-                <form
-                  className="flex items-end gap-2"
-                  onSubmit={(e) => {
-                    e.preventDefault()
-                    startInstance.mutate(
-                      { definitionId: selected.id, title: startTitle.trim() },
-                      {
-                        onSuccess: () => {
-                          toast.success('Instance started')
-                          setStartTitle('')
-                        },
-                        onError: (err) => toast.error('Failed', (err as Error).message),
-                      },
-                    )
-                  }}
-                >
-                  <Input data-testid="instance-title" placeholder="Request title" value={startTitle} onChange={(e) => setStartTitle(e.target.value)} required className="w-56" />
-                  <Button type="submit" size="sm" variant="outline" data-testid="start-instance" loading={startInstance.isPending}>
-                    <Play className="size-4" /> Start
-                  </Button>
-                </form>
-              </div>
             </CardBody>
           </Card>
         )}

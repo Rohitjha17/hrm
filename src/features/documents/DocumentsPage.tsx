@@ -31,7 +31,7 @@ export function DocumentsPage() {
 
   return (
     <div data-testid="documents-page">
-      <PageHeader title="Employee Documents" description="Versioned, access-controlled document repository." />
+      <PageHeader title="Doc Vault" description="Versioned, access-controlled document repository." />
 
       <Card className="mb-4">
         <CardBody>

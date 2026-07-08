@@ -41,6 +41,18 @@ export function slotLabelFromStart(startTime: string, intervalHours: number): st
   return `${fmt(startMin)}–${fmt(endMin)}`
 }
 
+/** Build a "HH:MM–HH:MM" label for a slot with an explicit start and end. */
+export function slotLabelFromRange(startTime: string, endTime: string): string {
+  return `${startTime.slice(0, 5)}–${endTime.slice(0, 5)}`
+}
+
+/** Add `hours` to a "HH:MM" time, clamped to 23:59. */
+export function addHours(startTime: string, hours: number): string {
+  const [h, m] = startTime.split(':').map(Number)
+  const total = Math.min(h * 60 + (m || 0) + Math.round(hours * 60), 23 * 60 + 59)
+  return `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`
+}
+
 export function nextDay(date: string): string {
   const d = new Date(`${date}T00:00:00Z`)
   d.setUTCDate(d.getUTCDate() + 1)

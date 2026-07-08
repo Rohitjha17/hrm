@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Settings } from 'lucide-react'
 import {
   useAdminAttendance,
@@ -31,11 +31,61 @@ export function AttendanceMonitorPage() {
   const canManage = hasPermission('attendance.manage')
   const { data: config } = useAttendanceConfig()
   const tz = config?.timezone ?? 'Asia/Kolkata'
-  const [date, setDate] = useState(todayInTz(tz))
-  const { data: rows = [], isLoading } = useAdminAttendance(date)
+  const today = todayInTz(tz)
+  const [from, setFrom] = useState(today)
+  const [to, setTo] = useState(today)
+  const { data: rows = [], isLoading } = useAdminAttendance(from, to)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const multiDay = from !== to
 
   useAttendanceRealtime()
+
+  const summary = useMemo(() => {
+    const s = {
+      records: rows.length,
+      employees: new Set(rows.map((r) => r.user_id)).size,
+      fullDays: 0,
+      halfDays: 0,
+      absents: 0,
+      lates: 0,
+      workedMinutes: 0,
+      overtimeMinutes: 0,
+    }
+    for (const r of rows) {
+      if (r.status === 'full_day' || r.status === 'present') s.fullDays++
+      else if (r.status === 'half_day' || r.status === 'quarter_day') s.halfDays++
+      else if (r.status === 'absent') s.absents++
+      if (r.is_late) s.lates++
+      s.workedMinutes += r.worked_minutes ?? 0
+      s.overtimeMinutes += r.overtime_minutes ?? 0
+    }
+    return s
+  }, [rows])
+
+  const perEmployee = useMemo(() => {
+    if (!multiDay) return []
+    const map = new Map<
+      string,
+      { name: string; email: string; days: number; worked: number; lates: number; overtime: number }
+    >()
+    for (const r of rows) {
+      const key = r.user_id
+      const cur = map.get(key) ?? {
+        name: r.profiles?.full_name || r.profiles?.email || r.user_id,
+        email: r.profiles?.email ?? r.user_id,
+        days: 0,
+        worked: 0,
+        lates: 0,
+        overtime: 0,
+      }
+      if (r.status !== 'absent') cur.days++
+      cur.worked += r.worked_minutes ?? 0
+      if (r.is_late) cur.lates++
+      cur.overtime += r.overtime_minutes ?? 0
+      map.set(key, cur)
+    }
+    return [...map.values()].sort((a, b) => b.worked - a.worked)
+  }, [rows, multiDay])
 
   return (
     <div data-testid="attendance-monitor-page">
@@ -51,16 +101,29 @@ export function AttendanceMonitorPage() {
         }
       />
 
-      <div className="mb-4 flex items-center gap-2">
-        <Label htmlFor="monitor-date" className="mb-0">
-          Date
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        <Label htmlFor="monitor-from" className="mb-0">
+          From
         </Label>
         <Input
-          id="monitor-date"
-          data-testid="monitor-date"
+          id="monitor-from"
+          data-testid="monitor-from"
           type="date"
-          value={date}
-          onChange={(e) => setDate(e.target.value)}
+          value={from}
+          max={to}
+          onChange={(e) => setFrom(e.target.value)}
+          className="w-44"
+        />
+        <Label htmlFor="monitor-to" className="mb-0">
+          To
+        </Label>
+        <Input
+          id="monitor-to"
+          data-testid="monitor-to"
+          type="date"
+          value={to}
+          min={from}
+          onChange={(e) => setTo(e.target.value)}
           className="w-44"
         />
         <span className="ml-2 inline-flex items-center gap-1.5 text-xs text-emerald-600">
@@ -68,13 +131,52 @@ export function AttendanceMonitorPage() {
         </span>
       </div>
 
+      <div data-testid="monitor-summary" className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-7">
+        <SummaryTile label="Employees" value={String(summary.employees)} testid="summary-employees" />
+        <SummaryTile label="Records" value={String(summary.records)} testid="summary-records" />
+        <SummaryTile label="Full / Present" value={String(summary.fullDays)} testid="summary-full" tone="text-emerald-600" />
+        <SummaryTile label="Half / Quarter" value={String(summary.halfDays)} testid="summary-half" tone="text-amber-600" />
+        <SummaryTile label="Absent" value={String(summary.absents)} testid="summary-absent" tone="text-red-600" />
+        <SummaryTile label="Late arrivals" value={String(summary.lates)} testid="summary-late" tone="text-amber-600" />
+        <SummaryTile label="Total worked" value={formatMinutes(summary.workedMinutes)} testid="summary-worked" />
+      </div>
+
+      {multiDay && perEmployee.length > 0 && (
+        <div className="mb-6">
+          <h3 className="mb-2 text-sm font-semibold text-slate-700">Per-employee summary ({from} → {to})</h3>
+          <Table data-testid="monitor-emp-summary">
+            <Thead>
+              <tr>
+                <Th>Employee</Th>
+                <Th>Days present</Th>
+                <Th>Total worked</Th>
+                <Th>Late</Th>
+                <Th>Overtime</Th>
+              </tr>
+            </Thead>
+            <Tbody>
+              {perEmployee.map((e) => (
+                <tr key={e.email} data-testid={`emp-summary-${e.email}`}>
+                  <Td className="font-medium text-slate-900">{e.name}</Td>
+                  <Td>{e.days}</Td>
+                  <Td>{formatMinutes(e.worked)}</Td>
+                  <Td>{e.lates > 0 ? <Badge tone="amber">{e.lates}</Badge> : '—'}</Td>
+                  <Td>{e.overtime > 0 ? formatMinutes(e.overtime) : '—'}</Td>
+                </tr>
+              ))}
+            </Tbody>
+          </Table>
+        </div>
+      )}
+
       {!isLoading && rows.length === 0 ? (
-        <EmptyState title="No attendance recorded for this date" testid="monitor-empty" />
+        <EmptyState title="No attendance recorded for this range" testid="monitor-empty" />
       ) : (
         <Table data-testid="monitor-table">
           <Thead>
             <tr>
               <Th>Employee</Th>
+              {multiDay && <Th>Date</Th>}
               <Th>Status</Th>
               <Th>Worked</Th>
               <Th>First In</Th>
@@ -88,6 +190,7 @@ export function AttendanceMonitorPage() {
                 <Td className="font-medium text-slate-900">
                   {r.profiles?.full_name || r.profiles?.email || r.user_id}
                 </Td>
+                {multiDay && <Td className="text-xs text-slate-500">{r.work_date}</Td>}
                 <Td>
                   <span data-status={r.status}>
                     <Badge tone={STATUS_TONE[r.status] ?? 'slate'}>{r.status}</Badge>
@@ -113,6 +216,25 @@ export function AttendanceMonitorPage() {
       )}
 
       {settingsOpen && <ConfigModal onClose={() => setSettingsOpen(false)} />}
+    </div>
+  )
+}
+
+function SummaryTile({
+  label,
+  value,
+  testid,
+  tone = 'text-slate-900',
+}: {
+  label: string
+  value: string
+  testid: string
+  tone?: string
+}) {
+  return (
+    <div className="rounded-lg border border-slate-200 bg-white px-3 py-2" data-testid={testid}>
+      <div className="text-[11px] font-medium tracking-wide text-slate-500 uppercase">{label}</div>
+      <div className={`text-lg font-semibold ${tone}`}>{value}</div>
     </div>
   )
 }

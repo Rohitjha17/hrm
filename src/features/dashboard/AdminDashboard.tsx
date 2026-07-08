@@ -97,7 +97,7 @@ export function AdminDashboard() {
 
   const { data: users = [] } = useUsers()
   const { data: departments = [] } = useDepartments()
-  const { data: attendance = [] } = useAdminAttendance(today)
+  const { data: attendance = [] } = useAdminAttendance(today, today)
   const { data: pendingLeaves = [] } = usePendingApprovals()
   const { data: tasks = [] } = useTasks()
   const { data: tickets = [] } = useTickets()

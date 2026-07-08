@@ -76,18 +76,42 @@ export function useCreateTask() {
   })
 }
 
-/** Update a task's persistent remarks. RLS allows creator, assignee or task manager. */
-export function useUpdateTaskRemarks() {
+export interface TaskRemarkRow extends Tables<'task_remarks'> {
+  author: { full_name: string; email: string } | null
+}
+
+/** Append-only remark history for a task (newest first). */
+export function useTaskRemarks(taskId: string | null) {
+  return useQuery({
+    queryKey: ['task-remarks', taskId],
+    enabled: !!taskId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('task_remarks')
+        .select('*, author:profiles!task_remarks_author_id_fkey(full_name,email)')
+        .eq('task_id', taskId!)
+        .order('created_at', { ascending: false })
+      if (error) throw error
+      return (data ?? []) as unknown as TaskRemarkRow[]
+    },
+  })
+}
+
+/** Add a remark to the task's history. RLS/RPC allows creator, assignee or task manager. */
+export function useAddTaskRemark() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async (args: { taskId: string; remarks: string }) => {
-      const { error } = await supabase
-        .from('tasks')
-        .update({ remarks: args.remarks.trim() || null })
-        .eq('id', args.taskId)
+    mutationFn: async (args: { taskId: string; body: string }) => {
+      const { error } = await supabase.rpc('add_task_remark', {
+        p_task: args.taskId,
+        p_body: args.body,
+      })
       if (error) throw error
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['tasks'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['tasks'] })
+      qc.invalidateQueries({ queryKey: ['task-remarks'] })
+    },
   })
 }
 
