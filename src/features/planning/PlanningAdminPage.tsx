@@ -16,6 +16,7 @@ import { Badge } from '@/components/ui/Badge'
 import { Input } from '@/components/ui/Input'
 import { Label } from '@/components/ui/Label'
 import { Select } from '@/components/ui/Select'
+import { Textarea } from '@/components/ui/Textarea'
 import { Modal } from '@/components/ui/Modal'
 import { Table, Tbody, Td, Th, Thead } from '@/components/ui/Table'
 
@@ -25,9 +26,10 @@ export function PlanningAdminPage() {
   const [employeeFilter, setEmployeeFilter] = useState('')
   const { data: users = [] } = useUsers()
   const { data: compliance = [] } = useComplianceForDate(date)
-  const unlock = useUnlockPlanning()
-  const toast = useToast()
   const [viewUser, setViewUser] = useState<{ id: string; name: string } | null>(null)
+  const [unlockUser, setUnlockUser] = useState<{ id: string; name: string; email: string } | null>(
+    null,
+  )
 
   usePlanningRealtime()
 
@@ -37,7 +39,10 @@ export function PlanningAdminPage() {
 
   return (
     <div data-testid="planning-admin-page">
-      <PageHeader title="Planning Monitor" description={`Policy: ${config?.policy ?? '—'}. Unlock to override the punch-out block.`} />
+      <PageHeader
+        title="Planning Monitor"
+        description={`Policy: ${config?.policy ?? '—'}. Incomplete planning blocks punch-out and locks the next day's punch-in — unlock (with a remark) to override.`}
+      />
 
       <div className="mb-4 flex flex-wrap items-center gap-3">
         <div className="flex items-center gap-2">
@@ -88,6 +93,15 @@ export function PlanningAdminPage() {
                   <Badge tone={compliant ? 'green' : 'amber'} data-testid={`compliance-${u.email}`} data-compliant={compliant}>
                     {compliant ? (c?.unlocked ? 'unlocked' : 'complete') : 'pending'}
                   </Badge>
+                  {c?.unlocked && c.unlock_remarks && (
+                    <p
+                      className="mt-1 max-w-64 truncate text-xs text-slate-400"
+                      data-testid={`unlock-remark-${u.email}`}
+                      title={c.unlock_remarks}
+                    >
+                      {c.unlock_remarks}
+                    </p>
+                  )}
                 </Td>
                 <Td>
                   <div className="flex justify-end gap-1">
@@ -104,15 +118,8 @@ export function PlanningAdminPage() {
                       variant="outline"
                       data-testid={`unlock-${u.email}`}
                       disabled={compliant}
-                      loading={unlock.isPending}
                       onClick={() =>
-                        unlock.mutate(
-                          { userId: u.id, date },
-                          {
-                            onSuccess: () => toast.success('Planning unlocked'),
-                            onError: (e) => toast.error('Unlock failed', (e as Error).message),
-                          },
-                        )
+                        setUnlockUser({ id: u.id, name: u.full_name || u.email, email: u.email })
                       }
                     >
                       <Unlock className="size-3.5" /> Unlock
@@ -126,7 +133,75 @@ export function PlanningAdminPage() {
       </Table>
 
       {viewUser && <PlanView user={viewUser} date={date} onClose={() => setViewUser(null)} />}
+      {unlockUser && (
+        <UnlockModal user={unlockUser} date={date} onClose={() => setUnlockUser(null)} />
+      )}
     </div>
+  )
+}
+
+/** Unlocking overrides the punch gates, so it always needs a written reason. */
+function UnlockModal({
+  user,
+  date,
+  onClose,
+}: {
+  user: { id: string; name: string; email: string }
+  date: string
+  onClose: () => void
+}) {
+  const unlock = useUnlockPlanning()
+  const toast = useToast()
+  const [remarks, setRemarks] = useState('')
+
+  return (
+    <Modal open onClose={onClose} title={`Unlock planning: ${user.name}`} testid="unlock-modal">
+      <form
+        className="space-y-4"
+        onSubmit={(e) => {
+          e.preventDefault()
+          unlock.mutate(
+            { userId: user.id, date, remarks: remarks.trim() },
+            {
+              onSuccess: () => {
+                toast.success('Planning unlocked')
+                onClose()
+              },
+              onError: (err) => toast.error('Unlock failed', (err as Error).message),
+            },
+          )
+        }}
+      >
+        <p className="text-sm text-slate-600">
+          Unlocking {date} lifts the punch-out block and the next-day punch-in lock for{' '}
+          {user.name}. A remark is required.
+        </p>
+        <div>
+          <Label htmlFor="unlock-remark">Remark</Label>
+          <Textarea
+            id="unlock-remark"
+            data-testid="unlock-remark"
+            rows={2}
+            placeholder="Why is this being unlocked? (required)"
+            value={remarks}
+            onChange={(e) => setRemarks(e.target.value)}
+          />
+        </div>
+        <div className="flex justify-end gap-2">
+          <Button type="button" variant="outline" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button
+            type="submit"
+            data-testid="unlock-save"
+            disabled={!remarks.trim()}
+            loading={unlock.isPending}
+          >
+            <Unlock className="size-4" /> Unlock
+          </Button>
+        </div>
+      </form>
+    </Modal>
   )
 }
 

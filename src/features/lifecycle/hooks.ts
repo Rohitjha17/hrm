@@ -38,6 +38,25 @@ export function useAddEvent() {
   })
 }
 
+/** Correct an existing timeline event (type, date or note). */
+export function useUpdateEvent() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: { id: string; eventType: string; eventDate: string; note?: string }) => {
+      const { error } = await supabase
+        .from('lifecycle_events')
+        .update({
+          event_type: input.eventType,
+          event_date: input.eventDate,
+          note: input.note?.trim() || null,
+        })
+        .eq('id', input.id)
+      if (error) throw error
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['lifecycle'] }),
+  })
+}
+
 export function useResignation(employeeId: string | null) {
   return useQuery({
     queryKey: ['resignation', employeeId],

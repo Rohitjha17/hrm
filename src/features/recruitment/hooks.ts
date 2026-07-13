@@ -94,31 +94,31 @@ export function useUpdateCandidate() {
   })
 }
 
-/** Route an offer through the Offer Approval workflow (Phase 10 engine). */
+/** Mark the offer as sent; it awaits an in-place approve/reject decision. */
 export function useSendOffer() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async (candidate: { id: string; full_name: string }) => {
-      const { data: def, error: dErr } = await supabase
-        .from('workflow_definitions')
-        .select('id')
-        .eq('entity_type', 'recruitment_offer')
-        .eq('is_active', true)
-        .limit(1)
-        .single()
-      if (dErr) throw dErr
-      const { error: sErr } = await supabase.rpc('start_workflow', {
-        p_definition: def.id,
-        p_title: `Offer: ${candidate.full_name}`,
-        p_entity_type: 'recruitment_offer',
-        p_entity_id: candidate.id,
-      })
-      if (sErr) throw sErr
-      const { error: uErr } = await supabase
+      const { error } = await supabase
         .from('candidates')
         .update({ offer_status: 'pending' })
         .eq('id', candidate.id)
-      if (uErr) throw uErr
+      if (error) throw error
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['candidates'] }),
+  })
+}
+
+/** Approve or reject a pending offer directly on the candidate. */
+export function useDecideOffer() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: { id: string; decision: 'approved' | 'rejected' }) => {
+      const { error } = await supabase
+        .from('candidates')
+        .update({ offer_status: input.decision })
+        .eq('id', input.id)
+      if (error) throw error
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['candidates'] }),
   })

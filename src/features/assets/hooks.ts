@@ -35,6 +35,42 @@ export function useCreateAsset() {
   })
 }
 
+/** Remove an asset and its assignment history. Requires assets.manage. */
+export function useDeleteAsset() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (assetId: string) => {
+      const { error } = await supabase.from('assets').delete().eq('id', assetId)
+      if (error) throw error
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['assets'] })
+      qc.invalidateQueries({ queryKey: ['asset-assignments'] })
+    },
+  })
+}
+
+export interface MyAssetRow extends Tables<'asset_assignments'> {
+  asset: { name: string; asset_type: string; serial: string | null; batch_no: string | null } | null
+}
+
+/** Assets ever assigned to the signed-in employee (current ones first). */
+export function useMyAssets(userId: string | null) {
+  return useQuery({
+    queryKey: ['my-assets', userId],
+    enabled: !!userId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('asset_assignments')
+        .select('*, asset:assets(name,asset_type,serial,batch_no)')
+        .eq('assignee_id', userId!)
+        .order('assigned_at', { ascending: false })
+      if (error) throw error
+      return (data ?? []) as unknown as MyAssetRow[]
+    },
+  })
+}
+
 /** Active (unreturned) assignments → map asset_id → current holder name, for the list view. */
 export function useActiveAssignments() {
   return useQuery({

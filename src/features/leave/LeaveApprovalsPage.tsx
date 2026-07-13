@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { Check, MessageSquarePlus, Plus, Trash2, X } from 'lucide-react'
 import {
+  DURATION_LABEL,
+  type LeaveDuration,
   useAllLeaveRequests,
   useCreateHoliday,
   useDecideLeave,
@@ -84,6 +86,7 @@ export function LeaveApprovalsPage() {
               <Th>Type</Th>
               <Th>From</Th>
               <Th>To</Th>
+              <Th>Duration</Th>
               <Th>Days</Th>
               <Th className="text-right">Decision</Th>
             </tr>
@@ -95,6 +98,9 @@ export function LeaveApprovalsPage() {
                 <Td>{r.leave_type?.name}</Td>
                 <Td>{r.start_date}</Td>
                 <Td>{r.end_date}</Td>
+                <Td data-testid="approval-duration">
+                  {DURATION_LABEL[(r.duration as LeaveDuration) ?? 'full_day'] ?? 'Full day'}
+                </Td>
                 <Td>{r.days}</Td>
                 <Td>
                   <div className="flex justify-end gap-1">
@@ -164,6 +170,7 @@ export function LeaveApprovalsPage() {
                 <Th>Type</Th>
                 <Th>From</Th>
                 <Th>To</Th>
+                <Th>Duration</Th>
                 <Th>Days</Th>
                 <Th>Status</Th>
                 <Th>Admin remark</Th>
@@ -177,6 +184,7 @@ export function LeaveApprovalsPage() {
                   <Td>{r.leave_type?.name}</Td>
                   <Td>{r.start_date}</Td>
                   <Td>{r.end_date}</Td>
+                  <Td>{DURATION_LABEL[(r.duration as LeaveDuration) ?? 'full_day'] ?? 'Full day'}</Td>
                   <Td>{r.days}</Td>
                   <Td>
                     <Badge tone={STATUS_TONE[r.status as keyof typeof STATUS_TONE]}>{r.status}</Badge>

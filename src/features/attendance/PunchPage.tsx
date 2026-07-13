@@ -1,6 +1,7 @@
 import { useState } from 'react'
-import { Clock, Fingerprint, MapPin } from 'lucide-react'
+import { Clock, Fingerprint, Lock, MapPin } from 'lucide-react'
 import { useAttendanceConfig, useMyAttendance, type PunchResult } from './hooks'
+import { usePunchInLock } from '@/features/planning/hooks'
 import { SelfiePunchModal } from './SelfiePunchModal'
 import { todayInTz, formatMinutes } from './geo'
 import { PageHeader } from '@/components/ui/PageHeader'
@@ -29,6 +30,8 @@ export function PunchPage() {
   const open = data?.open ?? false
   const day = data?.day
   const punches = data?.punches ?? []
+  const { data: lock } = usePunchInLock()
+  const locked = !open && !!lock?.locked
 
   function handleSuccess(res: PunchResult) {
     setModalType(null)
@@ -41,6 +44,20 @@ export function PunchPage() {
   return (
     <div data-testid="attendance-page">
       <PageHeader title="My Attendance" description={`Today · ${workDate}`} />
+
+      {locked && (
+        <div
+          data-testid="punch-lock-banner"
+          className="mb-4 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800"
+        >
+          <Lock className="mt-0.5 size-4 shrink-0" />
+          <p>
+            <span className="font-semibold">Punch-in locked.</span> Your planning for{' '}
+            {lock?.prev_date ?? 'the previous day'} is incomplete — all working hours must be
+            planned and the day-end update submitted. Ask an admin to unlock.
+          </p>
+        </div>
+      )}
 
       <div className="grid gap-4 lg:grid-cols-[1fr_1.4fr]">
         <Card>

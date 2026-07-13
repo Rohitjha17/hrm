@@ -14,7 +14,17 @@ test.describe('Phase 16 — lifecycle & exit management', () => {
     await page.getByTestId('event-type').selectOption('promotion')
     await page.getByTestId('event-date').fill('2026-03-01')
     await page.getByTestId('add-event').click()
-    await expect(page.getByTestId('timeline-event').filter({ hasText: 'promotion' })).toBeVisible()
+    const promo = page.getByTestId('timeline-event').filter({ hasText: 'promotion' })
+    await expect(promo).toBeVisible()
+
+    // Events can be corrected after the fact.
+    await promo.getByTestId('edit-event').click()
+    await expect(page.getByTestId('edit-event-modal')).toBeVisible()
+    await page.getByTestId('edit-event-date').fill('2026-03-15')
+    await page.getByTestId('edit-event-note').fill('Corrected effective date')
+    await page.getByTestId('save-event').click()
+    await expect(promo).toContainText('2026-03-15', { timeout: 10_000 })
+    await expect(promo).toContainText('Corrected effective date')
 
     // Start exit → default clearances appear.
     await page.getByTestId('exit-date').fill('2026-09-30')

@@ -23,13 +23,13 @@ import { ReportsPage } from '@/features/reports/ReportsPage'
 import { PolicyPage } from '@/features/policy/PolicyPage'
 import { PolicyAdminPage } from '@/features/policy/PolicyAdminPage'
 import { WorkflowAdminPage } from '@/features/workflow/WorkflowAdminPage'
-import { ApprovalsPage } from '@/features/workflow/ApprovalsPage'
 import { RecruitmentPage } from '@/features/recruitment/RecruitmentPage'
 import { OnboardingPage } from '@/features/onboarding/OnboardingPage'
 import { DocumentsPage } from '@/features/documents/DocumentsPage'
 import { AssetsPage } from '@/features/assets/AssetsPage'
 import { LifecyclePage } from '@/features/lifecycle/LifecyclePage'
 import { HelpdeskPage } from '@/features/helpdesk/HelpdeskPage'
+import { MyAssetsPage } from '@/features/assets/MyAssetsPage'
 import { AnnouncementsPage } from '@/features/engagement/AnnouncementsPage'
 import { RecognitionPage } from '@/features/engagement/RecognitionPage'
 import { VisitorsPage } from '@/features/engagement/VisitorsPage'
@@ -142,11 +142,11 @@ export function App() {
           }
         />
         <Route path="/policies" element={<PolicyPage />} />
-        <Route path="/approvals" element={<ApprovalsPage />} />
         <Route path="/helpdesk" element={<HelpdeskPage />} />
         <Route path="/announcements" element={<AnnouncementsPage />} />
         <Route path="/visitors" element={<MyVisitorsPage />} />
         <Route path="/recognition" element={<RecognitionPage />} />
+        <Route path="/my-assets" element={<MyAssetsPage />} />
         <Route
           path="/admin/visitors"
           element={

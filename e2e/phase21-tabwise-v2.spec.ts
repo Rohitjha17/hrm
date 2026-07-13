@@ -143,13 +143,13 @@ test.describe('Phase 21 — tab-wise upgrades v2', () => {
   test('7-8-11. renames: Communication, Doc Vault, Users', async ({ page }) => {
     await loginAs(page, sunil)
 
-    await expect(page.getByTestId('nav-onboarding')).toContainText('Communication')
+    await expect(page.getByTestId('nav-onboarding')).toContainText('Communication Templates')
     await expect(page.getByTestId('nav-documents')).toContainText('Doc Vault')
     await expect(page.getByTestId('nav-users')).toContainText('Users')
     await expect(page.getByTestId('nav-visitors')).toContainText('Visitors & Meetings')
 
     await page.goto('/admin/onboarding')
-    await expect(page.getByRole('heading', { name: 'Communication' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Communication Templates' })).toBeVisible()
     await page.goto('/admin/documents')
     await expect(page.getByRole('heading', { name: 'Doc Vault' })).toBeVisible()
     await page.goto('/admin/users')

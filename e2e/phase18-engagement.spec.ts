@@ -18,8 +18,10 @@ test.describe('Phase 18 — announcements, recognition & visitors', () => {
     await admin.getByTestId('publish-announcement').click()
     await expect(admin.getByTestId('announcement-card').filter({ hasText: 'Quarterly all-hands' })).toBeVisible()
 
-    // Recognition.
-    await admin.goto('/recognition')
+    // Recognition — reachable from the admin sidebar, not just by URL.
+    await expect(admin.getByTestId('nav-recognition-admin')).toBeVisible()
+    await admin.getByTestId('nav-recognition-admin').click()
+    await expect(admin.getByTestId('recognition-page')).toBeVisible()
     await admin.getByTestId('award-button').click()
     await admin.getByTestId('recognition-employee').selectOption({ label: aarti.fullName })
     await admin.getByTestId('recognition-award-type').selectOption('star_performer')

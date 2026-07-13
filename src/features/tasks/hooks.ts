@@ -133,6 +133,23 @@ export function useUpdateTaskStatus() {
   })
 }
 
+/** Change a task's due date. RLS allows the creator, assignee or task manager. */
+export function useUpdateTaskDueDate() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (args: { taskId: string; dueDate: string | null }) => {
+      const { data, error } = await supabase
+        .from('tasks')
+        .update({ due_date: args.dueDate })
+        .eq('id', args.taskId)
+        .select('id')
+      if (error) throw error
+      if (!data?.length) throw new Error('Not allowed to change the due date of this task')
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['tasks'] }),
+  })
+}
+
 export function useDeleteTask() {
   const qc = useQueryClient()
   return useMutation({

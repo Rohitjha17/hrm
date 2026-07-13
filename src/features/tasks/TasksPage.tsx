@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { History, MessageSquarePlus, Plus, Settings2, Trash2 } from 'lucide-react'
+import { Eye, EyeOff, History, MessageSquarePlus, Plus, Settings2, Trash2 } from 'lucide-react'
 import {
   useCreateStatus,
   useCreateTask,
@@ -11,6 +11,7 @@ import {
   useAddTaskRemark,
   useTaskRemarks,
   useUpdateTaskStatus,
+  useUpdateTaskDueDate,
   type TaskRow,
 } from './hooks'
 import { useUsers } from '@/features/admin/users/hooks'
@@ -48,8 +49,9 @@ export function TasksPage() {
   const [historyTask, setHistoryTask] = useState<TaskRow | null>(null)
   const [remarkTask, setRemarkTask] = useState<TaskRow | null>(null)
   const [manageOpen, setManageOpen] = useState(false)
+  const [showCompleted, setShowCompleted] = useState(false)
 
-  const visible = useMemo(() => {
+  const scoped = useMemo(() => {
     let list =
       filter === 'all' && canViewAll
         ? tasks
@@ -59,6 +61,12 @@ export function TasksPage() {
     }
     return list
   }, [tasks, filter, canViewAll, user?.id, employeeFilter])
+
+  const completedCount = useMemo(() => scoped.filter((t) => t.status?.is_terminal).length, [scoped])
+  const visible = useMemo(
+    () => (showCompleted ? scoped : scoped.filter((t) => !t.status?.is_terminal)),
+    [scoped, showCompleted],
+  )
 
   return (
     <div data-testid="tasks-page">
@@ -79,8 +87,8 @@ export function TasksPage() {
         }
       />
 
-      {canViewAll && (
-        <div className="mb-4 flex flex-wrap items-center gap-3">
+      <div className="mb-4 flex flex-wrap items-center gap-3">
+        {canViewAll && (
           <div className="inline-flex rounded-lg border border-slate-200 bg-slate-50 p-0.5">
             {(['mine', 'all'] as const).map((f) => (
               <button
@@ -96,7 +104,21 @@ export function TasksPage() {
               </button>
             ))}
           </div>
-          {filter === 'all' && (
+        )}
+        <button
+          data-testid="toggle-completed"
+          onClick={() => setShowCompleted((v) => !v)}
+          className={cn(
+            'inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium',
+            showCompleted
+              ? 'border-brand-200 bg-brand-50 text-brand-700'
+              : 'border-slate-200 bg-white text-slate-500 hover:text-slate-700',
+          )}
+        >
+          {showCompleted ? <EyeOff className="size-3.5" /> : <Eye className="size-3.5" />}
+          {showCompleted ? 'Hide completed' : `Show completed (${completedCount})`}
+        </button>
+        {canViewAll && filter === 'all' && (
             <div className="flex items-center gap-2">
               <Label htmlFor="task-employee-filter" className="mb-0 text-xs text-slate-500">
                 Employee
@@ -117,11 +139,18 @@ export function TasksPage() {
               </Select>
             </div>
           )}
-        </div>
-      )}
+      </div>
 
       {!isLoading && visible.length === 0 ? (
-        <EmptyState title="No tasks yet" description="Create your first task." testid="tasks-empty" />
+        <EmptyState
+          title={scoped.length > 0 ? 'No open tasks' : 'No tasks yet'}
+          description={
+            scoped.length > 0
+              ? 'All tasks here are completed. Use "Show completed" to see them.'
+              : 'Create your first task.'
+          }
+          testid="tasks-empty"
+        />
       ) : (
         <Table data-testid="tasks-table">
           <Thead>
@@ -129,6 +158,7 @@ export function TasksPage() {
               <Th>Task</Th>
               <Th>Assignee</Th>
               <Th>Created by</Th>
+              <Th>Created</Th>
               <Th>Priority</Th>
               <Th>Status</Th>
               <Th className="w-px" />
@@ -152,6 +182,13 @@ export function TasksPage() {
                 </Td>
                 <Td data-testid="task-assignee">{t.assignee?.full_name || t.assignee?.email || 'Unassigned'}</Td>
                 <Td className="text-slate-500">{t.creator?.full_name || t.creator?.email}</Td>
+                <Td data-testid="task-created-at" className="whitespace-nowrap text-slate-500">
+                  {new Date(t.created_at).toLocaleDateString(undefined, {
+                    day: 'numeric',
+                    month: 'short',
+                    year: 'numeric',
+                  })}
+                </Td>
                 <Td>
                   <Badge tone={PRIORITY_TONE[t.priority as keyof typeof PRIORITY_TONE]}>{t.priority}</Badge>
                 </Td>
@@ -255,6 +292,17 @@ function NewTaskModal({
           <Input id="task-title" data-testid="task-title-input" value={title} onChange={(e) => setTitle(e.target.value)} required />
         </div>
         <div className="grid grid-cols-2 gap-3">
+          <div>
+            <Label htmlFor="task-created">Date of creation</Label>
+            <Input
+              id="task-created"
+              data-testid="task-created-input"
+              type="date"
+              value={new Date().toLocaleDateString('en-CA')}
+              readOnly
+              disabled
+            />
+          </div>
           <div>
             <Label htmlFor="task-priority">Priority</Label>
             <Select id="task-priority" data-testid="task-priority-select" value={priority} onChange={(e) => setPriority(e.target.value as 'low' | 'medium' | 'high')}>
@@ -399,8 +447,10 @@ function RemarkModal({ task, onClose }: { task: TaskRow; onClose: () => void }) 
 function StatusModal({ task, onClose }: { task: TaskRow; onClose: () => void }) {
   const { data: statuses = [] } = useTaskStatuses()
   const update = useUpdateTaskStatus()
+  const updateDueDate = useUpdateTaskDueDate()
   const toast = useToast()
   const [statusId, setStatusId] = useState(task.status_id)
+  const [dueDate, setDueDate] = useState(task.due_date ?? '')
   const [remarks, setRemarks] = useState('')
 
   return (
@@ -409,16 +459,23 @@ function StatusModal({ task, onClose }: { task: TaskRow; onClose: () => void }) 
         className="space-y-4"
         onSubmit={(e) => {
           e.preventDefault()
-          update.mutate(
-            { taskId: task.id, statusId, remarks: remarks.trim() || undefined },
-            {
-              onSuccess: () => {
-                toast.success('Status updated')
-                onClose()
-              },
-              onError: (err) => toast.error('Update failed', (err as Error).message),
-            },
-          )
+          void (async () => {
+            try {
+              const newDue = dueDate || null
+              const dueChanged = newDue !== (task.due_date ?? null)
+              const statusChanged = statusId !== task.status_id
+              if (dueChanged) {
+                await updateDueDate.mutateAsync({ taskId: task.id, dueDate: newDue })
+              }
+              if (statusChanged || remarks.trim()) {
+                await update.mutateAsync({ taskId: task.id, statusId, remarks: remarks.trim() || undefined })
+              }
+              toast.success('Task updated')
+              onClose()
+            } catch (err) {
+              toast.error('Update failed', (err as Error).message)
+            }
+          })()
         }}
       >
         <div>
@@ -432,6 +489,19 @@ function StatusModal({ task, onClose }: { task: TaskRow; onClose: () => void }) 
           </Select>
         </div>
         <div>
+          <Label htmlFor="status-due-date">Due date</Label>
+          <Input
+            id="status-due-date"
+            data-testid="status-due-date"
+            type="date"
+            value={dueDate}
+            onChange={(e) => setDueDate(e.target.value)}
+          />
+          <p className="mt-1 text-xs text-slate-400">
+            The assignee, creator or a task manager can change the due date.
+          </p>
+        </div>
+        <div>
           <Label htmlFor="status-remarks">Remarks</Label>
           <Textarea id="status-remarks" data-testid="status-remarks" rows={2} value={remarks} onChange={(e) => setRemarks(e.target.value)} />
         </div>
@@ -439,7 +509,11 @@ function StatusModal({ task, onClose }: { task: TaskRow; onClose: () => void }) 
           <Button type="button" variant="outline" onClick={onClose}>
             Cancel
           </Button>
-          <Button type="submit" data-testid="save-status-submit" loading={update.isPending}>
+          <Button
+            type="submit"
+            data-testid="save-status-submit"
+            loading={update.isPending || updateDueDate.isPending}
+          >
             Save
           </Button>
         </div>

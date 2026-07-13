@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Plus, FileText, ExternalLink, ListChecks } from 'lucide-react'
+import { Check, Plus, FileText, ExternalLink, ListChecks, X } from 'lucide-react'
 import {
   getCandidateDocUrl,
   useAddCandidate,
@@ -12,6 +12,7 @@ import {
   useSaveFeedback,
   useScheduleInterview,
   useSendOffer,
+  useDecideOffer,
   useStartCandidateChecklist,
   useUpdateCandidate,
   useUpdateChecklistItem,
@@ -263,6 +264,7 @@ function ManageCandidateModal({ candidate, onClose }: { candidate: Candidate; on
   const update = useUpdateCandidate()
   const schedule = useScheduleInterview()
   const sendOffer = useSendOffer()
+  const decideOffer = useDecideOffer()
   const toast = useToast()
   const [date, setDate] = useState('')
   const [interviewerId, setInterviewerId] = useState('')
@@ -332,15 +334,47 @@ function ManageCandidateModal({ candidate, onClose }: { candidate: Candidate; on
 
         {/* Offer */}
         <div className="flex flex-wrap items-center gap-2 border-t border-slate-100 pt-3">
-          <Button
-            size="sm"
-            variant="outline"
-            data-testid="send-offer"
-            loading={sendOffer.isPending}
-            onClick={() => sendOffer.mutate({ id: candidate.id, full_name: candidate.full_name }, { onSuccess: () => toast.success('Offer sent for approval') })}
-          >
-            Send offer for approval
-          </Button>
+          {candidate.offer_status === 'none' && (
+            <Button
+              size="sm"
+              variant="outline"
+              data-testid="send-offer"
+              loading={sendOffer.isPending}
+              onClick={() => sendOffer.mutate({ id: candidate.id, full_name: candidate.full_name }, { onSuccess: () => toast.success('Offer sent for approval') })}
+            >
+              Send offer for approval
+            </Button>
+          )}
+          {candidate.offer_status === 'pending' && (
+            <>
+              <Button
+                size="sm"
+                data-testid="approve-offer"
+                loading={decideOffer.isPending}
+                onClick={() =>
+                  decideOffer.mutate(
+                    { id: candidate.id, decision: 'approved' },
+                    { onSuccess: () => toast.success('Offer approved') },
+                  )
+                }
+              >
+                <Check className="size-4" /> Approve offer
+              </Button>
+              <Button
+                size="sm"
+                variant="danger"
+                data-testid="reject-offer"
+                onClick={() =>
+                  decideOffer.mutate(
+                    { id: candidate.id, decision: 'rejected' },
+                    { onSuccess: () => toast.info('Offer rejected') },
+                  )
+                }
+              >
+                <X className="size-4" /> Reject
+              </Button>
+            </>
+          )}
           {candidate.offer_status === 'approved' && (
             <Button size="sm" data-testid="generate-offer-letter" onClick={genLetter}>
               <FileText className="size-4" /> Generate offer letter

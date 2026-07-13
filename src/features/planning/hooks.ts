@@ -174,16 +174,32 @@ export function useUserDayPlan(userId: string | null, date: string) {
 export function useUnlockPlanning() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async (args: { userId: string; date: string }) => {
+    mutationFn: async (args: { userId: string; date: string; remarks: string }) => {
       const { error } = await supabase.rpc('unlock_planning', {
         p_user: args.userId,
         p_date: args.date,
+        p_remarks: args.remarks,
       })
       if (error) throw error
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin-compliance'] })
       qc.invalidateQueries({ queryKey: ['planning-compliance'] })
+    },
+  })
+}
+
+/** Is today's punch-in locked because yesterday's planning is incomplete? */
+export function usePunchInLock() {
+  const { user } = useAuth()
+  return useQuery({
+    queryKey: ['punch-in-lock', user?.id],
+    enabled: !!user,
+    refetchInterval: 10_000, // picks up an admin unlock without a reload
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('punch_in_lock_status')
+      if (error) throw error
+      return data as { locked: boolean; prev_date?: string }
     },
   })
 }

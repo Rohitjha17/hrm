@@ -1,11 +1,12 @@
 import { useMemo, useState } from 'react'
-import { Plus, Search } from 'lucide-react'
+import { Plus, Search, Trash2 } from 'lucide-react'
 import {
   useActiveAssignments,
   useAssetAssignments,
   useAssets,
   useAssignAsset,
   useCreateAsset,
+  useDeleteAsset,
   useReturnAsset,
   useTransferAsset,
   type Asset,
@@ -169,8 +170,10 @@ function AssetModal({ asset, onClose }: { asset: Asset; onClose: () => void }) {
   const assign = useAssignAsset()
   const transfer = useTransferAsset()
   const ret = useReturnAsset()
+  const del = useDeleteAsset()
   const toast = useToast()
   const [employeeId, setEmployeeId] = useState('')
+  const [confirmDelete, setConfirmDelete] = useState(false)
 
   const current = history.find((h) => !h.returned_at)
   const targetId = employeeId || users[0]?.id || ''
@@ -229,7 +232,36 @@ function AssetModal({ asset, onClose }: { asset: Asset; onClose: () => void }) {
           </ul>
         </div>
 
-        <div className="flex justify-end">
+        <div className="flex items-center justify-between border-t border-slate-100 pt-3">
+          {!confirmDelete ? (
+            <Button size="sm" variant="danger" data-testid="delete-asset" onClick={() => setConfirmDelete(true)}>
+              <Trash2 className="size-4" /> Delete asset
+            </Button>
+          ) : (
+            <span className="flex items-center gap-2 text-sm text-slate-600">
+              Delete <strong>{asset.name}</strong> and its history?
+              <Button
+                size="sm"
+                variant="danger"
+                data-testid="confirm-delete-asset"
+                loading={del.isPending}
+                onClick={() =>
+                  del.mutate(asset.id, {
+                    onSuccess: () => {
+                      toast.success('Asset deleted')
+                      onClose()
+                    },
+                    onError: (e) => toast.error('Delete failed', (e as Error).message),
+                  })
+                }
+              >
+                Yes, delete
+              </Button>
+              <Button size="sm" variant="outline" onClick={() => setConfirmDelete(false)}>
+                Keep
+              </Button>
+            </span>
+          )}
           <Button variant="outline" data-testid="close-asset" onClick={onClose}>Close</Button>
         </div>
       </div>

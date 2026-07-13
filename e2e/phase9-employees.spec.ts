@@ -71,4 +71,26 @@ test.describe('Phase 9 — employee management & lifecycle', () => {
     await expect(page.getByTestId('employee-dashboard')).toBeVisible()
     await ctx.close()
   })
+
+  test("admin can change a user's email (username) and password", async ({ browser }) => {
+    const adminCtx = await browser.newContext()
+    const adminPage = await adminCtx.newPage()
+    await loginAs(adminPage, sunil)
+    await adminPage.goto('/admin/users')
+
+    // Change Arjun's login email and password from the edit dialog.
+    await adminPage.getByTestId('edit-user-arjun@hrms.local').click()
+    await adminPage.getByTestId('user-email-input').fill('arjun.k@hrms.local')
+    await adminPage.getByTestId('user-password-input').fill('Arjun#Rotated2026')
+    await adminPage.getByTestId('save-user-submit').click()
+    await expect(adminPage.getByTestId('user-row-arjun.k@hrms.local')).toBeVisible({ timeout: 15_000 })
+    await adminCtx.close()
+
+    // The rotated credentials work.
+    const ctx = await browser.newContext()
+    const page = await ctx.newPage()
+    await loginAs(page, { email: 'arjun.k@hrms.local', password: 'Arjun#Rotated2026' })
+    await expect(page.getByTestId('employee-dashboard')).toBeVisible()
+    await ctx.close()
+  })
 })

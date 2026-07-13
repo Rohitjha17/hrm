@@ -1,7 +1,9 @@
 import { useState } from 'react'
-import { Calculator, Eye, Plus, Star } from 'lucide-react'
+import { Calculator, Eye, Plus, Users } from 'lucide-react'
 import {
+  useAddAllEmployees,
   useAppraisals,
+  useComputeAll,
   useComputeAppraisal,
   useCreateAppraisal,
   useCreateCycle,
@@ -9,6 +11,7 @@ import {
   useUpdateAppraisal,
   type AppraisalRow,
 } from './hooks'
+import { AppraisalHistoryList, RatingStars } from './components'
 import { useUsers } from '@/features/admin/users/hooks'
 import { useToast } from '@/components/ui/toast-context'
 import { PageHeader } from '@/components/ui/PageHeader'
@@ -23,23 +26,15 @@ import { Textarea } from '@/components/ui/Textarea'
 import { Table, Tbody, Td, Th, Thead } from '@/components/ui/Table'
 import { cn } from '@/lib/cn'
 
-function RatingStars({ value }: { value: number | null }) {
-  if (!value) return <span className="text-xs text-slate-400">—</span>
-  return (
-    <span className="inline-flex items-center gap-0.5" data-testid="appraisal-rating-stars" aria-label={`${value} of 5`}>
-      {[1, 2, 3, 4, 5].map((n) => (
-        <Star key={n} className={cn('size-3.5', n <= value ? 'fill-amber-400 text-amber-400' : 'text-slate-200')} />
-      ))}
-    </span>
-  )
-}
-
 export function AppraisalAdminPage() {
   const { data: cycles = [] } = useCycles()
+  const { data: users = [] } = useUsers()
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const selected = cycles.find((c) => c.id === selectedId) ?? cycles[0] ?? null
   const { data: appraisals = [] } = useAppraisals(selected?.id ?? null)
   const compute = useComputeAppraisal()
+  const addAll = useAddAllEmployees()
+  const computeAll = useComputeAll()
   const toast = useToast()
   const [cycleModal, setCycleModal] = useState(false)
   const [apprModal, setApprModal] = useState(false)
@@ -49,10 +44,10 @@ export function AppraisalAdminPage() {
     <div data-testid="appraisal-admin-page">
       <PageHeader
         title="Appraisals"
-        description="Score employees from real attendance, task & planning data."
+        description="Define a review period, add employees, and score them from real attendance, task & planning data."
         actions={
           <Button data-testid="new-cycle-button" onClick={() => setCycleModal(true)}>
-            <Plus className="size-4" /> New cycle
+            <Plus className="size-4" /> New period
           </Button>
         }
       />
@@ -60,7 +55,7 @@ export function AppraisalAdminPage() {
       <div className="grid gap-4 lg:grid-cols-[260px_1fr]">
         <Card>
           <CardBody className="space-y-1">
-            {cycles.length === 0 && <p className="text-sm text-slate-500">No cycles yet.</p>}
+            {cycles.length === 0 && <p className="text-sm text-slate-500">No review periods yet.</p>}
             {cycles.map((c) => (
               <button
                 key={c.id}
@@ -73,7 +68,7 @@ export function AppraisalAdminPage() {
               >
                 <span className="font-medium">{c.name}</span>
                 <span className="text-xs text-slate-400">
-                  {c.cycle_type} · {c.period_start} → {c.period_end}
+                  {c.period_start} → {c.period_end}
                 </span>
               </button>
             ))}
@@ -82,7 +77,42 @@ export function AppraisalAdminPage() {
 
         {selected && (
           <div>
-            <div className="mb-2 flex justify-end">
+            <div className="mb-2 flex flex-wrap justify-end gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                data-testid="add-all-employees"
+                loading={addAll.isPending}
+                onClick={() =>
+                  addAll.mutate(
+                    { cycleId: selected.id, userIds: users.map((u) => u.id) },
+                    {
+                      onSuccess: () => toast.success('All employees added'),
+                      onError: (e) => toast.error('Failed', (e as Error).message),
+                    },
+                  )
+                }
+              >
+                <Users className="size-4" /> Add all employees
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                data-testid="compute-all"
+                loading={computeAll.isPending}
+                disabled={appraisals.length === 0}
+                onClick={() =>
+                  computeAll.mutate(
+                    appraisals.map((a) => a.id),
+                    {
+                      onSuccess: () => toast.success('All scores computed'),
+                      onError: (e) => toast.error('Failed', (e as Error).message),
+                    },
+                  )
+                }
+              >
+                <Calculator className="size-4" /> Compute all
+              </Button>
               <Button size="sm" data-testid="add-appraisal-button" onClick={() => setApprModal(true)}>
                 <Plus className="size-4" /> Add appraisal
               </Button>
@@ -275,6 +305,8 @@ function DetailsModal({ appraisal, onClose }: { appraisal: AppraisalRow; onClose
             </Button>
           </div>
         </form>
+
+        <AppraisalHistoryList appraisalId={appraisal.id} />
       </div>
     </Modal>
   )
@@ -284,21 +316,20 @@ function CycleModal({ onClose }: { onClose: () => void }) {
   const create = useCreateCycle()
   const toast = useToast()
   const [name, setName] = useState('')
-  const [cycleType, setCycleType] = useState('monthly')
   const [start, setStart] = useState('')
   const [end, setEnd] = useState('')
 
   return (
-    <Modal open onClose={onClose} title="New appraisal cycle" testid="cycle-modal">
+    <Modal open onClose={onClose} title="New review period" testid="cycle-modal">
       <form
         className="space-y-4"
         onSubmit={(e) => {
           e.preventDefault()
           create.mutate(
-            { name: name.trim(), cycleType, periodStart: start, periodEnd: end },
+            { name: name.trim(), periodStart: start, periodEnd: end },
             {
               onSuccess: () => {
-                toast.success('Cycle created')
+                toast.success('Review period created')
                 onClose()
               },
               onError: (err) => toast.error('Failed', (err as Error).message),
@@ -308,16 +339,14 @@ function CycleModal({ onClose }: { onClose: () => void }) {
       >
         <div>
           <Label htmlFor="cyc-name">Name</Label>
-          <Input id="cyc-name" data-testid="cycle-name" value={name} onChange={(e) => setName(e.target.value)} required />
-        </div>
-        <div>
-          <Label htmlFor="cyc-type">Type</Label>
-          <Select id="cyc-type" data-testid="cycle-type" value={cycleType} onChange={(e) => setCycleType(e.target.value)}>
-            <option value="monthly">Monthly</option>
-            <option value="quarterly">Quarterly</option>
-            <option value="half_yearly">Half-Yearly</option>
-            <option value="annual">Annual</option>
-          </Select>
+          <Input
+            id="cyc-name"
+            data-testid="cycle-name"
+            placeholder="e.g. April 2026 Review"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            required
+          />
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div>

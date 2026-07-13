@@ -60,6 +60,20 @@ export function useUploadDocument() {
   })
 }
 
+/** Remove a document: DB row + stored file. Requires documents.manage. */
+export function useDeleteDocument() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (doc: { id: string; storage_path: string }) => {
+      const { error } = await supabase.from('employee_documents').delete().eq('id', doc.id)
+      if (error) throw error
+      // Best-effort file cleanup; the row is the source of truth.
+      await supabase.storage.from('documents').remove([doc.storage_path])
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['emp-documents'] }),
+  })
+}
+
 export async function getDocumentUrl(path: string): Promise<string | null> {
   const { data, error } = await supabase.storage.from('documents').createSignedUrl(path, 60)
   if (error) return null

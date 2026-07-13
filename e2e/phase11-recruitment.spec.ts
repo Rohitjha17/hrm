@@ -39,23 +39,11 @@ test.describe('Phase 11 — recruitment & hiring', () => {
     await iv.getByTestId('feedback-text').fill('Strong candidate')
     await iv.getByTestId('save-feedback').click()
 
-    // Select + send offer for approval (routes through the workflow engine).
+    // Select + send offer; approve it right here on the candidate.
     await page.getByTestId('candidate-status-select').selectOption('selected')
     await page.getByTestId('send-offer').click()
     await expect(page.getByTestId('offer-status')).toContainText('pending')
-
-    // Approve the offer in the Approvals inbox.
-    await page.goto('/approvals')
-    const inst = page.getByTestId('instance-row').filter({ hasText: 'Offer: Cara Diaz' })
-    await expect(inst).toBeVisible({ timeout: 10_000 })
-    await inst.getByTestId('approve-instance').click()
-    await expect(inst.getByTestId('instance-status')).toHaveText('approved', { timeout: 10_000 })
-
-    // Back to the candidate: offer approved → generate letter → mark joined.
-    await page.goto('/admin/recruitment')
-    await page.getByTestId('opening-item').filter({ hasText: 'Senior Engineer' }).click()
-    const row2 = page.getByTestId('candidate-row').filter({ hasText: 'Cara Diaz' })
-    await row2.getByTestId('manage-candidate').click()
+    await page.getByTestId('approve-offer').click()
     await expect(page.getByTestId('offer-status')).toContainText('approved', { timeout: 10_000 })
 
     const [pdf] = await Promise.all([
@@ -66,6 +54,6 @@ test.describe('Phase 11 — recruitment & hiring', () => {
 
     await page.getByTestId('candidate-status-select').selectOption('joined')
     await page.getByTestId('close-candidate').click()
-    await expect(row2.getByTestId('candidate-status')).toContainText('joined')
+    await expect(row.getByTestId('candidate-status')).toContainText('joined')
   })
 })

@@ -19,6 +19,20 @@ export interface BalanceRow extends LeaveBalance {
 
 const YEAR = new Date().getFullYear()
 
+export type LeaveDuration = 'full_day' | 'half_day' | 'quarter_day'
+
+export const DURATION_LABEL: Record<LeaveDuration, string> = {
+  full_day: 'Full day',
+  half_day: 'Half day',
+  quarter_day: 'Quarter day',
+}
+
+export const DURATION_FACTOR: Record<LeaveDuration, number> = {
+  full_day: 1,
+  half_day: 0.5,
+  quarter_day: 0.25,
+}
+
 export function useLeaveTypes() {
   return useQuery({
     queryKey: ['leave-types'],
@@ -85,6 +99,7 @@ export function useApplyLeave() {
       leaveTypeId: string
       startDate: string
       endDate: string
+      duration: LeaveDuration
       reason: string
     }) => {
       const { error } = await supabase.from('leave_requests').insert({
@@ -92,6 +107,7 @@ export function useApplyLeave() {
         leave_type_id: input.leaveTypeId,
         start_date: input.startDate,
         end_date: input.endDate,
+        duration: input.duration,
         reason: input.reason || null,
       })
       if (error) throw error

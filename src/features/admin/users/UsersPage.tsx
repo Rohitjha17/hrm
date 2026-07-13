@@ -4,6 +4,7 @@ import {
   useCreateEmployee,
   useDeleteEmployee,
   useSetUserRoles,
+  useUpdateCredentials,
   useUpdateProfile,
   useUsers,
   type UserRow,
@@ -171,18 +172,21 @@ function EditUserModal({
   const { data: teams = [] } = useTeams()
   const updateProfile = useUpdateProfile()
   const setUserRoles = useSetUserRoles()
+  const updateCredentials = useUpdateCredentials()
   const toast = useToast()
 
   const [roleIds, setRoleIds] = useState<Set<string>>(
     new Set(user.user_roles.map((ur) => ur.role_id)),
   )
   const [fullName, setFullName] = useState(user.full_name ?? '')
+  const [email, setEmail] = useState(user.email)
+  const [newPassword, setNewPassword] = useState('')
   const [departmentId, setDepartmentId] = useState(user.department_id ?? '')
   const [teamId, setTeamId] = useState(user.team_id ?? '')
   const [managerId, setManagerId] = useState(user.reporting_manager_id ?? '')
   const [status, setStatus] = useState<'active' | 'inactive'>(user.status as 'active' | 'inactive')
 
-  const saving = updateProfile.isPending || setUserRoles.isPending
+  const saving = updateProfile.isPending || setUserRoles.isPending || updateCredentials.isPending
 
   async function save() {
     try {
@@ -195,6 +199,14 @@ function EditUserModal({
         status,
       })
       await setUserRoles.mutateAsync({ userId: user.id, roleIds: [...roleIds] })
+      const emailChanged = email.trim() && email.trim() !== user.email
+      if (emailChanged || newPassword.trim()) {
+        await updateCredentials.mutateAsync({
+          userId: user.id,
+          email: emailChanged ? email.trim() : undefined,
+          password: newPassword.trim() || undefined,
+        })
+      }
       toast.success('Employee updated')
       onClose()
     } catch (e) {
@@ -214,6 +226,29 @@ function EditUserModal({
             onChange={(e) => setFullName(e.target.value)}
             placeholder="Employee full name"
           />
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <Label htmlFor="user-email">Email (username)</Label>
+            <Input
+              id="user-email"
+              data-testid="user-email-input"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
+          </div>
+          <div>
+            <Label htmlFor="user-password">New password</Label>
+            <Input
+              id="user-password"
+              data-testid="user-password-input"
+              type="text"
+              placeholder="Leave blank to keep current"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+            />
+          </div>
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div>

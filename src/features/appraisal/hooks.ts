@@ -23,18 +23,13 @@ export function useCycles() {
   })
 }
 
+/** A "cycle" is simply a named review period (name + dates). */
 export function useCreateCycle() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async (input: {
-      name: string
-      cycleType: string
-      periodStart: string
-      periodEnd: string
-    }) => {
+    mutationFn: async (input: { name: string; periodStart: string; periodEnd: string }) => {
       const { error } = await supabase.from('appraisal_cycles').insert({
         name: input.name,
-        cycle_type: input.cycleType,
         period_start: input.periodStart,
         period_end: input.periodEnd,
       })
@@ -111,7 +106,10 @@ export function useUpdateAppraisal() {
         .eq('id', input.id)
       if (error) throw error
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['appraisals'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['appraisals'] })
+      qc.invalidateQueries({ queryKey: ['appraisal-history'] })
+    },
   })
 }
 
@@ -123,6 +121,64 @@ export function useComputeAppraisal() {
       if (error) throw error
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['appraisals'] }),
+  })
+}
+
+/** Enroll every listed employee into the period; existing appraisals are kept. */
+export function useAddAllEmployees() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: { cycleId: string; userIds: string[] }) => {
+      const { error } = await supabase.from('appraisals').upsert(
+        input.userIds.map((uid) => ({ cycle_id: input.cycleId, user_id: uid })),
+        { onConflict: 'cycle_id,user_id', ignoreDuplicates: true },
+      )
+      if (error) throw error
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['appraisals'] }),
+  })
+}
+
+/** Run the scoring engine for every appraisal in the period. */
+export function useComputeAll() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (appraisalIds: string[]) => {
+      for (const id of appraisalIds) {
+        const { error } = await supabase.rpc('compute_appraisal_scores', { p_appraisal: id })
+        if (error) throw error
+      }
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['appraisals'] }),
+  })
+}
+
+export const HISTORY_FIELD_LABEL: Record<string, string> = {
+  performance_rating: 'Rating',
+  kra: 'KRA',
+  kpi: 'KPI',
+  manager_feedback: 'Manager feedback',
+  hr_feedback: 'HR feedback',
+}
+
+export interface AppraisalHistoryRow extends Tables<'appraisal_history'> {
+  changer: { full_name: string; email: string } | null
+}
+
+/** Append-only change log for an appraisal's qualitative fields (newest first). */
+export function useAppraisalHistory(appraisalId: string | null) {
+  return useQuery({
+    queryKey: ['appraisal-history', appraisalId],
+    enabled: !!appraisalId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('appraisal_history')
+        .select('*, changer:profiles!appraisal_history_changed_by_fkey(full_name,email)')
+        .eq('appraisal_id', appraisalId!)
+        .order('created_at', { ascending: false })
+      if (error) throw error
+      return (data ?? []) as unknown as AppraisalHistoryRow[]
+    },
   })
 }
 

@@ -15,7 +15,7 @@ import { useTasks } from '@/features/tasks/hooks'
 import { todayInTz } from '@/features/attendance/geo'
 import { useToast } from '@/components/ui/toast-context'
 import { PageHeader } from '@/components/ui/PageHeader'
-import { Card, CardBody } from '@/components/ui/Card'
+import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
 import { Input } from '@/components/ui/Input'
@@ -169,11 +169,13 @@ export function PlanningPage() {
               testid="planning-empty"
             />
           ) : (
-            <div className="grid gap-3 md:grid-cols-2">
-              {ordered.map((s) => (
-                <SlotCard key={s.id} planDate={planDate} slot={s} intervalHours={interval} />
-              ))}
-            </div>
+            <Card>
+              <ul className="divide-y divide-slate-100" data-testid="slots-list">
+                {ordered.map((s) => (
+                  <SlotRow key={s.id} planDate={planDate} slot={s} intervalHours={interval} />
+                ))}
+              </ul>
+            </Card>
           )}
         </section>
 
@@ -221,7 +223,8 @@ function TaskBrief() {
   )
 }
 
-function SlotCard({
+/** One planned slot as a compact list row: times · task · outcome · actions. */
+function SlotRow({
   planDate,
   slot,
   intervalHours,
@@ -247,52 +250,31 @@ function SlotCard({
   const label = slotLabelFromRange(start, end)
 
   return (
-    <Card data-testid={`slot-card-${tid}`}>
-      <CardBody className="space-y-2">
-        <div className="flex items-center justify-between">
-          <span className="text-sm font-semibold text-slate-700" data-testid={`slot-label-${tid}`}>
-            {label}
-          </span>
-          <div className="flex items-center gap-1">
-            <button
-              data-testid={`slot-history-${tid}`}
-              aria-label={`History for ${label}`}
-              className="text-slate-400 hover:text-slate-700"
-              onClick={() => setHistoryOpen(true)}
-            >
-              <History className="size-4" />
-            </button>
-            <button
-              data-testid={`slot-delete-${tid}`}
-              aria-label={`Delete slot ${label}`}
-              className="text-slate-400 hover:text-red-600"
-              onClick={() =>
-                del.mutate(slot.id, {
-                  onSuccess: () => toast.success('Slot removed'),
-                  onError: (e) => toast.error('Delete failed', (e as Error).message),
-                })
-              }
-            >
-              <Trash2 className="size-4" />
-            </button>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <Label className="mb-0 text-xs text-slate-500">Start</Label>
+    <li data-testid={`slot-card-${tid}`} className="px-4 py-3">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+        <span
+          className="w-24 shrink-0 text-sm font-semibold text-slate-700"
+          data-testid={`slot-label-${tid}`}
+        >
+          {label}
+        </span>
+        <div className="flex items-center gap-1.5">
           <Input
             data-testid={`slot-start-${tid}`}
+            aria-label={`Start time for ${label}`}
             type="time"
             value={start}
             onChange={(e) => setStart(e.target.value)}
-            className="h-9 w-32"
+            className="h-9 w-28"
           />
-          <Label className="mb-0 text-xs text-slate-500">End</Label>
+          <span className="text-xs text-slate-400">–</span>
           <Input
             data-testid={`slot-end-${tid}`}
+            aria-label={`End time for ${label}`}
             type="time"
             value={end}
             onChange={(e) => setEnd(e.target.value)}
-            className="h-9 w-32"
+            className="h-9 w-28"
           />
         </div>
         <Input
@@ -300,11 +282,12 @@ function SlotCard({
           placeholder="Task name"
           value={task}
           onChange={(e) => setTask(e.target.value)}
+          className="min-w-48 flex-1"
         />
-        <div className="flex items-center gap-2">
-          <Label className="mb-0 text-xs">Progress</Label>
+        <div className="flex items-center gap-1">
           <Input
             data-testid={`slot-progress-${tid}`}
+            aria-label={`Progress for ${label}`}
             type="number"
             min={0}
             max={100}
@@ -320,6 +303,7 @@ function SlotCard({
           rows={1}
           value={challenges}
           onChange={(e) => setChallenges(e.target.value)}
+          className="max-h-9 min-w-40 flex-1"
         />
         <Textarea
           data-testid={`slot-remarks-${tid}`}
@@ -327,40 +311,64 @@ function SlotCard({
           rows={1}
           value={remarks}
           onChange={(e) => setRemarks(e.target.value)}
+          className="max-h-9 min-w-40 flex-1"
         />
-        <Button
-          size="sm"
-          data-testid={`slot-save-${tid}`}
-          loading={upsert.isPending}
-          onClick={() => {
-            if (end <= start) {
-              toast.error('Invalid slot', 'End time must be after the start time.')
-              return
+        <div className="ml-auto flex items-center gap-1">
+          <Button
+            size="sm"
+            data-testid={`slot-save-${tid}`}
+            loading={upsert.isPending}
+            onClick={() => {
+              if (end <= start) {
+                toast.error('Invalid slot', 'End time must be after the start time.')
+                return
+              }
+              upsert.mutate(
+                {
+                  planDate,
+                  kind: 'day',
+                  slotIndex: slot.slot_index,
+                  slotLabel: slotLabelFromRange(start, end),
+                  taskName: task,
+                  progress,
+                  challenges,
+                  remarks,
+                  startTime: start,
+                  endTime: end,
+                },
+                { onSuccess: () => toast.success('Slot saved'), onError: (e) => toast.error('Save failed', (e as Error).message) },
+              )
+            }}
+          >
+            <Save className="size-4" /> Save
+          </Button>
+          <button
+            data-testid={`slot-history-${tid}`}
+            aria-label={`History for ${label}`}
+            className="rounded p-1 text-slate-400 hover:text-slate-700"
+            onClick={() => setHistoryOpen(true)}
+          >
+            <History className="size-4" />
+          </button>
+          <button
+            data-testid={`slot-delete-${tid}`}
+            aria-label={`Delete slot ${label}`}
+            className="rounded p-1 text-slate-400 hover:text-red-600"
+            onClick={() =>
+              del.mutate(slot.id, {
+                onSuccess: () => toast.success('Slot removed'),
+                onError: (e) => toast.error('Delete failed', (e as Error).message),
+              })
             }
-            upsert.mutate(
-              {
-                planDate,
-                kind: 'day',
-                slotIndex: slot.slot_index,
-                slotLabel: slotLabelFromRange(start, end),
-                taskName: task,
-                progress,
-                challenges,
-                remarks,
-                startTime: start,
-                endTime: end,
-              },
-              { onSuccess: () => toast.success('Slot saved'), onError: (e) => toast.error('Save failed', (e as Error).message) },
-            )
-          }}
-        >
-          <Save className="size-4" /> Save
-        </Button>
-      </CardBody>
+          >
+            <Trash2 className="size-4" />
+          </button>
+        </div>
+      </div>
       {historyOpen && (
         <SlotHistoryModal slotId={slot.id} label={label} onClose={() => setHistoryOpen(false)} />
       )}
-    </Card>
+    </li>
   )
 }
 
@@ -379,16 +387,48 @@ function SlotHistoryModal({
       {history.length === 0 ? (
         <p className="text-sm text-slate-500">No edits recorded yet.</p>
       ) : (
-        <ul className="space-y-3">
+        <ul className="space-y-4">
           {history.map((h) => {
-            const before = h.before_data as { task_name?: string } | null
-            const after = h.after_data as { task_name?: string } | null
+            type SlotData = {
+              task_name?: string
+              slot_label?: string
+              progress?: number
+              challenges?: string | null
+              remarks?: string | null
+            }
+            const before = h.before_data as SlotData | null
+            const after = h.after_data as SlotData | null
+            const outcome = [
+              `${after?.progress ?? 0}% done`,
+              after?.challenges && `challenges: ${after.challenges}`,
+              after?.remarks && `remarks: ${after.remarks}`,
+            ]
+              .filter(Boolean)
+              .join(' · ')
             return (
               <li key={h.id} data-testid="planning-history-entry" className="border-l-2 border-brand-200 pl-3 text-sm">
-                <p className="text-slate-700">
-                  “{before?.task_name || '—'}” → “{after?.task_name || '—'}”
-                </p>
-                <p className="text-xs text-slate-400">{new Date(h.created_at).toLocaleString()}</p>
+                <dl className="grid grid-cols-[5.5rem_1fr] gap-y-0.5">
+                  <dt className="text-xs font-semibold tracking-wide text-slate-400 uppercase">Slot</dt>
+                  <dd className="text-slate-700" data-testid="history-slot">
+                    {after?.slot_label || before?.slot_label || label}
+                  </dd>
+                  <dt className="text-xs font-semibold tracking-wide text-slate-400 uppercase">Planning</dt>
+                  <dd className="text-slate-700" data-testid="history-planning">
+                    {before?.task_name !== after?.task_name && before?.task_name ? (
+                      <>
+                        <span className="text-slate-400 line-through">{before.task_name}</span>{' '}
+                        → {after?.task_name || '—'}
+                      </>
+                    ) : (
+                      after?.task_name || '—'
+                    )}
+                  </dd>
+                  <dt className="text-xs font-semibold tracking-wide text-slate-400 uppercase">Outcome</dt>
+                  <dd className="text-slate-700" data-testid="history-outcome">
+                    {outcome}
+                  </dd>
+                </dl>
+                <p className="mt-1 text-xs text-slate-400">{new Date(h.created_at).toLocaleString()}</p>
               </li>
             )
           })}

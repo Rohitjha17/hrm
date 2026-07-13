@@ -58,6 +58,27 @@ Deno.serve(async (req: Request) => {
       return json({ ok: true, userId })
     }
 
+    if (body.action === 'update-credentials') {
+      const { userId, email, password } = body
+      if (!userId) return json({ error: 'userId required' }, 400)
+      if (!email && !password) return json({ error: 'nothing to update' }, 400)
+
+      const patch: { email?: string; password?: string; email_confirm?: boolean } = {}
+      if (email) {
+        patch.email = email
+        patch.email_confirm = true
+      }
+      if (password) patch.password = password
+      const { error: uErr } = await admin.auth.admin.updateUserById(userId, patch)
+      if (uErr) return json({ error: uErr.message }, 400)
+
+      if (email) {
+        const { error: pErr } = await admin.from('profiles').update({ email }).eq('id', userId)
+        if (pErr) return json({ error: pErr.message }, 400)
+      }
+      return json({ ok: true })
+    }
+
     if (body.action === 'delete') {
       if (!body.userId) return json({ error: 'userId required' }, 400)
       const { error } = await admin.auth.admin.deleteUser(body.userId)

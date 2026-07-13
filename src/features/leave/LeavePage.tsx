@@ -1,12 +1,15 @@
 import { useState } from 'react'
 import { Plus } from 'lucide-react'
 import {
+  DURATION_FACTOR,
+  DURATION_LABEL,
   useApplyLeave,
   useCancelLeave,
   useLeaveRealtime,
   useLeaveTypes,
   useMyBalances,
   useMyLeaveRequests,
+  type LeaveDuration,
 } from './hooks'
 import { useToast } from '@/components/ui/toast-context'
 import { PageHeader } from '@/components/ui/PageHeader'
@@ -100,6 +103,7 @@ export function LeavePage() {
               <Th>Type</Th>
               <Th>From</Th>
               <Th>To</Th>
+              <Th>Duration</Th>
               <Th>Days</Th>
               <Th>Status</Th>
               <Th>Admin remark</Th>
@@ -112,6 +116,9 @@ export function LeavePage() {
                 <Td className="font-medium text-slate-900">{r.leave_type?.name}</Td>
                 <Td>{r.start_date}</Td>
                 <Td>{r.end_date}</Td>
+                <Td data-testid="leave-duration">
+                  {DURATION_LABEL[(r.duration as LeaveDuration) ?? 'full_day'] ?? 'Full day'}
+                </Td>
                 <Td>{r.days}</Td>
                 <Td>
                   <Badge tone={STATUS_TONE[r.status as keyof typeof STATUS_TONE]} data-testid="leave-status">
@@ -150,7 +157,14 @@ function ApplyModal({ onClose }: { onClose: () => void }) {
   const [leaveTypeId, setLeaveTypeId] = useState('')
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
+  const [duration, setDuration] = useState<LeaveDuration>('full_day')
   const [reason, setReason] = useState('')
+
+  const spanDays =
+    startDate && endDate && endDate >= startDate
+      ? (new Date(endDate).getTime() - new Date(startDate).getTime()) / 86_400_000 + 1
+      : 0
+  const countedDays = spanDays * DURATION_FACTOR[duration]
 
   return (
     <Modal open onClose={onClose} title="Apply for leave" testid="leave-modal">
@@ -159,7 +173,7 @@ function ApplyModal({ onClose }: { onClose: () => void }) {
         onSubmit={(e) => {
           e.preventDefault()
           apply.mutate(
-            { leaveTypeId: leaveTypeId || types[0]?.id, startDate, endDate, reason },
+            { leaveTypeId: leaveTypeId || types[0]?.id, startDate, endDate, duration, reason },
             {
               onSuccess: () => {
                 toast.success('Leave applied')
@@ -170,15 +184,32 @@ function ApplyModal({ onClose }: { onClose: () => void }) {
           )
         }}
       >
-        <div>
-          <Label htmlFor="leave-type">Type</Label>
-          <Select id="leave-type" data-testid="leave-type-select" value={leaveTypeId || types[0]?.id || ''} onChange={(e) => setLeaveTypeId(e.target.value)}>
-            {types.map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.name}
-              </option>
-            ))}
-          </Select>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <Label htmlFor="leave-type">Type</Label>
+            <Select id="leave-type" data-testid="leave-type-select" value={leaveTypeId || types[0]?.id || ''} onChange={(e) => setLeaveTypeId(e.target.value)}>
+              {types.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.name}
+                </option>
+              ))}
+            </Select>
+          </div>
+          <div>
+            <Label htmlFor="leave-duration">Duration</Label>
+            <Select
+              id="leave-duration"
+              data-testid="leave-duration-select"
+              value={duration}
+              onChange={(e) => setDuration(e.target.value as LeaveDuration)}
+            >
+              {(Object.keys(DURATION_LABEL) as LeaveDuration[]).map((d) => (
+                <option key={d} value={d}>
+                  {DURATION_LABEL[d]}
+                </option>
+              ))}
+            </Select>
+          </div>
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div>
@@ -190,6 +221,12 @@ function ApplyModal({ onClose }: { onClose: () => void }) {
             <Input id="leave-end" data-testid="leave-end" type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} required />
           </div>
         </div>
+        {countedDays > 0 && (
+          <p className="text-xs text-slate-500" data-testid="leave-days-hint">
+            Counts as <span className="font-semibold text-slate-700">{countedDays}</span>{' '}
+            {countedDays === 1 ? 'day' : 'days'} against your balance.
+          </p>
+        )}
         <div>
           <Label htmlFor="leave-reason">Reason</Label>
           <Textarea id="leave-reason" data-testid="leave-reason" rows={2} value={reason} onChange={(e) => setReason(e.target.value)} />

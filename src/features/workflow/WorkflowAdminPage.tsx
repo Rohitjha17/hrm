@@ -8,7 +8,6 @@ import {
   useDeleteStep,
   useSteps,
 } from './hooks'
-import { usePermissionsCatalog } from '@/features/admin/roles/hooks'
 import { useToast } from '@/components/ui/toast-context'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { Card, CardBody } from '@/components/ui/Card'
@@ -17,7 +16,6 @@ import { Badge } from '@/components/ui/Badge'
 import { Modal } from '@/components/ui/Modal'
 import { Input } from '@/components/ui/Input'
 import { Label } from '@/components/ui/Label'
-import { Select } from '@/components/ui/Select'
 import { cn } from '@/lib/cn'
 
 export function WorkflowAdminPage() {
@@ -25,14 +23,12 @@ export function WorkflowAdminPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const selected = definitions.find((d) => d.id === selectedId) ?? definitions[0] ?? null
   const { data: steps = [] } = useSteps(selected?.id ?? null)
-  const { data: permissions = [] } = usePermissionsCatalog()
   const addStep = useAddStep()
   const deleteStep = useDeleteStep()
   const deleteDefinition = useDeleteDefinition()
   const toast = useToast()
   const [defModal, setDefModal] = useState(false)
   const [stepName, setStepName] = useState('')
-  const [stepPerm, setStepPerm] = useState('leave.approve')
 
   return (
     <div data-testid="workflow-admin-page">
@@ -94,7 +90,6 @@ export function WorkflowAdminPage() {
                   <li key={s.id} data-testid="step-row" className="flex items-center gap-3 rounded-lg border border-slate-100 p-2 text-sm">
                     <Badge tone="brand">Step {s.step_order}</Badge>
                     <span className="font-medium">{s.name}</span>
-                    <span className="text-xs text-slate-400">owned by {s.approver_permission}</span>
                     <button
                       data-testid={`delete-step-${s.step_order}`}
                       aria-label={`Delete step ${s.name}`}
@@ -121,7 +116,6 @@ export function WorkflowAdminPage() {
                       definitionId: selected.id,
                       stepOrder: steps.length + 1,
                       name: stepName.trim(),
-                      approverPermission: stepPerm,
                     },
                     {
                       onSuccess: () => {
@@ -135,19 +129,7 @@ export function WorkflowAdminPage() {
               >
                 <div>
                   <Label className="text-xs">Step name</Label>
-                  <Input data-testid="step-name" value={stepName} onChange={(e) => setStepName(e.target.value)} required className="w-40" />
-                </div>
-                <div>
-                  <Label className="text-xs">Responsible permission</Label>
-                  <Select data-testid="step-permission" value={stepPerm} onChange={(e) => setStepPerm(e.target.value)} className="w-52">
-                    {permissions
-                      .filter((p) => p.key !== '*')
-                      .map((p) => (
-                        <option key={p.key} value={p.key}>
-                          {p.key}
-                        </option>
-                      ))}
-                  </Select>
+                  <Input data-testid="step-name" value={stepName} onChange={(e) => setStepName(e.target.value)} required className="w-64" />
                 </div>
                 <Button type="submit" size="sm" data-testid="add-step" loading={addStep.isPending}>
                   <Plus className="size-4" /> Add step

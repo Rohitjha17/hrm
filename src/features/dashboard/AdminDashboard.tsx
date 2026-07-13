@@ -3,7 +3,6 @@ import {
   AlarmClock,
   Building2,
   CalendarCheck,
-  Inbox,
   LifeBuoy,
   ListChecks,
   Megaphone,
@@ -17,7 +16,6 @@ import { todayInTz } from '@/features/attendance/geo'
 import { usePendingApprovals } from '@/features/leave/hooks'
 import { useTasks } from '@/features/tasks/hooks'
 import { useTickets, isSlaBreached } from '@/features/helpdesk/hooks'
-import { useInstances } from '@/features/workflow/hooks'
 import { useAnnouncements } from '@/features/engagement/hooks'
 import { Card, CardBody } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
@@ -101,7 +99,6 @@ export function AdminDashboard() {
   const { data: pendingLeaves = [] } = usePendingApprovals()
   const { data: tasks = [] } = useTasks()
   const { data: tickets = [] } = useTickets()
-  const { data: instances = [] } = useInstances()
   const { data: announcements = [] } = useAnnouncements()
 
   const presentToday = attendance.filter((r) => r.status !== 'absent').length
@@ -109,7 +106,6 @@ export function AdminDashboard() {
   const openTasks = tasks.filter((t) => !t.status?.is_terminal).length
   const openTickets = tickets.filter((t) => t.status !== 'resolved' && t.status !== 'closed').length
   const breachedTickets = tickets.filter(isSlaBreached).length
-  const pendingWorkflow = instances.filter((i) => i.status === 'pending').length
   const dateLabel = new Date(`${today}T00:00:00`).toLocaleDateString(undefined, {
     weekday: 'long',
     day: 'numeric',
@@ -135,7 +131,6 @@ export function AdminDashboard() {
         <Stat label="Late arrivals today" value={lateToday} icon={AlarmClock} tone="amber" to="/admin/attendance" />
         <Stat label="Pending leave approvals" value={pendingLeaves.length} icon={Plane} tone="amber" to="/admin/leave" />
         <Stat label="Open tasks" value={openTasks} icon={ListChecks} tone="blue" to="/tasks" />
-        <Stat label="Pending approvals" value={pendingWorkflow} icon={Inbox} tone="brand" to="/approvals" />
         <Stat
           label={breachedTickets > 0 ? `Open tickets (${breachedTickets} SLA breached)` : 'Open tickets'}
           value={openTickets}

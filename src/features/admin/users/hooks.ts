@@ -68,6 +68,20 @@ export function useCreateEmployee() {
   })
 }
 
+/** Change a user's login email and/or password via the admin Edge Function. */
+export function useUpdateCredentials() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: { userId: string; email?: string; password?: string }) => {
+      const { error } = await supabase.functions.invoke('manage-employee', {
+        body: { action: 'update-credentials', ...input },
+      })
+      if (error) throw error
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['users'] }),
+  })
+}
+
 export function useDeleteEmployee() {
   const qc = useQueryClient()
   return useMutation({

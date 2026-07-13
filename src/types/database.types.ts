@@ -72,7 +72,7 @@ export type Database = {
       appraisal_cycles: {
         Row: {
           created_at: string
-          cycle_type: string
+          cycle_type: string | null
           id: string
           name: string
           period_end: string
@@ -81,7 +81,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
-          cycle_type: string
+          cycle_type?: string | null
           id?: string
           name: string
           period_end: string
@@ -90,7 +90,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
-          cycle_type?: string
+          cycle_type?: string | null
           id?: string
           name?: string
           period_end?: string
@@ -98,6 +98,51 @@ export type Database = {
           status?: string
         }
         Relationships: []
+      }
+      appraisal_history: {
+        Row: {
+          appraisal_id: string
+          changed_by: string | null
+          created_at: string
+          field: string
+          id: string
+          new_value: string | null
+          old_value: string | null
+        }
+        Insert: {
+          appraisal_id: string
+          changed_by?: string | null
+          created_at?: string
+          field: string
+          id?: string
+          new_value?: string | null
+          old_value?: string | null
+        }
+        Update: {
+          appraisal_id?: string
+          changed_by?: string | null
+          created_at?: string
+          field?: string
+          id?: string
+          new_value?: string | null
+          old_value?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "appraisal_history_appraisal_id_fkey"
+            columns: ["appraisal_id"]
+            isOneToOne: false
+            referencedRelation: "appraisals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "appraisal_history_changed_by_fkey"
+            columns: ["changed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       appraisals: {
         Row: {
@@ -933,6 +978,7 @@ export type Database = {
           decided_at: string | null
           decided_by: string | null
           decision_remarks: string | null
+          duration: string
           end_date: string
           id: string
           leave_type_id: string
@@ -949,6 +995,7 @@ export type Database = {
           decided_at?: string | null
           decided_by?: string | null
           decision_remarks?: string | null
+          duration?: string
           end_date: string
           id?: string
           leave_type_id: string
@@ -965,6 +1012,7 @@ export type Database = {
           decided_at?: string | null
           decided_by?: string | null
           decision_remarks?: string | null
+          duration?: string
           end_date?: string
           id?: string
           leave_type_id?: string
@@ -1342,6 +1390,7 @@ export type Database = {
           day_end_submitted: boolean
           id: string
           next_day_submitted: boolean
+          unlock_remarks: string | null
           unlocked: boolean
           unlocked_at: string | null
           unlocked_by: string | null
@@ -1354,6 +1403,7 @@ export type Database = {
           day_end_submitted?: boolean
           id?: string
           next_day_submitted?: boolean
+          unlock_remarks?: string | null
           unlocked?: boolean
           unlocked_at?: string | null
           unlocked_by?: string | null
@@ -1366,6 +1416,7 @@ export type Database = {
           day_end_submitted?: boolean
           id?: string
           next_day_submitted?: boolean
+          unlock_remarks?: string | null
           unlocked?: boolean
           unlocked_at?: string | null
           unlocked_by?: string | null
@@ -2666,51 +2717,6 @@ export type Database = {
           },
         ]
       }
-      workflow_actions: {
-        Row: {
-          actor_id: string | null
-          created_at: string
-          decision: string
-          id: string
-          instance_id: string
-          remarks: string | null
-          step_order: number
-        }
-        Insert: {
-          actor_id?: string | null
-          created_at?: string
-          decision: string
-          id?: string
-          instance_id: string
-          remarks?: string | null
-          step_order: number
-        }
-        Update: {
-          actor_id?: string | null
-          created_at?: string
-          decision?: string
-          id?: string
-          instance_id?: string
-          remarks?: string | null
-          step_order?: number
-        }
-        Relationships: [
-          {
-            foreignKeyName: "workflow_actions_actor_id_fkey"
-            columns: ["actor_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "workflow_actions_instance_id_fkey"
-            columns: ["instance_id"]
-            isOneToOne: false
-            referencedRelation: "workflow_instances"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       workflow_definitions: {
         Row: {
           created_at: string
@@ -2735,77 +2741,20 @@ export type Database = {
         }
         Relationships: []
       }
-      workflow_instances: {
-        Row: {
-          created_at: string
-          created_by: string | null
-          current_step: number
-          definition_id: string
-          entity_id: string | null
-          entity_type: string
-          id: string
-          status: string
-          title: string
-          updated_at: string
-        }
-        Insert: {
-          created_at?: string
-          created_by?: string | null
-          current_step?: number
-          definition_id: string
-          entity_id?: string | null
-          entity_type?: string
-          id?: string
-          status?: string
-          title: string
-          updated_at?: string
-        }
-        Update: {
-          created_at?: string
-          created_by?: string | null
-          current_step?: number
-          definition_id?: string
-          entity_id?: string | null
-          entity_type?: string
-          id?: string
-          status?: string
-          title?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "workflow_instances_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "workflow_instances_definition_id_fkey"
-            columns: ["definition_id"]
-            isOneToOne: false
-            referencedRelation: "workflow_definitions"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       workflow_steps: {
         Row: {
-          approver_permission: string
           definition_id: string
           id: string
           name: string
           step_order: number
         }
         Insert: {
-          approver_permission: string
           definition_id: string
           id?: string
           name: string
           step_order: number
         }
         Update: {
-          approver_permission?: string
           definition_id?: string
           id?: string
           name?: string
@@ -2827,10 +2776,6 @@ export type Database = {
     }
     Functions: {
       acknowledge_policy: { Args: { p_version: string }; Returns: Json }
-      act_on_workflow: {
-        Args: { p_decision: string; p_instance: string; p_remarks?: string }
-        Returns: Json
-      }
       add_task_remark: {
         Args: { p_body: string; p_task: string }
         Returns: Json
@@ -2869,10 +2814,21 @@ export type Database = {
         Returns: number
       }
       health_check: { Args: never; Returns: string }
+      is_meeting_host: { Args: { p_meeting: string }; Returns: boolean }
+      is_meeting_invitee: { Args: { p_meeting: string }; Returns: boolean }
       my_permissions: { Args: never; Returns: string[] }
       my_roles: { Args: never; Returns: string[] }
+      planning_day_fully_planned: {
+        Args: { p_date: string; p_user: string }
+        Returns: boolean
+      }
       publish_policy_version: {
         Args: { p_change_note?: string; p_content: string; p_policy: string }
+        Returns: Json
+      }
+      punch_in_lock_status: { Args: never; Returns: Json }
+      punch_in_locked_for: {
+        Args: { p_today: string; p_user: string }
         Returns: Json
       }
       recompute_attendance_day: {
@@ -2893,15 +2849,6 @@ export type Database = {
         Returns: Json
       }
       start_onboarding: { Args: { p_employee: string }; Returns: Json }
-      start_workflow: {
-        Args: {
-          p_definition: string
-          p_entity_id?: string
-          p_entity_type?: string
-          p_title: string
-        }
-        Returns: Json
-      }
       submit_planning_compliance: {
         Args: { p_date: string; p_part: string }
         Returns: Json
@@ -2911,7 +2858,7 @@ export type Database = {
         Returns: Json
       }
       unlock_planning: {
-        Args: { p_date: string; p_user: string }
+        Args: { p_date: string; p_remarks: string; p_user: string }
         Returns: Json
       }
       update_task_status: {

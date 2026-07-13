@@ -51,20 +51,22 @@ test.describe('Phase 10 — policies & workflow engine', () => {
     await page.getByTestId('create-definition-submit').click()
     await page.getByTestId('definition-item').filter({ hasText: 'Expense Approval' }).click()
 
-    // Two levels.
+    // Two levels — steps are plain names, no responsible permission.
     await page.getByTestId('step-name').fill('Manager')
-    await page.getByTestId('step-permission').selectOption('leave.approve')
     await page.getByTestId('add-step').click()
     await expect(page.getByTestId('step-row')).toHaveCount(1)
 
     await page.getByTestId('step-name').fill('Finance')
-    await page.getByTestId('step-permission').selectOption('salary.manage')
     await page.getByTestId('add-step').click()
     await expect(page.getByTestId('step-row')).toHaveCount(2)
 
-    // Workflows are a rulebook, not an automation: no execution controls.
+    // Workflows are a rulebook, not an automation: no execution controls,
+    // no per-step permissions, and no Approvals inbox anywhere.
+    await expect(page.getByTestId('step-permission')).toHaveCount(0)
     await expect(page.getByTestId('start-instance')).toHaveCount(0)
     await expect(page.getByTestId('instance-title')).toHaveCount(0)
+    await expect(page.getByTestId('nav-approvals-admin')).toHaveCount(0)
+    await expect(page.getByTestId('nav-approvals')).toHaveCount(0)
 
     // Steps can be removed (rulebook stays editable).
     await page.getByTestId('delete-step-2').click()

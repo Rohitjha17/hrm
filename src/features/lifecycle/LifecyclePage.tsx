@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { CheckCircle2, FileText, Plus } from 'lucide-react'
+import { CheckCircle2, FileText, Pencil, Plus } from 'lucide-react'
 import {
   useAddEvent,
   useClearItem,
@@ -7,6 +7,8 @@ import {
   useLifecycleEvents,
   useResignation,
   useStartExit,
+  useUpdateEvent,
+  type LifecycleEvent,
 } from './hooks'
 import { useTemplates, type OnboardingTemplate } from '@/features/onboarding/hooks'
 import { TemplateModal } from '@/features/onboarding/TemplateModal'
@@ -19,6 +21,7 @@ import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
 import { Input } from '@/components/ui/Input'
 import { Label } from '@/components/ui/Label'
+import { Modal } from '@/components/ui/Modal'
 import { Select } from '@/components/ui/Select'
 
 const EVENT_TYPES = ['joining', 'confirmation', 'promotion', 'transfer', 'department_change', 'salary_revision', 'exit']
@@ -41,6 +44,7 @@ export function LifecyclePage() {
   const [eventDate, setEventDate] = useState('')
   const [exitDate, setExitDate] = useState('')
   const [tplOpen, setTplOpen] = useState(false)
+  const [editingEvent, setEditingEvent] = useState<LifecycleEvent | null>(null)
   const { data: exitTemplates = [] } = useTemplates(EXIT_DOC_TYPES)
 
   function genFromTemplate(tpl: OnboardingTemplate) {
@@ -102,8 +106,16 @@ export function LifecyclePage() {
               {events.length === 0 && <li className="text-sm text-slate-500">No events yet.</li>}
               {events.map((ev) => (
                 <li key={ev.id} data-testid="timeline-event" className="border-l-2 border-brand-200 pl-3">
-                  <p className="text-sm font-medium text-slate-800">
+                  <p className="flex items-center gap-1 text-sm font-medium text-slate-800">
                     <Badge tone="brand">{ev.event_type}</Badge> <span className="ml-1">{ev.event_date}</span>
+                    <button
+                      data-testid="edit-event"
+                      aria-label={`Edit ${ev.event_type} event`}
+                      className="ml-auto rounded p-1 text-slate-300 hover:text-brand-600"
+                      onClick={() => setEditingEvent(ev)}
+                    >
+                      <Pencil className="size-3.5" />
+                    </button>
                   </p>
                   {ev.note && <p className="text-xs text-slate-500">{ev.note}</p>}
                 </li>
@@ -207,6 +219,57 @@ export function LifecyclePage() {
       {tplOpen && (
         <TemplateModal docTypes={EXIT_DOC_TYPES} title="New exit document template" onClose={() => setTplOpen(false)} />
       )}
+      {editingEvent && <EditEventModal event={editingEvent} onClose={() => setEditingEvent(null)} />}
     </div>
+  )
+}
+
+function EditEventModal({ event, onClose }: { event: LifecycleEvent; onClose: () => void }) {
+  const update = useUpdateEvent()
+  const toast = useToast()
+  const [eventType, setEventType] = useState(event.event_type)
+  const [eventDate, setEventDate] = useState(event.event_date)
+  const [note, setNote] = useState(event.note ?? '')
+
+  return (
+    <Modal open onClose={onClose} title="Edit lifecycle event" testid="edit-event-modal">
+      <form
+        className="space-y-4"
+        onSubmit={(e) => {
+          e.preventDefault()
+          update.mutate(
+            { id: event.id, eventType, eventDate, note },
+            {
+              onSuccess: () => {
+                toast.success('Event updated')
+                onClose()
+              },
+              onError: (err) => toast.error('Update failed', (err as Error).message),
+            },
+          )
+        }}
+      >
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <Label htmlFor="ee-type">Event type</Label>
+            <Select id="ee-type" data-testid="edit-event-type" value={eventType} onChange={(e) => setEventType(e.target.value)}>
+              {EVENT_TYPES.map((t) => (<option key={t} value={t}>{t}</option>))}
+            </Select>
+          </div>
+          <div>
+            <Label htmlFor="ee-date">Date</Label>
+            <Input id="ee-date" data-testid="edit-event-date" type="date" value={eventDate} onChange={(e) => setEventDate(e.target.value)} required />
+          </div>
+        </div>
+        <div>
+          <Label htmlFor="ee-note">Note</Label>
+          <Input id="ee-note" data-testid="edit-event-note" placeholder="Optional note" value={note} onChange={(e) => setNote(e.target.value)} />
+        </div>
+        <div className="flex justify-end gap-2">
+          <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
+          <Button type="submit" data-testid="save-event" loading={update.isPending}>Save</Button>
+        </div>
+      </form>
+    </Modal>
   )
 }

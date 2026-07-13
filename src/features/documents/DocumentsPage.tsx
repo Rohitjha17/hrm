@@ -1,12 +1,26 @@
 import { useRef, useState } from 'react'
-import { Download, Upload } from 'lucide-react'
-import { getDocumentUrl, useEmployeeDocuments, useUploadDocument } from './hooks'
+import { Download, Trash2, Upload } from 'lucide-react'
+import {
+  getDocumentUrl,
+  useDeleteDocument,
+  useEmployeeDocuments,
+  useUploadDocument,
+  type EmployeeDocument,
+} from './hooks'
+import {
+  useOnboarding,
+  useOnboardingItems,
+  useStartOnboarding,
+  useUpdateItem,
+  type OnboardingItem,
+} from '@/features/onboarding/hooks'
 import { useUsers } from '@/features/admin/users/hooks'
 import { useToast } from '@/components/ui/toast-context'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { Card, CardBody } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
+import { Modal } from '@/components/ui/Modal'
 import { Input } from '@/components/ui/Input'
 import { Label } from '@/components/ui/Label'
 import { Select } from '@/components/ui/Select'
@@ -17,6 +31,7 @@ const DOC_TYPES = [
   'aadhaar', 'pan', 'passport', 'driving_license', 'resume', 'offer', 'appointment',
   'salary_revision', 'warning', 'promotion', 'experience', 'relieving',
 ]
+const ITEM_STATUS: OnboardingItem['status'][] = ['pending', 'submitted', 'verified']
 
 export function DocumentsPage() {
   const { data: users = [] } = useUsers()
@@ -24,14 +39,19 @@ export function DocumentsPage() {
   const effectiveUser = employeeId || users[0]?.id || ''
   const { data: docs = [] } = useEmployeeDocuments(effectiveUser)
   const upload = useUploadDocument()
+  const del = useDeleteDocument()
   const toast = useToast()
   const fileRef = useRef<HTMLInputElement>(null)
   const [docType, setDocType] = useState('pan')
   const [title, setTitle] = useState('')
+  const [deleting, setDeleting] = useState<EmployeeDocument | null>(null)
 
   return (
     <div data-testid="documents-page">
-      <PageHeader title="Doc Vault" description="Versioned, access-controlled document repository." />
+      <PageHeader
+        title="Doc Vault"
+        description="Versioned, access-controlled document repository and the joining checklist."
+      />
 
       <Card className="mb-4">
         <CardBody>
@@ -84,44 +104,134 @@ export function DocumentsPage() {
         </CardBody>
       </Card>
 
-      {docs.length === 0 ? (
-        <EmptyState title="No documents for this employee" testid="docs-empty" />
-      ) : (
-        <Table data-testid="documents-table">
-          <Thead>
-            <tr>
-              <Th>Category</Th>
-              <Th>Title</Th>
-              <Th>Version</Th>
-              <Th className="text-right">File</Th>
-            </tr>
-          </Thead>
-          <Tbody>
-            {docs.map((d) => (
-              <tr key={d.id} data-testid="document-row">
-                <Td><Badge tone="slate" data-testid="doc-category">{d.doc_type}</Badge></Td>
-                <Td className="font-medium text-slate-900">{d.title}</Td>
-                <Td data-testid="doc-version">v{d.version}</Td>
-                <Td>
-                  <div className="flex justify-end">
-                    <button
-                      data-testid="download-document"
-                      className="inline-flex items-center gap-1 text-sm text-brand-600 hover:text-brand-700"
-                      onClick={async () => {
-                        const url = await getDocumentUrl(d.storage_path)
-                        if (url) window.open(url, '_blank')
-                        else toast.error('Could not open document')
-                      }}
-                    >
-                      <Download className="size-4" /> Open
-                    </button>
-                  </div>
-                </Td>
-              </tr>
-            ))}
-          </Tbody>
-        </Table>
+      <div className="grid gap-4 lg:grid-cols-[1fr_360px]">
+        <div>
+          {docs.length === 0 ? (
+            <EmptyState title="No documents for this employee" testid="docs-empty" />
+          ) : (
+            <Table data-testid="documents-table">
+              <Thead>
+                <tr>
+                  <Th>Category</Th>
+                  <Th>Title</Th>
+                  <Th>Version</Th>
+                  <Th className="text-right">File</Th>
+                </tr>
+              </Thead>
+              <Tbody>
+                {docs.map((d) => (
+                  <tr key={d.id} data-testid="document-row">
+                    <Td><Badge tone="slate" data-testid="doc-category">{d.doc_type}</Badge></Td>
+                    <Td className="font-medium text-slate-900">{d.title}</Td>
+                    <Td data-testid="doc-version">v{d.version}</Td>
+                    <Td>
+                      <div className="flex items-center justify-end gap-2">
+                        <button
+                          data-testid="download-document"
+                          className="inline-flex items-center gap-1 text-sm text-brand-600 hover:text-brand-700"
+                          onClick={async () => {
+                            const url = await getDocumentUrl(d.storage_path)
+                            if (url) window.open(url, '_blank')
+                            else toast.error('Could not open document')
+                          }}
+                        >
+                          <Download className="size-4" /> Open
+                        </button>
+                        <button
+                          data-testid="delete-document"
+                          aria-label={`Delete ${d.title}`}
+                          className="rounded p-1 text-slate-400 hover:text-red-600"
+                          onClick={() => setDeleting(d)}
+                        >
+                          <Trash2 className="size-4" />
+                        </button>
+                      </div>
+                    </Td>
+                  </tr>
+                ))}
+              </Tbody>
+            </Table>
+          )}
+        </div>
+
+        <JoiningChecklist employeeId={effectiveUser} />
+      </div>
+
+      {deleting && (
+        <Modal open onClose={() => setDeleting(null)} title="Delete document" testid="doc-delete-modal">
+          <p className="text-sm text-slate-600">
+            Permanently delete <strong>{deleting.title}</strong> (v{deleting.version}) and its file?
+            This cannot be undone.
+          </p>
+          <div className="mt-4 flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setDeleting(null)}>Cancel</Button>
+            <Button
+              variant="danger"
+              data-testid="confirm-delete-document"
+              loading={del.isPending}
+              onClick={() =>
+                del.mutate(
+                  { id: deleting.id, storage_path: deleting.storage_path },
+                  {
+                    onSuccess: () => {
+                      toast.success('Document deleted')
+                      setDeleting(null)
+                    },
+                    onError: (e) => toast.error('Delete failed', (e as Error).message),
+                  },
+                )
+              }
+            >
+              Delete
+            </Button>
+          </div>
+        </Modal>
       )}
     </div>
+  )
+}
+
+/** New-joiner document checklist for the selected employee (moved from Communication). */
+function JoiningChecklist({ employeeId }: { employeeId: string }) {
+  const { data: onboarding } = useOnboarding(employeeId)
+  const { data: items = [] } = useOnboardingItems(onboarding?.id ?? null)
+  const start = useStartOnboarding()
+  const updateItem = useUpdateItem()
+  const toast = useToast()
+
+  return (
+    <Card data-testid="joining-checklist-card">
+      <CardBody className="space-y-3">
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
+          Joining checklist
+        </h2>
+        {!onboarding ? (
+          <Button
+            data-testid="start-onboarding"
+            loading={start.isPending}
+            disabled={!employeeId}
+            onClick={() => start.mutate(employeeId, { onSuccess: () => toast.success('Onboarding started') })}
+          >
+            Start onboarding
+          </Button>
+        ) : (
+          <ul className="space-y-2" data-testid="checklist">
+            {items.map((it) => (
+              <li key={it.id} data-testid="checklist-item" className="flex items-center justify-between gap-2 text-sm">
+                <span>{it.label}</span>
+                <Select
+                  data-testid={`item-status-${it.item_key}`}
+                  value={it.status}
+                  onChange={(e) => updateItem.mutate({ id: it.id, status: e.target.value as OnboardingItem['status'] })}
+                  className="h-8 w-32"
+                >
+                  {ITEM_STATUS.map((s) => (<option key={s} value={s}>{s}</option>))}
+                </Select>
+              </li>
+            ))}
+          </ul>
+        )}
+      </CardBody>
+    </Card>
   )
 }

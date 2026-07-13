@@ -48,5 +48,14 @@ test.describe('Phase 13 — employee document management', () => {
     const aartiClient = await signedInClient(aarti.email, aarti.password)
     const aartiSees = await aartiClient.from('employee_documents').select('id')
     expect(aartiSees.data ?? []).toHaveLength(0) // sees only her own (none); never Raj's
+
+    // Admin can delete any document (row + file).
+    const v2row = page.getByTestId('document-row').filter({ hasText: 'PAN Card (updated)' })
+    await v2row.getByTestId('delete-document').click()
+    await expect(page.getByTestId('doc-delete-modal')).toBeVisible()
+    await page.getByTestId('confirm-delete-document').click()
+    await expect(v2row).toHaveCount(0, { timeout: 10_000 })
+    // The v1 document is untouched.
+    await expect(page.getByTestId('document-row').filter({ hasText: 'PAN Card' })).toHaveCount(1)
   })
 })
