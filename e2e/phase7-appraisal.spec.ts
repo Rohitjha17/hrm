@@ -1,7 +1,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { test, expect, type Page } from '@playwright/test'
-import { loginAs } from './utils/auth'
+import { loginAs, signOut } from './utils/auth'
 import { aarti, raj, sunil } from './utils/users'
 import { adminClient } from './utils/supabase'
 
@@ -21,32 +21,65 @@ async function seedAppraisalInputs(): Promise<string> {
   const uid = r!.id
 
   const mk = (d: number, status: string) => ({
-    user_id: uid, work_date: `2026-04-${pad(d)}`, status, is_late: false, overtime_minutes: 0, worked_minutes: 0,
+    user_id: uid,
+    work_date: `2026-04-${pad(d)}`,
+    status,
+    is_late: false,
+    overtime_minutes: 0,
+    worked_minutes: 0,
   })
   const days = []
   for (let d = 1; d <= 18; d++) days.push(mk(d, 'full_day'))
   days.push(mk(19, 'absent'), mk(20, 'absent'))
-  await admin.from('attendance_days').delete().eq('user_id', uid).gte('work_date', '2026-04-01').lt('work_date', '2026-05-01')
+  await admin
+    .from('attendance_days')
+    .delete()
+    .eq('user_id', uid)
+    .gte('work_date', '2026-04-01')
+    .lt('work_date', '2026-05-01')
   await admin.from('attendance_days').insert(days)
 
   const comp = []
-  for (let d = 1; d <= 9; d++) comp.push({ user_id: uid, work_date: `2026-04-${pad(d)}`, day_end_submitted: true, next_day_submitted: true })
-  await admin.from('planning_compliance').delete().eq('user_id', uid).gte('work_date', '2026-04-01').lt('work_date', '2026-05-01')
+  for (let d = 1; d <= 9; d++)
+    comp.push({
+      user_id: uid,
+      work_date: `2026-04-${pad(d)}`,
+      day_end_submitted: true,
+      next_day_submitted: true,
+    })
+  await admin
+    .from('planning_compliance')
+    .delete()
+    .eq('user_id', uid)
+    .gte('work_date', '2026-04-01')
+    .lt('work_date', '2026-05-01')
   await admin.from('planning_compliance').insert(comp)
 
   const { data: statuses } = await admin.from('task_statuses').select('id,slug')
   const done = statuses!.find((s) => s.slug === 'completed')!.id
   const pend = statuses!.find((s) => s.slug === 'pending')!.id
   const tasks = [1, 2, 3].map((i) => ({
-    title: `done-${i}`, created_by: uid, assignee_id: uid, status_id: done, created_at: '2026-04-15T10:00:00Z',
+    title: `done-${i}`,
+    created_by: uid,
+    assignee_id: uid,
+    status_id: done,
+    created_at: '2026-04-15T10:00:00Z',
   }))
-  tasks.push({ title: 'pending-1', created_by: uid, assignee_id: uid, status_id: pend, created_at: '2026-04-16T10:00:00Z' })
+  tasks.push({
+    title: 'pending-1',
+    created_by: uid,
+    assignee_id: uid,
+    status_id: pend,
+    created_at: '2026-04-16T10:00:00Z',
+  })
   await admin.from('tasks').insert(tasks)
   return uid
 }
 
 test.describe('Phase 7 — appraisal management', () => {
-  test('admin creates a review period + appraisal and computes scores & recommendations', async ({ page }) => {
+  test('admin creates a review period + appraisal and computes scores & recommendations', async ({
+    page,
+  }) => {
     await seedAppraisalInputs()
     await loginAs(page, sunil)
     await page.goto('/admin/appraisal')
@@ -134,7 +167,9 @@ test.describe('Phase 7 — appraisal management', () => {
     await shot(page, 'appraisal-change-history')
   })
 
-  test('employee sees full appraisal details: scores, feedback, KRA/KPI and history', async ({ page }) => {
+  test('employee sees full appraisal details: scores, feedback, KRA/KPI and history', async ({
+    page,
+  }) => {
     await loginAs(page, raj)
     await page.goto('/appraisal')
     await expect(page.getByTestId('appraisal-page')).toBeVisible()
@@ -156,5 +191,39 @@ test.describe('Phase 7 — appraisal management', () => {
     )
     await expect(modal.getByTestId('appraisal-history')).toContainText('Great quarter')
     await shot(page, 'appraisal-employee-full-details')
+  })
+
+  test('employees can be removed from a period, and a whole period can be deleted', async ({
+    page,
+  }) => {
+    await loginAs(page, sunil)
+    await page.goto('/admin/appraisal')
+    await page.getByTestId('cycle-item').filter({ hasText: 'April Review' }).click()
+
+    // Remove one employee (confirmed); everyone else stays enrolled.
+    await expect(page.getByTestId(`appraisal-row-${aarti.email}`)).toBeVisible()
+    await page.getByTestId(`remove-appraisal-${aarti.email}`).click()
+    await expect(page.getByTestId('remove-appraisal-dialog')).toBeVisible()
+    await page.getByTestId('remove-appraisal-dialog-confirm').click()
+    await expect(page.getByTestId(`appraisal-row-${aarti.email}`)).toHaveCount(0)
+    await expect(page.getByTestId(`appraisal-row-${raj.email}`)).toBeVisible()
+    await shot(page, 'appraisal-employee-removed')
+
+    // Delete the whole period (confirmed) — it disappears from the list.
+    await page.getByTestId('delete-cycle').click()
+    await expect(page.getByTestId('delete-cycle-dialog')).toBeVisible()
+    await expect(page.getByTestId('delete-cycle-dialog')).toContainText('April Review')
+    await page.getByTestId('delete-cycle-dialog-confirm').click()
+    await expect(page.getByTestId('cycle-item').filter({ hasText: 'April Review' })).toHaveCount(0)
+    await shot(page, 'appraisal-period-deleted')
+
+    // The employee no longer sees an appraisal for the deleted period.
+    await signOut(page)
+    await loginAs(page, raj)
+    await page.goto('/appraisal')
+    await expect(page.getByTestId('appraisal-page')).toBeVisible()
+    await expect(
+      page.getByTestId('appraisal-card').filter({ hasText: 'April Review' }),
+    ).toHaveCount(0)
   })
 })

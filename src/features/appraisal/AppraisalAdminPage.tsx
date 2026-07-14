@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Calculator, Eye, Plus, Users } from 'lucide-react'
+import { Calculator, Eye, Plus, Trash2, Users } from 'lucide-react'
 import {
   useAddAllEmployees,
   useAppraisals,
@@ -8,6 +8,8 @@ import {
   useCreateAppraisal,
   useCreateCycle,
   useCycles,
+  useDeleteAppraisal,
+  useDeleteCycle,
   useUpdateAppraisal,
   type AppraisalRow,
 } from './hooks'
@@ -19,6 +21,7 @@ import { Card, CardBody } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
 import { Modal } from '@/components/ui/Modal'
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { Input } from '@/components/ui/Input'
 import { Label } from '@/components/ui/Label'
 import { Select } from '@/components/ui/Select'
@@ -35,10 +38,14 @@ export function AppraisalAdminPage() {
   const compute = useComputeAppraisal()
   const addAll = useAddAllEmployees()
   const computeAll = useComputeAll()
+  const deleteAppraisal = useDeleteAppraisal()
+  const deleteCycle = useDeleteCycle()
   const toast = useToast()
   const [cycleModal, setCycleModal] = useState(false)
   const [apprModal, setApprModal] = useState(false)
   const [detailRow, setDetailRow] = useState<AppraisalRow | null>(null)
+  const [confirmRemoveRow, setConfirmRemoveRow] = useState<AppraisalRow | null>(null)
+  const [confirmDeleteCycle, setConfirmDeleteCycle] = useState(false)
 
   return (
     <div data-testid="appraisal-admin-page">
@@ -55,7 +62,9 @@ export function AppraisalAdminPage() {
       <div className="grid gap-4 lg:grid-cols-[260px_1fr]">
         <Card>
           <CardBody className="space-y-1">
-            {cycles.length === 0 && <p className="text-sm text-slate-500">No review periods yet.</p>}
+            {cycles.length === 0 && (
+              <p className="text-sm text-slate-500">No review periods yet.</p>
+            )}
             {cycles.map((c) => (
               <button
                 key={c.id}
@@ -77,45 +86,62 @@ export function AppraisalAdminPage() {
 
         {selected && (
           <div>
-            <div className="mb-2 flex flex-wrap justify-end gap-2">
-              <Button
-                size="sm"
-                variant="outline"
-                data-testid="add-all-employees"
-                loading={addAll.isPending}
-                onClick={() =>
-                  addAll.mutate(
-                    { cycleId: selected.id, userIds: users.map((u) => u.id) },
-                    {
-                      onSuccess: () => toast.success('All employees added'),
-                      onError: (e) => toast.error('Failed', (e as Error).message),
-                    },
-                  )
-                }
-              >
-                <Users className="size-4" /> Add all employees
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                data-testid="compute-all"
-                loading={computeAll.isPending}
-                disabled={appraisals.length === 0}
-                onClick={() =>
-                  computeAll.mutate(
-                    appraisals.map((a) => a.id),
-                    {
-                      onSuccess: () => toast.success('All scores computed'),
-                      onError: (e) => toast.error('Failed', (e as Error).message),
-                    },
-                  )
-                }
-              >
-                <Calculator className="size-4" /> Compute all
-              </Button>
-              <Button size="sm" data-testid="add-appraisal-button" onClick={() => setApprModal(true)}>
-                <Plus className="size-4" /> Add appraisal
-              </Button>
+            <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-1">
+                <h2 className="text-lg font-semibold text-slate-900">{selected.name}</h2>
+                <button
+                  data-testid="delete-cycle"
+                  aria-label={`Delete review period ${selected.name}`}
+                  className="rounded p-1 text-slate-400 hover:bg-red-50 hover:text-red-600"
+                  onClick={() => setConfirmDeleteCycle(true)}
+                >
+                  <Trash2 className="size-4" />
+                </button>
+              </div>
+              <div className="flex flex-wrap justify-end gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  data-testid="add-all-employees"
+                  loading={addAll.isPending}
+                  onClick={() =>
+                    addAll.mutate(
+                      { cycleId: selected.id, userIds: users.map((u) => u.id) },
+                      {
+                        onSuccess: () => toast.success('All employees added'),
+                        onError: (e) => toast.error('Failed', (e as Error).message),
+                      },
+                    )
+                  }
+                >
+                  <Users className="size-4" /> Add all employees
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  data-testid="compute-all"
+                  loading={computeAll.isPending}
+                  disabled={appraisals.length === 0}
+                  onClick={() =>
+                    computeAll.mutate(
+                      appraisals.map((a) => a.id),
+                      {
+                        onSuccess: () => toast.success('All scores computed'),
+                        onError: (e) => toast.error('Failed', (e as Error).message),
+                      },
+                    )
+                  }
+                >
+                  <Calculator className="size-4" /> Compute all
+                </Button>
+                <Button
+                  size="sm"
+                  data-testid="add-appraisal-button"
+                  onClick={() => setApprModal(true)}
+                >
+                  <Plus className="size-4" /> Add appraisal
+                </Button>
+              </div>
             </div>
             <Table data-testid="appraisals-table">
               <Thead>
@@ -180,6 +206,14 @@ export function AppraisalAdminPage() {
                         >
                           <Calculator className="size-4" /> Compute
                         </Button>
+                        <button
+                          data-testid={`remove-appraisal-${a.employee?.email}`}
+                          aria-label={`Remove ${a.employee?.full_name || a.employee?.email} from this period`}
+                          className="rounded-lg p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600"
+                          onClick={() => setConfirmRemoveRow(a)}
+                        >
+                          <Trash2 className="size-4" />
+                        </button>
                       </div>
                     </Td>
                   </tr>
@@ -195,6 +229,70 @@ export function AppraisalAdminPage() {
         <AppraisalModal cycleId={selected.id} onClose={() => setApprModal(false)} />
       )}
       {detailRow && <DetailsModal appraisal={detailRow} onClose={() => setDetailRow(null)} />}
+      {confirmRemoveRow && selected && (
+        <ConfirmDialog
+          title="Remove from period"
+          testid="remove-appraisal-dialog"
+          confirmLabel="Remove employee"
+          loading={deleteAppraisal.isPending}
+          onClose={() => setConfirmRemoveRow(null)}
+          message={
+            <p>
+              Remove{' '}
+              <span className="font-semibold text-slate-900">
+                {confirmRemoveRow.employee?.full_name || confirmRemoveRow.employee?.email}
+              </span>{' '}
+              from <span className="font-semibold text-slate-900">{selected.name}</span>? Their
+              scores, feedback and change history for this period will be deleted. This action
+              cannot be undone.
+            </p>
+          }
+          onConfirm={() =>
+            deleteAppraisal.mutate(confirmRemoveRow.id, {
+              onSuccess: () => {
+                toast.success('Employee removed from period')
+                setConfirmRemoveRow(null)
+              },
+              onError: (err) => toast.error('Remove failed', (err as Error).message),
+            })
+          }
+        />
+      )}
+      {confirmDeleteCycle && selected && (
+        <ConfirmDialog
+          title="Delete review period"
+          testid="delete-cycle-dialog"
+          confirmLabel="Delete period"
+          loading={deleteCycle.isPending}
+          onClose={() => setConfirmDeleteCycle(false)}
+          message={
+            <p>
+              Delete <span className="font-semibold text-slate-900">{selected.name}</span> (
+              {selected.period_start} → {selected.period_end})
+              {appraisals.length > 0 && (
+                <>
+                  {' '}
+                  including{' '}
+                  <span className="font-semibold text-slate-900">{appraisals.length}</span> employee
+                  appraisal{appraisals.length === 1 ? '' : 's'}
+                </>
+              )}
+              ? All scores, feedback and change history in this period will be deleted. This action
+              cannot be undone.
+            </p>
+          }
+          onConfirm={() =>
+            deleteCycle.mutate(selected.id, {
+              onSuccess: () => {
+                toast.success('Review period deleted')
+                setSelectedId(null)
+                setConfirmDeleteCycle(false)
+              },
+              onError: (err) => toast.error('Delete failed', (err as Error).message),
+            })
+          }
+        />
+      )}
     </div>
   )
 }
@@ -202,7 +300,9 @@ export function AppraisalAdminPage() {
 function DetailsModal({ appraisal, onClose }: { appraisal: AppraisalRow; onClose: () => void }) {
   const update = useUpdateAppraisal()
   const toast = useToast()
-  const [rating, setRating] = useState(appraisal.performance_rating ? String(appraisal.performance_rating) : '')
+  const [rating, setRating] = useState(
+    appraisal.performance_rating ? String(appraisal.performance_rating) : '',
+  )
   const [kra, setKra] = useState(appraisal.kra ?? '')
   const [kpi, setKpi] = useState(appraisal.kpi ?? '')
   const [managerFeedback, setManagerFeedback] = useState(appraisal.manager_feedback ?? '')
@@ -235,7 +335,10 @@ function DetailsModal({ appraisal, onClose }: { appraisal: AppraisalRow; onClose
             <RatingStars value={appraisal.performance_rating} />
           </span>
           <span className="text-slate-500">
-            Increment <span className="font-semibold text-slate-800">{appraisal.increment_recommendation}%</span>
+            Increment{' '}
+            <span className="font-semibold text-slate-800">
+              {appraisal.increment_recommendation}%
+            </span>
           </span>
           <span>
             {appraisal.promotion_recommended ? (
@@ -271,7 +374,12 @@ function DetailsModal({ appraisal, onClose }: { appraisal: AppraisalRow; onClose
         >
           <div>
             <Label htmlFor="det-rating">Performance rating (1–5)</Label>
-            <Select id="det-rating" data-testid="details-rating" value={rating} onChange={(e) => setRating(e.target.value)}>
+            <Select
+              id="det-rating"
+              data-testid="details-rating"
+              value={rating}
+              onChange={(e) => setRating(e.target.value)}
+            >
               <option value="">Not rated</option>
               {[1, 2, 3, 4, 5].map((n) => (
                 <option key={n} value={n}>
@@ -282,19 +390,43 @@ function DetailsModal({ appraisal, onClose }: { appraisal: AppraisalRow; onClose
           </div>
           <div>
             <Label htmlFor="det-kra">KRA — Key Result Areas</Label>
-            <Textarea id="det-kra" data-testid="details-kra" rows={2} value={kra} onChange={(e) => setKra(e.target.value)} />
+            <Textarea
+              id="det-kra"
+              data-testid="details-kra"
+              rows={2}
+              value={kra}
+              onChange={(e) => setKra(e.target.value)}
+            />
           </div>
           <div>
             <Label htmlFor="det-kpi">KPI — Key Performance Indicators</Label>
-            <Textarea id="det-kpi" data-testid="details-kpi" rows={2} value={kpi} onChange={(e) => setKpi(e.target.value)} />
+            <Textarea
+              id="det-kpi"
+              data-testid="details-kpi"
+              rows={2}
+              value={kpi}
+              onChange={(e) => setKpi(e.target.value)}
+            />
           </div>
           <div>
             <Label htmlFor="det-mgr">Manager feedback</Label>
-            <Textarea id="det-mgr" data-testid="details-manager-feedback" rows={2} value={managerFeedback} onChange={(e) => setManagerFeedback(e.target.value)} />
+            <Textarea
+              id="det-mgr"
+              data-testid="details-manager-feedback"
+              rows={2}
+              value={managerFeedback}
+              onChange={(e) => setManagerFeedback(e.target.value)}
+            />
           </div>
           <div>
             <Label htmlFor="det-hr">HR feedback</Label>
-            <Textarea id="det-hr" data-testid="details-hr-feedback" rows={2} value={hrFeedback} onChange={(e) => setHrFeedback(e.target.value)} />
+            <Textarea
+              id="det-hr"
+              data-testid="details-hr-feedback"
+              rows={2}
+              value={hrFeedback}
+              onChange={(e) => setHrFeedback(e.target.value)}
+            />
           </div>
           <div className="flex justify-end gap-2">
             <Button type="button" variant="outline" onClick={onClose}>
@@ -351,11 +483,25 @@ function CycleModal({ onClose }: { onClose: () => void }) {
         <div className="grid grid-cols-2 gap-3">
           <div>
             <Label htmlFor="cyc-start">From</Label>
-            <Input id="cyc-start" data-testid="cycle-start" type="date" value={start} onChange={(e) => setStart(e.target.value)} required />
+            <Input
+              id="cyc-start"
+              data-testid="cycle-start"
+              type="date"
+              value={start}
+              onChange={(e) => setStart(e.target.value)}
+              required
+            />
           </div>
           <div>
             <Label htmlFor="cyc-end">To</Label>
-            <Input id="cyc-end" data-testid="cycle-end" type="date" value={end} onChange={(e) => setEnd(e.target.value)} required />
+            <Input
+              id="cyc-end"
+              data-testid="cycle-end"
+              type="date"
+              value={end}
+              onChange={(e) => setEnd(e.target.value)}
+              required
+            />
           </div>
         </div>
         <div className="flex justify-end gap-2">
@@ -410,7 +556,12 @@ function AppraisalModal({ cycleId, onClose }: { cycleId: string; onClose: () => 
       >
         <div>
           <Label htmlFor="appr-user">Employee</Label>
-          <Select id="appr-user" data-testid="appraisal-user-select" value={userId || users[0]?.id || ''} onChange={(e) => setUserId(e.target.value)}>
+          <Select
+            id="appr-user"
+            data-testid="appraisal-user-select"
+            value={userId || users[0]?.id || ''}
+            onChange={(e) => setUserId(e.target.value)}
+          >
             {users.map((u) => (
               <option key={u.id} value={u.id}>
                 {u.full_name || u.email}
@@ -420,7 +571,12 @@ function AppraisalModal({ cycleId, onClose }: { cycleId: string; onClose: () => 
         </div>
         <div>
           <Label htmlFor="appr-rating">Performance rating (1–5)</Label>
-          <Select id="appr-rating" data-testid="appraisal-rating" value={rating} onChange={(e) => setRating(e.target.value)}>
+          <Select
+            id="appr-rating"
+            data-testid="appraisal-rating"
+            value={rating}
+            onChange={(e) => setRating(e.target.value)}
+          >
             {[1, 2, 3, 4, 5].map((n) => (
               <option key={n} value={n}>
                 {n}
@@ -430,19 +586,43 @@ function AppraisalModal({ cycleId, onClose }: { cycleId: string; onClose: () => 
         </div>
         <div>
           <Label htmlFor="appr-kra">KRA — Key Result Areas</Label>
-          <Textarea id="appr-kra" data-testid="appraisal-kra" rows={2} value={kra} onChange={(e) => setKra(e.target.value)} />
+          <Textarea
+            id="appr-kra"
+            data-testid="appraisal-kra"
+            rows={2}
+            value={kra}
+            onChange={(e) => setKra(e.target.value)}
+          />
         </div>
         <div>
           <Label htmlFor="appr-kpi">KPI — Key Performance Indicators</Label>
-          <Textarea id="appr-kpi" data-testid="appraisal-kpi" rows={2} value={kpi} onChange={(e) => setKpi(e.target.value)} />
+          <Textarea
+            id="appr-kpi"
+            data-testid="appraisal-kpi"
+            rows={2}
+            value={kpi}
+            onChange={(e) => setKpi(e.target.value)}
+          />
         </div>
         <div>
           <Label htmlFor="appr-fb">Manager feedback</Label>
-          <Textarea id="appr-fb" data-testid="appraisal-manager-feedback" rows={2} value={managerFeedback} onChange={(e) => setManagerFeedback(e.target.value)} />
+          <Textarea
+            id="appr-fb"
+            data-testid="appraisal-manager-feedback"
+            rows={2}
+            value={managerFeedback}
+            onChange={(e) => setManagerFeedback(e.target.value)}
+          />
         </div>
         <div>
           <Label htmlFor="appr-hr">HR feedback</Label>
-          <Textarea id="appr-hr" data-testid="appraisal-hr-feedback" rows={2} value={hrFeedback} onChange={(e) => setHrFeedback(e.target.value)} />
+          <Textarea
+            id="appr-hr"
+            data-testid="appraisal-hr-feedback"
+            rows={2}
+            value={hrFeedback}
+            onChange={(e) => setHrFeedback(e.target.value)}
+          />
         </div>
         <div className="flex justify-end gap-2">
           <Button type="button" variant="outline" onClick={onClose}>

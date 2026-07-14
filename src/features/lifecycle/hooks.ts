@@ -25,7 +25,12 @@ export function useLifecycleEvents(employeeId: string | null) {
 export function useAddEvent() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async (input: { employeeId: string; eventType: string; eventDate: string; note?: string }) => {
+    mutationFn: async (input: {
+      employeeId: string
+      eventType: string
+      eventDate: string
+      note?: string
+    }) => {
       const { error } = await supabase.from('lifecycle_events').insert({
         employee_id: input.employeeId,
         event_type: input.eventType,
@@ -42,7 +47,12 @@ export function useAddEvent() {
 export function useUpdateEvent() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async (input: { id: string; eventType: string; eventDate: string; note?: string }) => {
+    mutationFn: async (input: {
+      id: string
+      eventType: string
+      eventDate: string
+      note?: string
+    }) => {
       const { error } = await supabase
         .from('lifecycle_events')
         .update({
@@ -51,6 +61,33 @@ export function useUpdateEvent() {
           note: input.note?.trim() || null,
         })
         .eq('id', input.id)
+      if (error) throw error
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['lifecycle'] }),
+  })
+}
+
+/** Remove a single timeline entry that was recorded by mistake. */
+export function useDeleteEvent() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (eventId: string) => {
+      const { error } = await supabase.from('lifecycle_events').delete().eq('id', eventId)
+      if (error) throw error
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['lifecycle'] }),
+  })
+}
+
+/** Wipe an employee's entire timeline. Exit management (resignation/clearances) is untouched. */
+export function useDeleteAllEvents() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (employeeId: string) => {
+      const { error } = await supabase
+        .from('lifecycle_events')
+        .delete()
+        .eq('employee_id', employeeId)
       if (error) throw error
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['lifecycle'] }),

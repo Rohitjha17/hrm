@@ -43,6 +43,11 @@ export function useUpdateProfile() {
   })
 }
 
+export interface LeaveQuotaInput {
+  leaveTypeId: string
+  allocated: number
+}
+
 export interface NewEmployee {
   email: string
   password: string
@@ -52,6 +57,7 @@ export interface NewEmployee {
   teamId?: string | null
   managerId?: string | null
   roleIds: string[]
+  leaveQuotas?: LeaveQuotaInput[]
 }
 
 export function useCreateEmployee() {
@@ -79,6 +85,40 @@ export function useUpdateCredentials() {
       if (error) throw error
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['users'] }),
+  })
+}
+
+/** Current-year leave allocations for one user (admin view, for the edit form). */
+export function useUserLeaveBalances(userId: string | null) {
+  return useQuery({
+    queryKey: ['user-leave-balances', userId],
+    enabled: !!userId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('leave_balances')
+        .select('leave_type_id, allocated, used')
+        .eq('user_id', userId!)
+        .eq('year', new Date().getFullYear())
+      if (error) throw error
+      return data
+    },
+  })
+}
+
+/** Reconcile a user's current-year leave quotas via the admin Edge Function. */
+export function useSetLeaveQuotas() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: { userId: string; quotas: LeaveQuotaInput[] }) => {
+      const { error } = await supabase.functions.invoke('manage-employee', {
+        body: { action: 'set-leave-quotas', ...input },
+      })
+      if (error) throw error
+    },
+    onSuccess: (_, { userId }) => {
+      qc.invalidateQueries({ queryKey: ['user-leave-balances', userId] })
+      qc.invalidateQueries({ queryKey: ['my-balances'] })
+    },
   })
 }
 

@@ -1,8 +1,43 @@
 // Edge Function: provision and remove employees (auth users + profiles).
 // Creating/deleting auth users needs the Admin API, which must run server-side.
 // Verifies the caller holds `users.manage`.
-import { createClient } from 'jsr:@supabase/supabase-js@2'
+import { createClient, type SupabaseClient } from 'jsr:@supabase/supabase-js@2'
 import { corsHeaders, json } from '../_shared/cors.ts'
+
+interface LeaveQuota {
+  leaveTypeId: string
+  allocated: number
+}
+
+/**
+ * Reconcile a user's current-year leave allocations to `quotas`, preserving
+ * whatever `used` has already accumulated on existing rows.
+ */
+async function setLeaveQuotas(admin: SupabaseClient, userId: string, quotas: LeaveQuota[]) {
+  const year = new Date().getFullYear()
+  const { data: existing, error: exErr } = await admin
+    .from('leave_balances')
+    .select('id, leave_type_id')
+    .eq('user_id', userId)
+    .eq('year', year)
+  if (exErr) return exErr.message
+  const byType = new Map((existing ?? []).map((b) => [b.leave_type_id, b.id]))
+
+  for (const q of quotas) {
+    const allocated = Number(q.allocated)
+    if (!q.leaveTypeId || !Number.isFinite(allocated) || allocated < 0) {
+      return 'each quota needs a leaveTypeId and a non-negative allocated number'
+    }
+    const rowId = byType.get(q.leaveTypeId)
+    const { error } = rowId
+      ? await admin.from('leave_balances').update({ allocated }).eq('id', rowId)
+      : await admin
+          .from('leave_balances')
+          .insert({ user_id: userId, leave_type_id: q.leaveTypeId, year, allocated, used: 0 })
+    if (error) return error.message
+  }
+  return null
+}
 
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
@@ -55,7 +90,21 @@ Deno.serve(async (req: Request) => {
         if (rErr) return json({ error: rErr.message }, 400)
       }
 
+      if (Array.isArray(body.leaveQuotas) && body.leaveQuotas.length > 0) {
+        const qErr = await setLeaveQuotas(admin, userId, body.leaveQuotas)
+        if (qErr) return json({ error: qErr }, 400)
+      }
+
       return json({ ok: true, userId })
+    }
+
+    if (body.action === 'set-leave-quotas') {
+      const { userId, quotas } = body
+      if (!userId) return json({ error: 'userId required' }, 400)
+      if (!Array.isArray(quotas)) return json({ error: 'quotas array required' }, 400)
+      const qErr = await setLeaveQuotas(admin, userId, quotas)
+      if (qErr) return json({ error: qErr }, 400)
+      return json({ ok: true })
     }
 
     if (body.action === 'update-credentials') {

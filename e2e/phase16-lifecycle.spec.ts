@@ -4,7 +4,9 @@ import { loginAs } from './utils/auth'
 import { raj, sunil } from './utils/users'
 
 test.describe('Phase 16 — lifecycle & exit management', () => {
-  test('record lifecycle events, render timeline, run exit clearance + documents', async ({ page }) => {
+  test('record lifecycle events, render timeline, run exit clearance + documents', async ({
+    page,
+  }) => {
     await loginAs(page, sunil)
     await page.goto('/admin/lifecycle')
     await expect(page.getByTestId('lifecycle-page')).toBeVisible()
@@ -43,5 +45,32 @@ test.describe('Phase 16 — lifecycle & exit management', () => {
       page.getByTestId('generate-experience').click(),
     ])
     expect(fs.statSync(await pdf.path()).size).toBeGreaterThan(0)
+  })
+
+  test('timeline entries can be deleted one-by-one or cleared entirely', async ({ page }) => {
+    await loginAs(page, sunil)
+    await page.goto('/admin/lifecycle')
+    await page.getByTestId('lifecycle-employee-select').selectOption({ label: raj.fullName })
+
+    // Record a mistaken transfer entry, then delete just that entry (confirmed).
+    await page.getByTestId('event-type').selectOption('transfer')
+    await page.getByTestId('event-date').fill('2026-05-01')
+    await page.getByTestId('add-event').click()
+    const transfer = page.getByTestId('timeline-event').filter({ hasText: 'transfer' })
+    await expect(transfer).toBeVisible()
+    await transfer.getByTestId('delete-event').click()
+    await expect(page.getByTestId('delete-event-dialog')).toBeVisible()
+    await page.getByTestId('delete-event-dialog-confirm').click()
+    await expect(transfer).toHaveCount(0)
+
+    // Other entries survive a single delete; "Clear all" wipes the timeline.
+    await expect(page.getByTestId('timeline-event').first()).toBeVisible()
+    await page.getByTestId('clear-timeline').click()
+    await expect(page.getByTestId('clear-timeline-dialog')).toBeVisible()
+    await page.getByTestId('clear-timeline-dialog-confirm').click()
+    await expect(page.getByTestId('timeline-event')).toHaveCount(0)
+    await expect(page.getByTestId('timeline')).toContainText('No events yet.')
+    // The bulk action hides once there is nothing left to clear.
+    await expect(page.getByTestId('clear-timeline')).toHaveCount(0)
   })
 })

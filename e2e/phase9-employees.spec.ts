@@ -93,4 +93,52 @@ test.describe('Phase 9 — employee management & lifecycle', () => {
     await expect(page.getByTestId('employee-dashboard')).toBeVisible()
     await ctx.close()
   })
+
+  test('per-user leave quotas: set at creation, visible to the employee, editable later', async ({
+    browser,
+  }) => {
+    const EMAIL = 'priya@hrms.local'
+    const PASS = 'Priya#Demo2026'
+    const adminCtx = await browser.newContext()
+    const admin = await adminCtx.newPage()
+    await loginAs(admin, sunil)
+    await admin.goto('/admin/users')
+
+    // Create with a custom distribution — the fields prefill from the
+    // leave-type master defaults (Paid 12), then get overridden per person.
+    await admin.getByTestId('add-employee-button').click()
+    await admin.getByTestId('new-emp-email').fill(EMAIL)
+    await admin.getByTestId('new-emp-password').fill(PASS)
+    await admin.getByTestId('new-emp-name').fill('Priya Quota')
+    await admin.getByTestId('new-emp-role-employee').check()
+    await expect(admin.getByTestId('new-quota-paid')).toHaveValue('12')
+    await admin.getByTestId('new-quota-paid').fill('18')
+    await admin.getByTestId('new-quota-casual').fill('4')
+    await admin.getByTestId('create-employee-submit').click()
+    await expect(admin.getByTestId(`user-row-${EMAIL}`)).toBeVisible({ timeout: 15_000 })
+
+    // The employee sees their personal entitlement, not the org default.
+    const empCtx = await browser.newContext()
+    const emp = await empCtx.newPage()
+    await loginAs(emp, { email: EMAIL, password: PASS })
+    await emp.goto('/leave')
+    // 18 paid + 4 casual + 6 sick + 0 unpaid
+    await expect(emp.getByTestId('leave-remaining-total')).toHaveText('28', { timeout: 10_000 })
+    await expect(emp.getByTestId('balance-Paid')).toContainText('Used 0 of 18')
+    await expect(emp.getByTestId('balance-Casual')).toContainText('Used 0 of 4')
+
+    // Quotas can be raised later from the edit dialog; `used` is preserved.
+    await admin.getByTestId(`edit-user-${EMAIL}`).click()
+    await expect(admin.getByTestId('edit-quota-paid')).toHaveValue('18')
+    await admin.getByTestId('edit-quota-paid').fill('20')
+    await admin.getByTestId('save-user-submit').click()
+    await expect(admin.getByTestId('user-modal')).toBeHidden()
+
+    await emp.reload()
+    await expect(emp.getByTestId('balance-Paid')).toContainText('Used 0 of 20', {
+      timeout: 10_000,
+    })
+    await empCtx.close()
+    await adminCtx.close()
+  })
 })

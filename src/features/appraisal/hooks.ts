@@ -39,6 +39,21 @@ export function useCreateCycle() {
   })
 }
 
+/** Delete a review period; its appraisals (and their history) cascade away. */
+export function useDeleteCycle() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (cycleId: string) => {
+      const { error } = await supabase.from('appraisal_cycles').delete().eq('id', cycleId)
+      if (error) throw error
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['appraisal-cycles'] })
+      qc.invalidateQueries({ queryKey: ['appraisals'] })
+    },
+  })
+}
+
 export function useAppraisals(cycleId: string | null) {
   return useQuery({
     queryKey: ['appraisals', cycleId],
@@ -110,6 +125,18 @@ export function useUpdateAppraisal() {
       qc.invalidateQueries({ queryKey: ['appraisals'] })
       qc.invalidateQueries({ queryKey: ['appraisal-history'] })
     },
+  })
+}
+
+/** Remove one employee from a review period; their change history cascades away. */
+export function useDeleteAppraisal() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (appraisalId: string) => {
+      const { error } = await supabase.from('appraisals').delete().eq('id', appraisalId)
+      if (error) throw error
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['appraisals'] }),
   })
 }
 

@@ -3,12 +3,16 @@ import { Pencil, Plus, Trash2 } from 'lucide-react'
 import {
   useCreateEmployee,
   useDeleteEmployee,
+  useSetLeaveQuotas,
   useSetUserRoles,
   useUpdateCredentials,
   useUpdateProfile,
+  useUserLeaveBalances,
   useUsers,
+  type LeaveQuotaInput,
   type UserRow,
 } from './hooks'
+import { useLeaveTypes, type LeaveType } from '@/features/leave/hooks'
 import { useRoles } from '@/features/admin/roles/hooks'
 import { useDepartments, useTeams } from '@/features/admin/hierarchy/hooks'
 import { useProfile } from '@/features/rbac/profile-context'
@@ -158,6 +162,56 @@ export function UsersPage() {
   )
 }
 
+/**
+ * Per-type annual quota inputs shared by the add & edit employee modals.
+ * `baseline` supplies the shown value until the admin overrides a field;
+ * `usedByType` (edit mode) surfaces how much is already consumed.
+ */
+function LeaveQuotaFields({
+  types,
+  baseline,
+  overrides,
+  onChange,
+  usedByType,
+  testPrefix,
+}: {
+  types: LeaveType[]
+  baseline: (t: LeaveType) => number
+  overrides: Record<string, string>
+  onChange: (typeId: string, value: string) => void
+  usedByType?: Map<string, number>
+  testPrefix: string
+}) {
+  if (types.length === 0) return null
+  return (
+    <div>
+      <Label>Leave quotas (days / year)</Label>
+      <div className="grid gap-3 sm:grid-cols-2">
+        {types.map((t) => (
+          <div key={t.id}>
+            <Label htmlFor={`${testPrefix}-${t.slug}`} className="text-xs font-normal text-slate-500">
+              {t.name}
+              {!t.is_paid && ' (unpaid)'}
+            </Label>
+            <Input
+              id={`${testPrefix}-${t.slug}`}
+              data-testid={`${testPrefix}-${t.slug}`}
+              type="number"
+              min={0}
+              step={0.5}
+              value={overrides[t.id] ?? String(baseline(t))}
+              onChange={(e) => onChange(t.id, e.target.value)}
+            />
+            {usedByType?.has(t.id) && (
+              <p className="mt-0.5 text-xs text-slate-400">Used {usedByType.get(t.id)} this year</p>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 function EditUserModal({
   user,
   onClose,
@@ -170,14 +224,21 @@ function EditUserModal({
   const { data: roles = [] } = useRoles()
   const { data: departments = [] } = useDepartments()
   const { data: teams = [] } = useTeams()
+  const { data: leaveTypes = [] } = useLeaveTypes()
+  const { data: balances = [] } = useUserLeaveBalances(user.id)
   const updateProfile = useUpdateProfile()
   const setUserRoles = useSetUserRoles()
   const updateCredentials = useUpdateCredentials()
+  const setLeaveQuotas = useSetLeaveQuotas()
   const toast = useToast()
 
   const [roleIds, setRoleIds] = useState<Set<string>>(
     new Set(user.user_roles.map((ur) => ur.role_id)),
   )
+  const [quotaOverrides, setQuotaOverrides] = useState<Record<string, string>>({})
+  const allocatedByType = new Map(balances.map((b) => [b.leave_type_id, Number(b.allocated)]))
+  const usedByType = new Map(balances.map((b) => [b.leave_type_id, Number(b.used)]))
+  const quotaBaseline = (t: LeaveType) => allocatedByType.get(t.id) ?? 0
   const [fullName, setFullName] = useState(user.full_name ?? '')
   const [email, setEmail] = useState(user.email)
   const [newPassword, setNewPassword] = useState('')
@@ -186,7 +247,11 @@ function EditUserModal({
   const [managerId, setManagerId] = useState(user.reporting_manager_id ?? '')
   const [status, setStatus] = useState<'active' | 'inactive'>(user.status as 'active' | 'inactive')
 
-  const saving = updateProfile.isPending || setUserRoles.isPending || updateCredentials.isPending
+  const saving =
+    updateProfile.isPending ||
+    setUserRoles.isPending ||
+    updateCredentials.isPending ||
+    setLeaveQuotas.isPending
 
   async function save() {
     try {
@@ -199,6 +264,13 @@ function EditUserModal({
         status,
       })
       await setUserRoles.mutateAsync({ userId: user.id, roleIds: [...roleIds] })
+      if (Object.keys(quotaOverrides).length > 0) {
+        const quotas: LeaveQuotaInput[] = leaveTypes.map((t) => ({
+          leaveTypeId: t.id,
+          allocated: Number(quotaOverrides[t.id] ?? quotaBaseline(t)) || 0,
+        }))
+        await setLeaveQuotas.mutateAsync({ userId: user.id, quotas })
+      }
       const emailChanged = email.trim() && email.trim() !== user.email
       if (emailChanged || newPassword.trim()) {
         await updateCredentials.mutateAsync({
@@ -341,6 +413,15 @@ function EditUserModal({
           </div>
         </div>
 
+        <LeaveQuotaFields
+          types={leaveTypes}
+          baseline={quotaBaseline}
+          overrides={quotaOverrides}
+          onChange={(typeId, value) => setQuotaOverrides((prev) => ({ ...prev, [typeId]: value }))}
+          usedByType={usedByType}
+          testPrefix="edit-quota"
+        />
+
         <div className="flex justify-end gap-2">
           <Button type="button" variant="outline" onClick={onClose}>
             Cancel
@@ -359,6 +440,7 @@ function AddEmployeeModal({ onClose, allUsers }: { onClose: () => void; allUsers
   const { data: roles = [] } = useRoles()
   const { data: departments = [] } = useDepartments()
   const { data: teams = [] } = useTeams()
+  const { data: leaveTypes = [] } = useLeaveTypes()
   const toast = useToast()
 
   const [email, setEmail] = useState('')
@@ -369,6 +451,8 @@ function AddEmployeeModal({ onClose, allUsers }: { onClose: () => void; allUsers
   const [teamId, setTeamId] = useState('')
   const [managerId, setManagerId] = useState('')
   const [roleIds, setRoleIds] = useState<Set<string>>(new Set())
+  const [quotaOverrides, setQuotaOverrides] = useState<Record<string, string>>({})
+  const quotaBaseline = (t: LeaveType) => Number(t.default_annual_quota)
 
   return (
     <Modal open onClose={onClose} title="Add employee" testid="add-employee-modal">
@@ -386,6 +470,10 @@ function AddEmployeeModal({ onClose, allUsers }: { onClose: () => void; allUsers
               teamId: teamId || null,
               managerId: managerId || null,
               roleIds: [...roleIds],
+              leaveQuotas: leaveTypes.map((t) => ({
+                leaveTypeId: t.id,
+                allocated: Number(quotaOverrides[t.id] ?? quotaBaseline(t)) || 0,
+              })),
             },
             {
               onSuccess: () => {
@@ -470,6 +558,13 @@ function AddEmployeeModal({ onClose, allUsers }: { onClose: () => void; allUsers
             ))}
           </div>
         </div>
+        <LeaveQuotaFields
+          types={leaveTypes}
+          baseline={quotaBaseline}
+          overrides={quotaOverrides}
+          onChange={(typeId, value) => setQuotaOverrides((prev) => ({ ...prev, [typeId]: value }))}
+          testPrefix="new-quota"
+        />
         <div className="flex justify-end gap-2">
           <Button type="button" variant="outline" onClick={onClose}>
             Cancel

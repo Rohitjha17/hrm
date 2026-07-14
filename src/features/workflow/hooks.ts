@@ -66,12 +66,71 @@ export function useAddStep() {
   })
 }
 
+/** Rename a step without touching its position in the plan. */
+export function useUpdateStep() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: { stepId: string; name: string }) => {
+      const { error } = await supabase
+        .from('workflow_steps')
+        .update({ name: input.name })
+        .eq('id', input.stepId)
+      if (error) throw error
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['wf-steps'] }),
+  })
+}
+
+/**
+ * Swap two adjacent steps. step_order is unique per definition, so one side
+ * parks at a temporary order before the three-way swap.
+ */
+export function useMoveStep() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: { step: WorkflowStep; neighbor: WorkflowStep }) => {
+      const { step, neighbor } = input
+      const park = await supabase
+        .from('workflow_steps')
+        .update({ step_order: -1 })
+        .eq('id', step.id)
+      if (park.error) throw park.error
+      const shift = await supabase
+        .from('workflow_steps')
+        .update({ step_order: step.step_order })
+        .eq('id', neighbor.id)
+      if (shift.error) throw shift.error
+      const land = await supabase
+        .from('workflow_steps')
+        .update({ step_order: neighbor.step_order })
+        .eq('id', step.id)
+      if (land.error) throw land.error
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['wf-steps'] }),
+  })
+}
+
+/** Delete a step, then close the gap so remaining steps stay numbered 1..n. */
 export function useDeleteStep() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async (stepId: string) => {
-      const { error } = await supabase.from('workflow_steps').delete().eq('id', stepId)
+    mutationFn: async (step: WorkflowStep) => {
+      const { error } = await supabase.from('workflow_steps').delete().eq('id', step.id)
       if (error) throw error
+      const { data: rest, error: restErr } = await supabase
+        .from('workflow_steps')
+        .select('id, step_order')
+        .eq('definition_id', step.definition_id)
+        .gt('step_order', step.step_order)
+        .order('step_order')
+      if (restErr) throw restErr
+      for (const s of rest ?? []) {
+        const { error: shiftErr } = await supabase
+          .from('workflow_steps')
+          .update({ step_order: s.step_order - 1 })
+          .eq('id', s.id)
+        if (shiftErr) throw shiftErr
+      }
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['wf-steps'] }),
   })

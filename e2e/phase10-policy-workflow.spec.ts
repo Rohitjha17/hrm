@@ -3,7 +3,9 @@ import { loginAs } from './utils/auth'
 import { aarti, sunil } from './utils/users'
 
 test.describe('Phase 10 — policies & workflow engine', () => {
-  test('policy: create, publish two versions (history), employee acknowledges', async ({ browser }) => {
+  test('policy: create, publish two versions (history), employee acknowledges', async ({
+    browser,
+  }) => {
     const adminCtx = await browser.newContext()
     const admin = await adminCtx.newPage()
     await loginAs(admin, sunil)
@@ -24,7 +26,9 @@ test.describe('Phase 10 — policies & workflow engine', () => {
 
     // Version 2 (change history).
     await admin.getByTestId('publish-version-button').click()
-    await admin.getByTestId('version-content').fill('Apply for leave at least 2 working days in advance.')
+    await admin
+      .getByTestId('version-content')
+      .fill('Apply for leave at least 2 working days in advance.')
     await admin.getByTestId('version-note').fill('Clarified notice period')
     await admin.getByTestId('publish-submit').click()
     await expect(admin.getByTestId('version-row')).toHaveCount(2)
@@ -68,8 +72,39 @@ test.describe('Phase 10 — policies & workflow engine', () => {
     await expect(page.getByTestId('nav-approvals-admin')).toHaveCount(0)
     await expect(page.getByTestId('nav-approvals')).toHaveCount(0)
 
-    // Steps can be removed (rulebook stays editable).
+    // Steps can be renamed in place.
+    await page.getByTestId('edit-step-2').click()
+    await expect(page.getByTestId('edit-step-modal')).toBeVisible()
+    await page.getByTestId('edit-step-name').fill('Finance Review')
+    await page.getByTestId('save-step').click()
+    await expect(page.getByTestId('step-row').nth(1)).toContainText('Finance Review')
+
+    // Steps can be reordered; numbering follows the new positions.
+    await page.getByTestId('move-step-up-2').click()
+    await expect(page.getByTestId('step-row').first()).toContainText('Finance Review')
+    await expect(page.getByTestId('step-row').first()).toContainText('Step 1')
+    await expect(page.getByTestId('step-row').nth(1)).toContainText('Manager')
+
+    // Steps can be removed (after confirmation); the gap in numbering closes.
     await page.getByTestId('delete-step-2').click()
+    await expect(page.getByTestId('delete-step-dialog')).toBeVisible()
+    await page.getByTestId('delete-step-dialog-confirm').click()
     await expect(page.getByTestId('step-row')).toHaveCount(1)
+    await expect(page.getByTestId('step-row').first()).toContainText('Finance Review')
+
+    // Adding after a delete continues the sequence without order collisions.
+    await page.getByTestId('step-name').fill('CEO Sign-off')
+    await page.getByTestId('add-step').click()
+    await expect(page.getByTestId('step-row')).toHaveCount(2)
+    await expect(page.getByTestId('step-row').nth(1)).toContainText('Step 2')
+
+    // The whole workflow can be deleted (after confirmation).
+    await page.getByTestId('delete-definition').click()
+    await expect(page.getByTestId('delete-definition-dialog')).toBeVisible()
+    await expect(page.getByTestId('delete-definition-dialog')).toContainText('2 steps')
+    await page.getByTestId('delete-definition-dialog-confirm').click()
+    await expect(
+      page.getByTestId('definition-item').filter({ hasText: 'Expense Approval' }),
+    ).toHaveCount(0)
   })
 })
