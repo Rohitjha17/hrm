@@ -2724,6 +2724,7 @@ export type Database = {
           id: string
           is_active: boolean
           name: string
+          owner_id: string | null
         }
         Insert: {
           created_at?: string
@@ -2731,6 +2732,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           name: string
+          owner_id?: string | null
         }
         Update: {
           created_at?: string
@@ -2738,8 +2740,17 @@ export type Database = {
           id?: string
           is_active?: boolean
           name?: string
+          owner_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "workflow_definitions_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       workflow_steps: {
         Row: {

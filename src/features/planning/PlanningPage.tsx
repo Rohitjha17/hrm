@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react'
-import { History, Plus, Save, Trash2 } from 'lucide-react'
+import { useMemo, useState, type ReactNode } from 'react'
+import { History, Pencil, Plus, Trash2 } from 'lucide-react'
 import {
   useCompliance,
   useDeleteSlot,
@@ -39,12 +39,11 @@ export function PlanningPage() {
   const { data: compliance } = useCompliance(planDate)
   const { data: slots = [] } = usePlanningSlots(planDate, 'day')
   const submit = useSubmitCompliance()
-  const upsert = useUpsertSlot()
   const toast = useToast()
+  const [addOpen, setAddOpen] = useState(false)
+  const [editSlot, setEditSlot] = useState<PlanningSlot | null>(null)
 
   const defaultStart = config?.day_start?.slice(0, 5) ?? '10:00'
-  const [newStart, setNewStart] = useState(defaultStart)
-  const [newEnd, setNewEnd] = useState(addHours(defaultStart, interval))
 
   const required = { dayEnd: config?.require_day_end ?? true }
   const isCompliant =
@@ -61,35 +60,11 @@ export function PlanningPage() {
   )
   const nextIndex = slots.reduce((mx, s) => Math.max(mx, s.slot_index), -1) + 1
 
-  function addSlot() {
-    if (!newStart || !newEnd) return
-    if (newEnd <= newStart) {
-      toast.error('Invalid slot', 'End time must be after the start time.')
-      return
-    }
-    upsert.mutate(
-      {
-        planDate,
-        kind: 'day',
-        slotIndex: nextIndex,
-        slotLabel: slotLabelFromRange(newStart, newEnd),
-        taskName: '',
-        progress: 0,
-        startTime: newStart,
-        endTime: newEnd,
-      },
-      {
-        onSuccess: () => toast.success('Slot added'),
-        onError: (e) => toast.error('Could not add slot', (e as Error).message),
-      },
-    )
-  }
-
   return (
     <div data-testid="planning-page">
       <PageHeader
         title="Planning & Updates"
-        description="Plan slots of any duration, for any date — pick a start and end time, then submit your day-end update."
+        description="Add slots for the day, then open a slot to update it as work progresses. Submit your day-end update when you're done."
         actions={
           <Badge tone={isCompliant ? 'green' : 'amber'} data-testid="compliance-status" data-compliant={isCompliant}>
             {isCompliant ? 'Planning complete' : 'Planning pending'}
@@ -115,37 +90,9 @@ export function PlanningPage() {
               {planDate === today && <Badge tone="blue">Today</Badge>}
             </div>
             <div className="flex flex-wrap items-center gap-2">
-              <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-2 py-1">
-                <Label htmlFor="new-slot-start" className="mb-0 text-xs text-slate-500">
-                  Start
-                </Label>
-                <Input
-                  id="new-slot-start"
-                  data-testid="new-slot-start"
-                  type="time"
-                  value={newStart}
-                  onChange={(e) => {
-                    setNewStart(e.target.value)
-                    if (e.target.value && newEnd <= e.target.value)
-                      setNewEnd(addHours(e.target.value, interval))
-                  }}
-                  className="h-8 w-28 border-0 p-0 focus:ring-0"
-                />
-                <Label htmlFor="new-slot-end" className="mb-0 text-xs text-slate-500">
-                  End
-                </Label>
-                <Input
-                  id="new-slot-end"
-                  data-testid="new-slot-end"
-                  type="time"
-                  value={newEnd}
-                  onChange={(e) => setNewEnd(e.target.value)}
-                  className="h-8 w-28 border-0 p-0 focus:ring-0"
-                />
-                <Button size="sm" data-testid="add-slot" loading={upsert.isPending} onClick={addSlot}>
-                  <Plus className="size-4" /> Add slot
-                </Button>
-              </div>
+              <Button data-testid="add-slot" onClick={() => setAddOpen(true)}>
+                <Plus className="size-4" /> Add slot
+              </Button>
               <Button
                 variant="outline"
                 data-testid="submit-day-end"
@@ -165,14 +112,14 @@ export function PlanningPage() {
           {ordered.length === 0 ? (
             <EmptyState
               title="No slots planned yet"
-              description="Pick a start and end time, then add your first slot."
+              description='Use "Add slot" to plan your first slot of the day.'
               testid="planning-empty"
             />
           ) : (
             <Card>
               <ul className="divide-y divide-slate-100" data-testid="slots-list">
                 {ordered.map((s) => (
-                  <SlotRow key={s.id} planDate={planDate} slot={s} intervalHours={interval} />
+                  <SlotRow key={s.id} slot={s} onEdit={() => setEditSlot(s)} />
                 ))}
               </ul>
             </Card>
@@ -181,6 +128,26 @@ export function PlanningPage() {
 
         <TaskBrief />
       </div>
+
+      {addOpen && (
+        <SlotFormModal
+          planDate={planDate}
+          slotIndex={nextIndex}
+          defaultStart={defaultStart}
+          intervalHours={interval}
+          onClose={() => setAddOpen(false)}
+        />
+      )}
+      {editSlot && (
+        <SlotFormModal
+          planDate={planDate}
+          slot={editSlot}
+          slotIndex={editSlot.slot_index}
+          defaultStart={defaultStart}
+          intervalHours={interval}
+          onClose={() => setEditSlot(null)}
+        />
+      )}
     </div>
   )
 }
@@ -223,147 +190,77 @@ function TaskBrief() {
   )
 }
 
-/** One planned slot as a compact list row: times · task · outcome · actions. */
-function SlotRow({
-  planDate,
-  slot,
-  intervalHours,
-}: {
-  planDate: string
-  slot: PlanningSlot
-  intervalHours: number
-}) {
-  const upsert = useUpsertSlot()
+/** One planned slot as a read-only row — open it to edit. */
+function SlotRow({ slot, onEdit }: { slot: PlanningSlot; onEdit: () => void }) {
   const del = useDeleteSlot()
   const toast = useToast()
-  const [start, setStart] = useState(slot.start_time?.slice(0, 5) ?? '10:00')
-  const [end, setEnd] = useState(
-    slot.end_time?.slice(0, 5) ?? addHours(slot.start_time?.slice(0, 5) ?? '10:00', intervalHours),
-  )
-  const [task, setTask] = useState(slot.task_name ?? '')
-  const [progress, setProgress] = useState(slot.progress ?? 0)
-  const [challenges, setChallenges] = useState(slot.challenges ?? '')
-  const [remarks, setRemarks] = useState(slot.remarks ?? '')
   const [historyOpen, setHistoryOpen] = useState(false)
 
   const tid = slot.slot_index
-  const label = slotLabelFromRange(start, end)
+  const label =
+    slot.start_time && slot.end_time
+      ? slotLabelFromRange(slot.start_time, slot.end_time)
+      : slot.slot_label
 
   return (
-    <li data-testid={`slot-card-${tid}`} className="px-4 py-3">
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-        <span
-          className="w-24 shrink-0 text-sm font-semibold text-slate-700"
-          data-testid={`slot-label-${tid}`}
+    <li data-testid={`slot-card-${tid}`} className="flex items-center gap-3 px-4 py-3">
+      <span
+        className="w-28 shrink-0 text-sm font-semibold text-slate-700"
+        data-testid={`slot-label-${tid}`}
+      >
+        {label}
+      </span>
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-sm font-medium text-slate-800" data-testid={`slot-planning-${tid}`}>
+          {slot.task_name || <span className="font-normal text-slate-400">Nothing planned yet</span>}
+        </p>
+        {(slot.remarks || slot.challenges) && (
+          <p className="mt-0.5 truncate text-xs text-slate-500">
+            {slot.remarks && (
+              <span data-testid={`slot-working-${tid}`}>Working: {slot.remarks}</span>
+            )}
+            {slot.remarks && slot.challenges && <span> · </span>}
+            {slot.challenges && (
+              <span className="text-amber-700" data-testid={`slot-challenges-${tid}`}>
+                Challenges: {slot.challenges}
+              </span>
+            )}
+          </p>
+        )}
+      </div>
+      <Badge tone={(slot.progress ?? 0) >= 100 ? 'green' : 'blue'} data-testid={`slot-progress-${tid}`}>
+        {slot.progress ?? 0}%
+      </Badge>
+      <div className="flex shrink-0 items-center gap-1">
+        <button
+          data-testid={`slot-edit-${tid}`}
+          aria-label={`Edit slot ${label}`}
+          className="hover:text-brand-600 rounded p-1 text-slate-400 hover:bg-slate-100"
+          onClick={onEdit}
         >
-          {label}
-        </span>
-        <div className="flex items-center gap-1.5">
-          <Input
-            data-testid={`slot-start-${tid}`}
-            aria-label={`Start time for ${label}`}
-            type="time"
-            value={start}
-            onChange={(e) => setStart(e.target.value)}
-            className="h-9 w-28"
-          />
-          <span className="text-xs text-slate-400">–</span>
-          <Input
-            data-testid={`slot-end-${tid}`}
-            aria-label={`End time for ${label}`}
-            type="time"
-            value={end}
-            onChange={(e) => setEnd(e.target.value)}
-            className="h-9 w-28"
-          />
-        </div>
-        <Input
-          data-testid={`slot-task-${tid}`}
-          placeholder="Task name"
-          value={task}
-          onChange={(e) => setTask(e.target.value)}
-          className="min-w-48 flex-1"
-        />
-        <div className="flex items-center gap-1">
-          <Input
-            data-testid={`slot-progress-${tid}`}
-            aria-label={`Progress for ${label}`}
-            type="number"
-            min={0}
-            max={100}
-            value={progress}
-            onChange={(e) => setProgress(Number(e.target.value))}
-            className="w-20"
-          />
-          <span className="text-xs text-slate-400">%</span>
-        </div>
-        <Textarea
-          data-testid={`slot-challenges-${tid}`}
-          placeholder="Challenges"
-          rows={1}
-          value={challenges}
-          onChange={(e) => setChallenges(e.target.value)}
-          className="max-h-9 min-w-40 flex-1"
-        />
-        <Textarea
-          data-testid={`slot-remarks-${tid}`}
-          placeholder="Remarks"
-          rows={1}
-          value={remarks}
-          onChange={(e) => setRemarks(e.target.value)}
-          className="max-h-9 min-w-40 flex-1"
-        />
-        <div className="ml-auto flex items-center gap-1">
-          <Button
-            size="sm"
-            data-testid={`slot-save-${tid}`}
-            loading={upsert.isPending}
-            onClick={() => {
-              if (end <= start) {
-                toast.error('Invalid slot', 'End time must be after the start time.')
-                return
-              }
-              upsert.mutate(
-                {
-                  planDate,
-                  kind: 'day',
-                  slotIndex: slot.slot_index,
-                  slotLabel: slotLabelFromRange(start, end),
-                  taskName: task,
-                  progress,
-                  challenges,
-                  remarks,
-                  startTime: start,
-                  endTime: end,
-                },
-                { onSuccess: () => toast.success('Slot saved'), onError: (e) => toast.error('Save failed', (e as Error).message) },
-              )
-            }}
-          >
-            <Save className="size-4" /> Save
-          </Button>
-          <button
-            data-testid={`slot-history-${tid}`}
-            aria-label={`History for ${label}`}
-            className="rounded p-1 text-slate-400 hover:text-slate-700"
-            onClick={() => setHistoryOpen(true)}
-          >
-            <History className="size-4" />
-          </button>
-          <button
-            data-testid={`slot-delete-${tid}`}
-            aria-label={`Delete slot ${label}`}
-            className="rounded p-1 text-slate-400 hover:text-red-600"
-            onClick={() =>
-              del.mutate(slot.id, {
-                onSuccess: () => toast.success('Slot removed'),
-                onError: (e) => toast.error('Delete failed', (e as Error).message),
-              })
-            }
-          >
-            <Trash2 className="size-4" />
-          </button>
-        </div>
+          <Pencil className="size-4" />
+        </button>
+        <button
+          data-testid={`slot-history-${tid}`}
+          aria-label={`History for ${label}`}
+          className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+          onClick={() => setHistoryOpen(true)}
+        >
+          <History className="size-4" />
+        </button>
+        <button
+          data-testid={`slot-delete-${tid}`}
+          aria-label={`Delete slot ${label}`}
+          className="rounded p-1 text-slate-400 hover:bg-red-50 hover:text-red-600"
+          onClick={() =>
+            del.mutate(slot.id, {
+              onSuccess: () => toast.success('Slot removed'),
+              onError: (e) => toast.error('Delete failed', (e as Error).message),
+            })
+          }
+        >
+          <Trash2 className="size-4" />
+        </button>
       </div>
       {historyOpen && (
         <SlotHistoryModal slotId={slot.id} label={label} onClose={() => setHistoryOpen(false)} />
@@ -371,6 +268,165 @@ function SlotRow({
     </li>
   )
 }
+
+/** Add/edit a slot: times first, then Planning · Working · Completion % · Challenges. */
+function SlotFormModal({
+  planDate,
+  slot,
+  slotIndex,
+  defaultStart,
+  intervalHours,
+  onClose,
+}: {
+  planDate: string
+  slot?: PlanningSlot
+  slotIndex: number
+  defaultStart: string
+  intervalHours: number
+  onClose: () => void
+}) {
+  const upsert = useUpsertSlot()
+  const toast = useToast()
+  const [start, setStart] = useState(slot?.start_time?.slice(0, 5) ?? defaultStart)
+  const [end, setEnd] = useState(
+    slot?.end_time?.slice(0, 5) ?? addHours(slot?.start_time?.slice(0, 5) ?? defaultStart, intervalHours),
+  )
+  const [planning, setPlanning] = useState(slot?.task_name ?? '')
+  const [working, setWorking] = useState(slot?.remarks ?? '')
+  const [progress, setProgress] = useState(slot?.progress ?? 0)
+  const [challenges, setChallenges] = useState(slot?.challenges ?? '')
+
+  return (
+    <Modal
+      open
+      onClose={onClose}
+      title={slot ? `Edit slot · ${slotLabelFromRange(start, end)}` : 'Add slot'}
+      testid="slot-form-modal"
+    >
+      <form
+        className="space-y-4"
+        onSubmit={(e) => {
+          e.preventDefault()
+          if (!start || !end || end <= start) {
+            toast.error('Invalid slot', 'End time must be after the start time.')
+            return
+          }
+          upsert.mutate(
+            {
+              planDate,
+              kind: 'day',
+              slotIndex,
+              slotLabel: slotLabelFromRange(start, end),
+              taskName: planning,
+              progress,
+              challenges,
+              remarks: working,
+              startTime: start,
+              endTime: end,
+            },
+            {
+              onSuccess: () => {
+                toast.success(slot ? 'Slot saved' : 'Slot added')
+                onClose()
+              },
+              onError: (err) => toast.error('Save failed', (err as Error).message),
+            },
+          )
+        }}
+      >
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <Label htmlFor="slot-form-start">Start</Label>
+            <Input
+              id="slot-form-start"
+              data-testid="slot-form-start"
+              type="time"
+              value={start}
+              onChange={(e) => {
+                setStart(e.target.value)
+                if (e.target.value && end <= e.target.value)
+                  setEnd(addHours(e.target.value, intervalHours))
+              }}
+              required
+            />
+          </div>
+          <div>
+            <Label htmlFor="slot-form-end">End</Label>
+            <Input
+              id="slot-form-end"
+              data-testid="slot-form-end"
+              type="time"
+              value={end}
+              onChange={(e) => setEnd(e.target.value)}
+              required
+            />
+          </div>
+        </div>
+        <div>
+          <Label htmlFor="slot-form-planning">Planning</Label>
+          <Input
+            id="slot-form-planning"
+            data-testid="slot-form-planning"
+            placeholder="Planning"
+            value={planning}
+            onChange={(e) => setPlanning(e.target.value)}
+          />
+        </div>
+        <div>
+          <Label htmlFor="slot-form-working">Working</Label>
+          <Textarea
+            id="slot-form-working"
+            data-testid="slot-form-working"
+            placeholder="Working"
+            rows={2}
+            value={working}
+            onChange={(e) => setWorking(e.target.value)}
+          />
+        </div>
+        <div>
+          <Label htmlFor="slot-form-progress">Completion %</Label>
+          <Input
+            id="slot-form-progress"
+            data-testid="slot-form-progress"
+            placeholder="Completion %"
+            type="number"
+            min={0}
+            max={100}
+            value={progress}
+            onChange={(e) => setProgress(Number(e.target.value))}
+          />
+        </div>
+        <div>
+          <Label htmlFor="slot-form-challenges">Challenges</Label>
+          <Textarea
+            id="slot-form-challenges"
+            data-testid="slot-form-challenges"
+            placeholder="Challenges"
+            rows={2}
+            value={challenges}
+            onChange={(e) => setChallenges(e.target.value)}
+          />
+        </div>
+        <div className="flex justify-end gap-2">
+          <Button type="button" variant="outline" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button type="submit" data-testid="slot-form-save" loading={upsert.isPending}>
+            {slot ? 'Save slot' : 'Add slot'}
+          </Button>
+        </div>
+      </form>
+    </Modal>
+  )
+}
+
+const HISTORY_FIELDS = [
+  { key: 'slot', label: 'Slot' },
+  { key: 'planning', label: 'Planning' },
+  { key: 'working', label: 'Working' },
+  { key: 'progress', label: 'Completion %' },
+  { key: 'challenges', label: 'Challenges' },
+] as const
 
 function SlotHistoryModal({
   slotId,
@@ -398,35 +454,34 @@ function SlotHistoryModal({
             }
             const before = h.before_data as SlotData | null
             const after = h.after_data as SlotData | null
-            const outcome = [
-              `${after?.progress ?? 0}% done`,
-              after?.challenges && `challenges: ${after.challenges}`,
-              after?.remarks && `remarks: ${after.remarks}`,
-            ]
-              .filter(Boolean)
-              .join(' · ')
+            const values: Record<(typeof HISTORY_FIELDS)[number]['key'], ReactNode> = {
+              slot: after?.slot_label || before?.slot_label || label,
+              planning:
+                before?.task_name !== after?.task_name && before?.task_name ? (
+                  <>
+                    <span className="text-slate-400 line-through">{before.task_name}</span> →{' '}
+                    {after?.task_name || '—'}
+                  </>
+                ) : (
+                  after?.task_name || '—'
+                ),
+              working: after?.remarks || '—',
+              progress: `${after?.progress ?? 0}%`,
+              challenges: after?.challenges || '—',
+            }
             return (
               <li key={h.id} data-testid="planning-history-entry" className="border-l-2 border-brand-200 pl-3 text-sm">
-                <dl className="grid grid-cols-[5.5rem_1fr] gap-y-0.5">
-                  <dt className="text-xs font-semibold tracking-wide text-slate-400 uppercase">Slot</dt>
-                  <dd className="text-slate-700" data-testid="history-slot">
-                    {after?.slot_label || before?.slot_label || label}
-                  </dd>
-                  <dt className="text-xs font-semibold tracking-wide text-slate-400 uppercase">Planning</dt>
-                  <dd className="text-slate-700" data-testid="history-planning">
-                    {before?.task_name !== after?.task_name && before?.task_name ? (
-                      <>
-                        <span className="text-slate-400 line-through">{before.task_name}</span>{' '}
-                        → {after?.task_name || '—'}
-                      </>
-                    ) : (
-                      after?.task_name || '—'
-                    )}
-                  </dd>
-                  <dt className="text-xs font-semibold tracking-wide text-slate-400 uppercase">Outcome</dt>
-                  <dd className="text-slate-700" data-testid="history-outcome">
-                    {outcome}
-                  </dd>
+                <dl className="grid grid-cols-[7rem_1fr] gap-y-0.5">
+                  {HISTORY_FIELDS.map((f) => (
+                    <div key={f.key} className="contents">
+                      <dt className="text-xs font-semibold tracking-wide text-slate-400 uppercase">
+                        {f.label}
+                      </dt>
+                      <dd className="text-slate-700" data-testid={`history-${f.key}`}>
+                        {values[f.key]}
+                      </dd>
+                    </div>
+                  ))}
                 </dl>
                 <p className="mt-1 text-xs text-slate-400">{new Date(h.created_at).toLocaleString()}</p>
               </li>

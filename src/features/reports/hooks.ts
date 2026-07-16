@@ -92,8 +92,6 @@ interface ApprRow {
   task_score: number
   planning_score: number
   overall_score: number
-  increment_recommendation: number
-  promotion_recommended: boolean
   employee: Person
   cycle: { name: string } | null
 }
@@ -227,7 +225,7 @@ const fetchers: Record<ReportType, (f: ReportFilters) => Promise<ReportData>> = 
     let q = supabase
       .from('appraisals')
       .select(
-        'attendance_score,task_score,planning_score,overall_score,increment_recommendation,promotion_recommended, employee:profiles!appraisals_user_id_fkey(full_name,email), cycle:appraisal_cycles(name)',
+        'attendance_score,task_score,planning_score,overall_score, employee:profiles!appraisals_user_id_fkey(full_name,email), cycle:appraisal_cycles(name)',
       )
     if (f.userId) q = q.eq('user_id', f.userId)
     if (f.from) q = q.gte('created_at', f.from)
@@ -245,8 +243,6 @@ const fetchers: Record<ReportType, (f: ReportFilters) => Promise<ReportData>> = 
         { key: 'task', label: 'Task' },
         { key: 'planning', label: 'Planning' },
         { key: 'overall', label: 'Overall' },
-        { key: 'increment', label: 'Increment %' },
-        { key: 'promotion', label: 'Promotion' },
       ],
       rows: list.map((a) => ({
         employee: name(a.employee),
@@ -255,8 +251,6 @@ const fetchers: Record<ReportType, (f: ReportFilters) => Promise<ReportData>> = 
         task: a.task_score,
         planning: a.planning_score,
         overall: a.overall_score,
-        increment: a.increment_recommendation,
-        promotion: a.promotion_recommended ? 'Yes' : 'No',
       })),
     }
   },
@@ -599,18 +593,22 @@ const fetchers: Record<ReportType, (f: ReportFilters) => Promise<ReportData>> = 
   workflows: async (f) => {
     let q = supabase
       .from('workflow_definitions')
-      .select('name,entity_type,is_active,created_at, workflow_steps(step_order)')
+      .select(
+        'name,entity_type,is_active,created_at, owner:profiles!workflow_definitions_owner_id_fkey(full_name,email), workflow_steps(step_order)',
+      )
+    if (f.userId) q = q.eq('owner_id', f.userId)
     if (f.from) q = q.gte('created_at', f.from)
     if (f.to) q = q.lte('created_at', `${f.to}T23:59:59`)
     const { data, error } = await q.order('created_at', { ascending: false }).limit(1000)
     if (error) throw error
-    type Row = { name: string; entity_type: string; is_active: boolean; created_at: string; workflow_steps: { step_order: number }[] }
+    type Row = { name: string; entity_type: string; is_active: boolean; created_at: string; owner: Person; workflow_steps: { step_order: number }[] }
     const list = (data ?? []) as unknown as Row[]
     return {
       title: 'Workflows (Rulebook) Report',
       filename: 'workflows-report',
       columns: [
         { key: 'name', label: 'Workflow' },
+        { key: 'owner', label: 'Owner' },
         { key: 'entity', label: 'Applies to' },
         { key: 'steps', label: 'Steps' },
         { key: 'active', label: 'Active' },
@@ -618,6 +616,7 @@ const fetchers: Record<ReportType, (f: ReportFilters) => Promise<ReportData>> = 
       ],
       rows: list.map((w) => ({
         name: w.name,
+        owner: name(w.owner),
         entity: w.entity_type,
         steps: w.workflow_steps.length,
         active: w.is_active ? 'Yes' : 'No',

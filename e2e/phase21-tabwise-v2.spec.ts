@@ -69,10 +69,12 @@ test.describe('Phase 21 — tab-wise upgrades v2', () => {
     const future = new Date(Date.now() + 3 * 86_400_000).toISOString().slice(0, 10)
     await page.getByTestId('plan-date').fill(future)
 
-    // Arbitrary duration: 09:15 → 10:45.
-    await page.getByTestId('new-slot-start').fill('09:15')
-    await page.getByTestId('new-slot-end').fill('10:45')
+    // Arbitrary duration: 09:15 → 10:45, added through the slot modal.
     await page.getByTestId('add-slot').click()
+    await expect(page.getByTestId('slot-form-modal')).toBeVisible()
+    await page.getByTestId('slot-form-start').fill('09:15')
+    await page.getByTestId('slot-form-end').fill('10:45')
+    await page.getByTestId('slot-form-save').click()
 
     const card = page.locator('[data-testid^="slot-card-"]').first()
     await expect(card).toBeVisible({ timeout: 10_000 })

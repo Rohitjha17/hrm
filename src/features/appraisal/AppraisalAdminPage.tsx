@@ -19,7 +19,6 @@ import { useToast } from '@/components/ui/toast-context'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { Card, CardBody } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
-import { Badge } from '@/components/ui/Badge'
 import { Modal } from '@/components/ui/Modal'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { Input } from '@/components/ui/Input'
@@ -152,8 +151,6 @@ export function AppraisalAdminPage() {
                   <Th>Task</Th>
                   <Th>Plan</Th>
                   <Th>Overall</Th>
-                  <Th>Increment</Th>
-                  <Th>Promotion</Th>
                   <Th className="text-right">Action</Th>
                 </tr>
               </Thead>
@@ -171,16 +168,6 @@ export function AppraisalAdminPage() {
                     <Td>{a.planning_score}</Td>
                     <Td className="font-semibold" data-testid="appraisal-overall">
                       {a.overall_score}
-                    </Td>
-                    <Td data-testid="appraisal-increment">{a.increment_recommendation}%</Td>
-                    <Td>
-                      {a.promotion_recommended ? (
-                        <Badge tone="green" data-testid="appraisal-promotion">
-                          Recommended
-                        </Badge>
-                      ) : (
-                        <span className="text-xs text-slate-400">—</span>
-                      )}
                     </Td>
                     <Td>
                       <div className="flex justify-end gap-1">
@@ -333,19 +320,6 @@ function DetailsModal({ appraisal, onClose }: { appraisal: AppraisalRow; onClose
           <span className="flex items-center gap-2">
             <span className="text-slate-500">Performance</span>
             <RatingStars value={appraisal.performance_rating} />
-          </span>
-          <span className="text-slate-500">
-            Increment{' '}
-            <span className="font-semibold text-slate-800">
-              {appraisal.increment_recommendation}%
-            </span>
-          </span>
-          <span>
-            {appraisal.promotion_recommended ? (
-              <Badge tone="green">Promotion recommended</Badge>
-            ) : (
-              <Badge tone="slate">No promotion</Badge>
-            )}
           </span>
         </div>
 

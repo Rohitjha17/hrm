@@ -215,23 +215,55 @@ function PlanView({
   onClose: () => void
 }) {
   const { data: slots = [] } = useUserDayPlan(user.id, date)
+  const fields = [
+    { key: 'slot', label: 'Slot' },
+    { key: 'planning', label: 'Planning' },
+    { key: 'working', label: 'Working' },
+    { key: 'progress', label: 'Completion %' },
+    { key: 'challenges', label: 'Challenges' },
+  ] as const
   return (
     <Modal open onClose={onClose} title={`${user.name} · ${date}`} testid="plan-view-modal">
       {slots.length === 0 ? (
         <p className="text-sm text-slate-500">No planning recorded for this date.</p>
       ) : (
         <ul className="space-y-2">
-          {slots.map((s) => (
-            <li key={s.id} className="rounded-lg border border-slate-100 p-3 text-sm">
-              <div className="flex justify-between">
-                <span className="font-medium text-slate-800">{s.slot_label}</span>
-                <Badge tone="blue">{s.progress}%</Badge>
-              </div>
-              <p className="mt-1 text-slate-700">{s.task_name || '—'}</p>
-              {s.challenges && <p className="mt-1 text-xs text-amber-700">⚠ {s.challenges}</p>}
-              {s.remarks && <p className="mt-0.5 text-xs text-slate-500">{s.remarks}</p>}
-            </li>
-          ))}
+          {slots.map((s) => {
+            const values: Record<(typeof fields)[number]['key'], string> = {
+              slot: s.slot_label,
+              planning: s.task_name || '—',
+              working: s.remarks || '—',
+              progress: `${s.progress ?? 0}%`,
+              challenges: s.challenges || '—',
+            }
+            return (
+              <li
+                key={s.id}
+                data-testid="plan-view-slot"
+                className="rounded-lg border border-slate-100 p-3 text-sm"
+              >
+                <dl className="grid grid-cols-[7rem_1fr] gap-y-0.5">
+                  {fields.map((f) => (
+                    <div key={f.key} className="contents">
+                      <dt className="text-xs font-semibold tracking-wide text-slate-400 uppercase">
+                        {f.label}
+                      </dt>
+                      <dd
+                        className={
+                          f.key === 'challenges' && s.challenges
+                            ? 'text-amber-700'
+                            : 'text-slate-700'
+                        }
+                        data-testid={`plan-view-${f.key}`}
+                      >
+                        {values[f.key]}
+                      </dd>
+                    </div>
+                  ))}
+                </dl>
+              </li>
+            )
+          })}
         </ul>
       )}
     </Modal>

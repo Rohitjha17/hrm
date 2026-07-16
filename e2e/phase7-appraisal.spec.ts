@@ -107,7 +107,12 @@ test.describe('Phase 7 — appraisal management', () => {
     // Compute scores from the seeded data.
     await row.getByTestId('compute-appraisal').click()
     await expect(row.getByTestId('appraisal-overall')).toHaveText('71.7', { timeout: 10_000 })
-    await expect(row.getByTestId('appraisal-increment')).toHaveText('5%')
+
+    // Increment & promotion are internal decisions — not shown anywhere.
+    await expect(row.getByTestId('appraisal-increment')).toHaveCount(0)
+    await expect(row.getByTestId('appraisal-promotion')).toHaveCount(0)
+    await expect(page.getByTestId('appraisals-table')).not.toContainText('Increment')
+    await expect(page.getByTestId('appraisals-table')).not.toContainText('Promotion')
   })
 
   test('add all employees + compute all fills the period in bulk', async ({ page }) => {
@@ -176,8 +181,10 @@ test.describe('Phase 7 — appraisal management', () => {
     const card = page.getByTestId('appraisal-card').filter({ hasText: 'April Review' })
     await expect(card).toBeVisible({ timeout: 10_000 })
     await expect(card).toContainText('71.7')
-    await expect(card).toContainText('5%')
     await expect(card).toContainText('2026-04-01')
+    // Increment & promotion are internal decisions — hidden from employees too.
+    await expect(card).not.toContainText('Increment')
+    await expect(card).not.toContainText('Promotion recommended')
     await expect(card.getByTestId('appraisal-rating-stars')).toHaveAttribute('aria-label', '5 of 5')
 
     // Full details modal: KRA/KPI, both feedbacks, and the change history.

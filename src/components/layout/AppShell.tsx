@@ -112,6 +112,7 @@ const employeeNav: NavItem[] = [
   { to: '/salary', label: 'Salary', icon: Wallet, testid: 'nav-salary', perm: 'salary.view_own' },
   { to: '/appraisal', label: 'Appraisals', icon: Award, testid: 'nav-appraisal', perm: 'appraisal.view_own' },
   { to: '/policies', label: 'Policies', icon: BookText, testid: 'nav-policies' },
+  { to: '/my-workflows', label: 'My Workflows', icon: GitBranch, testid: 'nav-my-workflows' },
   { to: '/helpdesk', label: 'Helpdesk', icon: LifeBuoy, testid: 'nav-helpdesk' },
   { to: '/announcements', label: 'Notice Board', icon: Megaphone, testid: 'nav-announcements' },
   { to: '/recognition', label: 'Recognition', icon: Sparkles, testid: 'nav-recognition' },

@@ -9,8 +9,11 @@ import {
   useMoveStep,
   useSteps,
   useUpdateStep,
+  WORKFLOW_ENTITY_TYPES,
   type WorkflowStep,
 } from './hooks'
+import { useUsers } from '@/features/admin/users/hooks'
+import { useAuth } from '@/features/auth/auth-context'
 import { useToast } from '@/components/ui/toast-context'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { Card, CardBody } from '@/components/ui/Card'
@@ -20,10 +23,30 @@ import { Modal } from '@/components/ui/Modal'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { Input } from '@/components/ui/Input'
 import { Label } from '@/components/ui/Label'
+import { Select } from '@/components/ui/Select'
 import { cn } from '@/lib/cn'
 
+function entityLabel(value: string) {
+  return WORKFLOW_ENTITY_TYPES.find((t) => t.value === value)?.label ?? value
+}
+
+/** Admin view: every user's workflows, filterable by owner. */
 export function WorkflowAdminPage() {
-  const { data: definitions = [] } = useDefinitions()
+  return <WorkflowsView scope="admin" />
+}
+
+/** Employee view: only the signed-in user's own workflows. */
+export function MyWorkflowsPage() {
+  return <WorkflowsView scope="my" />
+}
+
+function WorkflowsView({ scope }: { scope: 'admin' | 'my' }) {
+  const { user } = useAuth()
+  const { data: users = [] } = useUsers()
+  const [ownerFilter, setOwnerFilter] = useState('')
+  const { data: definitions = [] } = useDefinitions(
+    scope === 'my' ? user?.id : ownerFilter || undefined,
+  )
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const selected = definitions.find((d) => d.id === selectedId) ?? definitions[0] ?? null
   const { data: steps = [] } = useSteps(selected?.id ?? null)
@@ -49,10 +72,14 @@ export function WorkflowAdminPage() {
   }
 
   return (
-    <div data-testid="workflow-admin-page">
+    <div data-testid={scope === 'admin' ? 'workflow-admin-page' : 'my-workflows-page'}>
       <PageHeader
-        title="Workflows"
-        description="A rulebook of your processes — document each workflow as an ordered plan of steps. These are reference plans, not automations."
+        title={scope === 'admin' ? 'Workflows' : 'My Workflows'}
+        description={
+          scope === 'admin'
+            ? 'Every user documents their own workflows. Pick an employee to review theirs — these are reference plans, not automations.'
+            : 'Your personal rulebook — document each of your processes as an ordered plan of steps. These are reference plans, not automations.'
+        }
         actions={
           <Button data-testid="new-definition-button" onClick={() => setDefModal(true)}>
             <Plus className="size-4" /> New workflow
@@ -60,9 +87,39 @@ export function WorkflowAdminPage() {
         }
       />
 
+      {scope === 'admin' && (
+        <div className="mb-4 flex items-center gap-2">
+          <Label htmlFor="workflow-owner-filter" className="mb-0 text-xs text-slate-500">
+            Employee
+          </Label>
+          <Select
+            id="workflow-owner-filter"
+            data-testid="workflow-owner-filter"
+            value={ownerFilter}
+            onChange={(e) => {
+              setOwnerFilter(e.target.value)
+              setSelectedId(null)
+            }}
+            className="h-9 w-56"
+          >
+            <option value="">All employees</option>
+            {users.map((u) => (
+              <option key={u.id} value={u.id}>
+                {u.full_name || u.email}
+              </option>
+            ))}
+          </Select>
+        </div>
+      )}
+
       <div className="grid gap-4 lg:grid-cols-[280px_1fr]">
         <Card>
           <CardBody className="space-y-1">
+            {definitions.length === 0 && (
+              <p className="p-2 text-sm text-slate-500" data-testid="definitions-empty">
+                No workflows yet.
+              </p>
+            )}
             {definitions.map((d) => (
               <button
                 key={d.id}
@@ -74,7 +131,15 @@ export function WorkflowAdminPage() {
                 )}
               >
                 <span className="font-medium">{d.name}</span>
-                <span className="text-xs text-slate-400">{d.entity_type}</span>
+                <span className="text-xs text-slate-400">
+                  {entityLabel(d.entity_type)}
+                  {scope === 'admin' && (
+                    <span data-testid="definition-owner">
+                      {' · '}
+                      {d.owner?.full_name || d.owner?.email || 'Unassigned'}
+                    </span>
+                  )}
+                </span>
               </button>
             ))}
           </CardBody>
@@ -183,7 +248,7 @@ export function WorkflowAdminPage() {
         )}
       </div>
 
-      {defModal && <DefinitionModal onClose={() => setDefModal(false)} />}
+      {defModal && user && <DefinitionModal ownerId={user.id} onClose={() => setDefModal(false)} />}
       {editingStep && <EditStepModal step={editingStep} onClose={() => setEditingStep(null)} />}
       {confirmDeleteStep && (
         <ConfirmDialog
@@ -295,7 +360,7 @@ function EditStepModal({ step, onClose }: { step: WorkflowStep; onClose: () => v
   )
 }
 
-function DefinitionModal({ onClose }: { onClose: () => void }) {
+function DefinitionModal({ ownerId, onClose }: { ownerId: string; onClose: () => void }) {
   const create = useCreateDefinition()
   const toast = useToast()
   const [name, setName] = useState('')
@@ -308,7 +373,7 @@ function DefinitionModal({ onClose }: { onClose: () => void }) {
         onSubmit={(e) => {
           e.preventDefault()
           create.mutate(
-            { name: name.trim(), entityType: entityType.trim() || 'generic' },
+            { name: name.trim(), entityType, ownerId },
             {
               onSuccess: () => {
                 toast.success('Workflow created')
@@ -331,12 +396,18 @@ function DefinitionModal({ onClose }: { onClose: () => void }) {
         </div>
         <div>
           <Label htmlFor="def-entity">Entity type</Label>
-          <Input
+          <Select
             id="def-entity"
             data-testid="definition-entity"
             value={entityType}
             onChange={(e) => setEntityType(e.target.value)}
-          />
+          >
+            {WORKFLOW_ENTITY_TYPES.map((t) => (
+              <option key={t.value} value={t.value}>
+                {t.label}
+              </option>
+            ))}
+          </Select>
         </div>
         <div className="flex justify-end gap-2">
           <Button type="button" variant="outline" onClick={onClose}>

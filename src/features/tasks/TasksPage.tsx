@@ -4,6 +4,7 @@ import {
   useCreateStatus,
   useCreateTask,
   useDeleteStatus,
+  useDeleteTask,
   useTaskHistory,
   useTaskStatuses,
   useTasks,
@@ -22,6 +23,7 @@ import { PageHeader } from '@/components/ui/PageHeader'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
 import { Modal } from '@/components/ui/Modal'
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { Input } from '@/components/ui/Input'
 import { Label } from '@/components/ui/Label'
 import { Select } from '@/components/ui/Select'
@@ -50,6 +52,9 @@ export function TasksPage() {
   const [remarkTask, setRemarkTask] = useState<TaskRow | null>(null)
   const [manageOpen, setManageOpen] = useState(false)
   const [showCompleted, setShowCompleted] = useState(false)
+  const [confirmDeleteTask, setConfirmDeleteTask] = useState<TaskRow | null>(null)
+  const deleteTask = useDeleteTask()
+  const toast = useToast()
 
   const scoped = useMemo(() => {
     let list =
@@ -223,6 +228,16 @@ export function TasksPage() {
                     >
                       <History className="size-4" />
                     </button>
+                    {canManageStatuses && (
+                      <button
+                        data-testid="delete-task-button"
+                        aria-label={`Delete task ${t.title}`}
+                        className="rounded-md p-1 text-slate-400 hover:bg-red-50 hover:text-red-600"
+                        onClick={() => setConfirmDeleteTask(t)}
+                      >
+                        <Trash2 className="size-4" />
+                      </button>
+                    )}
                   </div>
                 </Td>
               </tr>
@@ -236,6 +251,31 @@ export function TasksPage() {
       {remarkTask && <RemarkModal task={remarkTask} onClose={() => setRemarkTask(null)} />}
       {historyTask && <HistoryModal task={historyTask} onClose={() => setHistoryTask(null)} />}
       {manageOpen && <StatusMasterModal onClose={() => setManageOpen(false)} />}
+      {confirmDeleteTask && (
+        <ConfirmDialog
+          title="Delete task"
+          testid="delete-task-dialog"
+          confirmLabel="Delete task"
+          loading={deleteTask.isPending}
+          onClose={() => setConfirmDeleteTask(null)}
+          message={
+            <p>
+              Delete task{' '}
+              <span className="font-semibold text-slate-900">{confirmDeleteTask.title}</span>? Its
+              remarks and status history will be deleted too. This action cannot be undone.
+            </p>
+          }
+          onConfirm={() =>
+            deleteTask.mutate(confirmDeleteTask.id, {
+              onSuccess: () => {
+                toast.success('Task deleted')
+                setConfirmDeleteTask(null)
+              },
+              onError: (err) => toast.error('Delete failed', (err as Error).message),
+            })
+          }
+        />
+      )}
     </div>
   )
 }

@@ -86,23 +86,27 @@ test.describe('Phase 4 — planning & mandatory policy', () => {
     await page.goto('/planning')
     await expect(page.getByTestId('planning-page')).toBeVisible()
 
-    // Add a flexible slot (fixed-length window starting at any chosen time).
-    await page.getByTestId('new-slot-start').fill('09:00')
+    // Add a slot through the modal (any start time, prefilled end).
     await page.getByTestId('add-slot').click()
+    await expect(page.getByTestId('slot-form-modal')).toBeVisible()
+    await page.getByTestId('slot-form-start').fill('09:00')
+    await page.getByTestId('slot-form-planning').fill('Draft the report')
+    await page.getByTestId('slot-form-save').click()
 
-    const card = page.locator('[data-testid^="slot-card-"]').first()
+    const card = page
+      .locator('[data-testid^="slot-card-"]')
+      .filter({ hasText: 'Draft the report' })
+      .first()
     await expect(card).toBeVisible({ timeout: 10_000 })
-    const task = card.locator('[data-testid^="slot-task-"]')
-    await task.fill('Draft the report')
-    await card.locator('[data-testid^="slot-save-"]').click()
-    const history = card.locator('[data-testid^="slot-history-"]')
-    await expect(history).toBeVisible({ timeout: 10_000 })
 
-    // Edit the slot → recorded in history.
-    await task.fill('Draft the report (v2)')
-    await card.locator('[data-testid^="slot-save-"]').click()
+    // Edit the slot via its pencil control → recorded in history.
+    await card.locator('[data-testid^="slot-edit-"]').click()
+    await expect(page.getByTestId('slot-form-modal')).toBeVisible()
+    await page.getByTestId('slot-form-planning').fill('Draft the report (v2)')
+    await page.getByTestId('slot-form-save').click()
+    await expect(card.locator('[data-testid^="slot-planning-"]')).toContainText('(v2)')
 
-    await history.click()
+    await card.locator('[data-testid^="slot-history-"]').click()
     await expect(page.getByTestId('planning-history-modal')).toBeVisible()
     await expect(page.getByTestId('planning-history-entry').first()).toContainText('v2')
   })
@@ -175,7 +179,7 @@ test.describe('Phase 4 — planning & mandatory policy', () => {
     await context.close()
   })
 
-  test('planned slots render as a list with labelled history (Slot / Planning / Outcome)', async ({ page }) => {
+  test('planned slots render as a read-only list with labelled history', async ({ page }) => {
     await loginAs(page, aarti)
     await page.goto('/planning')
 
@@ -183,25 +187,38 @@ test.describe('Phase 4 — planning & mandatory policy', () => {
     const future = new Date(Date.now() + 7 * 86_400_000).toISOString().slice(0, 10)
     await page.getByTestId('plan-date').fill(future)
 
-    await page.getByTestId('new-slot-start').fill('09:00')
-    await page.getByTestId('new-slot-end').fill('11:00')
+    // Two slots added through the modal (placeholders in Planning / Working /
+    // Completion % / Challenges order).
     await page.getByTestId('add-slot').click()
-    await page.getByTestId('new-slot-start').fill('11:00')
-    await page.getByTestId('new-slot-end').fill('13:00')
-    await page.getByTestId('add-slot').click()
+    await page.getByTestId('slot-form-start').fill('09:00')
+    await page.getByTestId('slot-form-end').fill('11:00')
+    await expect(page.getByTestId('slot-form-planning')).toHaveAttribute('placeholder', 'Planning')
+    await expect(page.getByTestId('slot-form-working')).toHaveAttribute('placeholder', 'Working')
+    await expect(page.getByTestId('slot-form-progress')).toHaveAttribute('placeholder', 'Completion %')
+    await expect(page.getByTestId('slot-form-challenges')).toHaveAttribute('placeholder', 'Challenges')
+    await page.getByTestId('slot-form-planning').fill('Write the API spec')
+    await page.getByTestId('slot-form-save').click()
+    await expect(page.getByTestId('slots-list').locator('[data-testid^="slot-card-"]')).toHaveCount(1)
 
-    // Slots live in a single list, one row per slot.
+    await page.getByTestId('add-slot').click()
+    await page.getByTestId('slot-form-start').fill('11:00')
+    await page.getByTestId('slot-form-end').fill('13:00')
+    await page.getByTestId('slot-form-save').click()
+
+    // Slots live in a single read-only list — no inline edit fields.
     await expect(page.getByTestId('slots-list')).toBeVisible()
     await expect(page.getByTestId('slots-list').locator('[data-testid^="slot-card-"]')).toHaveCount(2)
+    await expect(page.getByTestId('slots-list').locator('input, textarea')).toHaveCount(0)
     await shot(page, 'planning-slots-list-view')
 
-    // Edit a slot twice so history has planning + outcome to show.
+    // Edit a slot so history has working + completion data to show.
     const row = page.getByTestId('slot-card-0')
-    await row.locator('[data-testid^="slot-task-"]').fill('Write the API spec')
-    await row.locator('[data-testid^="slot-save-"]').click()
-    await row.locator('[data-testid^="slot-progress-"]').fill('60')
-    await row.locator('[data-testid^="slot-remarks-"]').fill('halfway there')
-    await row.locator('[data-testid^="slot-save-"]').click()
+    await row.locator('[data-testid^="slot-edit-"]').click()
+    await page.getByTestId('slot-form-progress').fill('60')
+    await page.getByTestId('slot-form-working').fill('halfway there')
+    await page.getByTestId('slot-form-save').click()
+    await expect(row.getByTestId('slot-progress-0')).toContainText('60%')
+    await expect(row.getByTestId('slot-working-0')).toContainText('halfway there')
 
     await row.locator('[data-testid^="slot-history-"]').click()
     const modal = page.getByTestId('planning-history-modal')
@@ -209,11 +226,13 @@ test.describe('Phase 4 — planning & mandatory policy', () => {
     const entry = page.getByTestId('planning-history-entry').first()
     await expect(entry).toContainText('Slot')
     await expect(entry).toContainText('Planning')
-    await expect(entry).toContainText('Outcome')
+    await expect(entry).toContainText('Working')
+    await expect(entry).toContainText('Completion %')
+    await expect(entry).toContainText('Challenges')
     await expect(entry.getByTestId('history-slot')).toContainText('09:00–11:00')
     await expect(entry.getByTestId('history-planning')).toContainText('Write the API spec')
-    await expect(entry.getByTestId('history-outcome')).toContainText('60% done')
-    await expect(entry.getByTestId('history-outcome')).toContainText('halfway there')
+    await expect(entry.getByTestId('history-progress')).toContainText('60%')
+    await expect(entry.getByTestId('history-working')).toContainText('halfway there')
     await shot(page, 'planning-history-labels')
   })
 

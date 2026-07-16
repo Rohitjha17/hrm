@@ -5,16 +5,39 @@ import type { Tables } from '@/types/database.types'
 export type WorkflowDefinition = Tables<'workflow_definitions'>
 export type WorkflowStep = Tables<'workflow_steps'>
 
-export function useDefinitions() {
+export interface WorkflowDefinitionRow extends WorkflowDefinition {
+  owner: { id: string; full_name: string; email: string } | null
+}
+
+/** Preset entity types a workflow can describe (was a free-text box). */
+export const WORKFLOW_ENTITY_TYPES = [
+  { value: 'generic', label: 'General' },
+  { value: 'employee', label: 'Employee' },
+  { value: 'recruitment', label: 'Recruitment' },
+  { value: 'onboarding', label: 'Onboarding' },
+  { value: 'offboarding', label: 'Offboarding' },
+  { value: 'leave', label: 'Leave' },
+  { value: 'expense', label: 'Expense' },
+  { value: 'payroll', label: 'Payroll' },
+  { value: 'asset', label: 'Asset' },
+  { value: 'document', label: 'Document' },
+  { value: 'training', label: 'Training' },
+  { value: 'compliance', label: 'Compliance' },
+] as const
+
+/** Definitions visible to the caller; optionally scoped to one owner. */
+export function useDefinitions(ownerId?: string) {
   return useQuery({
-    queryKey: ['wf-definitions'],
+    queryKey: ['wf-definitions', ownerId ?? 'all'],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from('workflow_definitions')
-        .select('*')
+        .select('*, owner:profiles!workflow_definitions_owner_id_fkey(id,full_name,email)')
         .order('created_at', { ascending: false })
+      if (ownerId) query = query.eq('owner_id', ownerId)
+      const { data, error } = await query
       if (error) throw error
-      return data
+      return (data ?? []) as unknown as WorkflowDefinitionRow[]
     },
   })
 }
@@ -38,10 +61,10 @@ export function useSteps(definitionId: string | null) {
 export function useCreateDefinition() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async (input: { name: string; entityType: string }) => {
+    mutationFn: async (input: { name: string; entityType: string; ownerId: string }) => {
       const { data, error } = await supabase
         .from('workflow_definitions')
-        .insert({ name: input.name, entity_type: input.entityType })
+        .insert({ name: input.name, entity_type: input.entityType, owner_id: input.ownerId })
         .select('id')
         .single()
       if (error) throw error

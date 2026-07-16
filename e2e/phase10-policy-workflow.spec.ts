@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test'
 import { loginAs } from './utils/auth'
-import { aarti, sunil } from './utils/users'
+import { aarti, raj, sunil } from './utils/users'
 
 test.describe('Phase 10 — policies & workflow engine', () => {
   test('policy: create, publish two versions (history), employee acknowledges', async ({
@@ -106,5 +106,66 @@ test.describe('Phase 10 — policies & workflow engine', () => {
     await expect(
       page.getByTestId('definition-item').filter({ hasText: 'Expense Approval' }),
     ).toHaveCount(0)
+  })
+
+  test('workflows are per-user: My Workflows tab, admin sees all and filters by employee', async ({
+    browser,
+  }) => {
+    // Aarti (employee only) builds her own workflow under "My Workflows".
+    const empCtx = await browser.newContext()
+    const emp = await empCtx.newPage()
+    await loginAs(emp, aarti)
+    await emp.getByTestId('nav-my-workflows').click()
+    await expect(emp.getByTestId('my-workflows-page')).toBeVisible()
+
+    await emp.getByTestId('new-definition-button').click()
+    await emp.getByTestId('definition-name').fill('Aarti Daily Review')
+    // Entity type is a dropdown of preset values, not a free-text box.
+    const entity = emp.getByTestId('definition-entity')
+    await expect(entity).toHaveJSProperty('tagName', 'SELECT')
+    await entity.selectOption({ label: 'Document' })
+    await emp.getByTestId('create-definition-submit').click()
+
+    const empItem = emp.getByTestId('definition-item').filter({ hasText: 'Aarti Daily Review' })
+    await expect(empItem).toBeVisible()
+    await expect(empItem).toContainText('Document')
+
+    await emp.getByTestId('step-name').fill('Collect notes')
+    await emp.getByTestId('add-step').click()
+    await expect(emp.getByTestId('step-row')).toHaveCount(1)
+    await empCtx.close()
+
+    // Raj only sees his own (empty) list — not Aarti's workflow.
+    const rajCtx = await browser.newContext()
+    const rajPage = await rajCtx.newPage()
+    await loginAs(rajPage, raj)
+    await rajPage.goto('/my-workflows')
+    await expect(rajPage.getByTestId('my-workflows-page')).toBeVisible()
+    await expect(
+      rajPage.getByTestId('definition-item').filter({ hasText: 'Aarti Daily Review' }),
+    ).toHaveCount(0)
+    await rajCtx.close()
+
+    // Admin sees everyone's workflows, with the owner labelled, and can filter.
+    const admCtx = await browser.newContext()
+    const adm = await admCtx.newPage()
+    await loginAs(adm, sunil)
+    await adm.goto('/admin/workflows')
+    const admItem = adm.getByTestId('definition-item').filter({ hasText: 'Aarti Daily Review' })
+    await expect(admItem).toBeVisible()
+    await expect(admItem.getByTestId('definition-owner')).toContainText(aarti.fullName)
+
+    await adm.getByTestId('workflow-owner-filter').selectOption({ label: aarti.fullName })
+    await expect(admItem).toBeVisible()
+    await adm.getByTestId('workflow-owner-filter').selectOption({ label: raj.fullName })
+    await expect(adm.getByTestId('definition-item')).toHaveCount(0)
+
+    // Clean up through the same UI: back to all, delete Aarti's workflow.
+    await adm.getByTestId('workflow-owner-filter').selectOption({ label: 'All employees' })
+    await admItem.click()
+    await adm.getByTestId('delete-definition').click()
+    await adm.getByTestId('delete-definition-dialog-confirm').click()
+    await expect(admItem).toHaveCount(0)
+    await admCtx.close()
   })
 })

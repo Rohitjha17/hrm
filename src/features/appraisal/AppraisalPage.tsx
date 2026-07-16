@@ -55,11 +55,6 @@ export function AppraisalPage() {
                     <Score label="Tasks" value={a.task_score} />
                     <Score label="Planning" value={a.planning_score} />
                   </dl>
-                  <div className="flex items-center gap-2 pt-1 text-sm">
-                    <span className="text-slate-500">Increment:</span>
-                    <span className="font-medium">{a.increment_recommendation}%</span>
-                    {a.promotion_recommended && <Badge tone="green">Promotion recommended</Badge>}
-                  </div>
                   {a.manager_feedback && (
                     <p className="text-sm text-slate-600">“{a.manager_feedback}”</p>
                   )}
@@ -121,19 +116,6 @@ function MyAppraisalModal({ appraisal, onClose }: { appraisal: MyAppraisal; onCl
           <span className="flex items-center gap-2">
             <span className="text-slate-500">Performance</span>
             <RatingStars value={appraisal.performance_rating} />
-          </span>
-          <span className="text-slate-500">
-            Increment{' '}
-            <span className="font-semibold text-slate-800">
-              {appraisal.increment_recommendation}%
-            </span>
-          </span>
-          <span>
-            {appraisal.promotion_recommended ? (
-              <Badge tone="green">Promotion recommended</Badge>
-            ) : (
-              <Badge tone="slate">No promotion</Badge>
-            )}
           </span>
         </div>
 

@@ -22,7 +22,7 @@ import { AppraisalAdminPage } from '@/features/appraisal/AppraisalAdminPage'
 import { ReportsPage } from '@/features/reports/ReportsPage'
 import { PolicyPage } from '@/features/policy/PolicyPage'
 import { PolicyAdminPage } from '@/features/policy/PolicyAdminPage'
-import { WorkflowAdminPage } from '@/features/workflow/WorkflowAdminPage'
+import { WorkflowAdminPage, MyWorkflowsPage } from '@/features/workflow/WorkflowAdminPage'
 import { RecruitmentPage } from '@/features/recruitment/RecruitmentPage'
 import { OnboardingPage } from '@/features/onboarding/OnboardingPage'
 import { DocumentsPage } from '@/features/documents/DocumentsPage'
@@ -172,6 +172,7 @@ export function App() {
             </RequirePermission>
           }
         />
+        <Route path="/my-workflows" element={<MyWorkflowsPage />} />
         <Route
           path="/admin/workflows"
           element={

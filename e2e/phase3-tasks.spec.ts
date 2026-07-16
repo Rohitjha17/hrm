@@ -168,6 +168,37 @@ test.describe('Phase 3 — task management', () => {
     await empCtx.close()
   })
 
+  test('admin can delete any task after confirmation', async ({ page }) => {
+    await loginAs(page, sunil)
+    await page.goto('/tasks')
+    await page.getByTestId('new-task-button').click()
+    await page.getByTestId('task-title-input').fill('Task to be deleted')
+    await page.getByTestId('create-task-submit').click()
+
+    const row = page.getByTestId('task-row').filter({ hasText: 'Task to be deleted' })
+    await expect(row).toBeVisible()
+
+    // Cancelling the dialog keeps the task.
+    await row.getByTestId('delete-task-button').click()
+    await expect(page.getByTestId('delete-task-dialog')).toBeVisible()
+    await page.getByTestId('modal-close').click()
+    await expect(row).toBeVisible()
+
+    // Confirming removes it for good.
+    await row.getByTestId('delete-task-button').click()
+    await expect(page.getByTestId('delete-task-dialog')).toContainText('Task to be deleted')
+    await page.getByTestId('delete-task-dialog-confirm').click()
+    await expect(row).toHaveCount(0)
+    await shot(page, 'tasks-admin-deleted')
+  })
+
+  test('employees do not get a delete control on tasks', async ({ page }) => {
+    await loginAs(page, aarti)
+    await page.goto('/tasks')
+    await expect(page.getByTestId('task-row').first()).toBeVisible()
+    await expect(page.getByTestId('delete-task-button')).toHaveCount(0)
+  })
+
   test('task status master is editable (add a new status)', async ({ page }) => {
     await loginAs(page, sunil)
     await page.goto('/tasks')

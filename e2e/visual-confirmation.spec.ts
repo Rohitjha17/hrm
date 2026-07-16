@@ -117,6 +117,147 @@ test.describe('Visual confirmation — edit/delete capabilities', () => {
     )
   })
 
+  test('tasks: admin delete control with confirmation dialog', async ({ page }) => {
+    await loginAs(page, sunil)
+    await page.goto('/tasks')
+
+    await page.getByTestId('new-task-button').click()
+    await page.getByTestId('task-title-input').fill('Visual demo — deletable task')
+    await page.getByTestId('create-task-submit').click()
+    const row = page.getByTestId('task-row').filter({ hasText: 'Visual demo — deletable task' })
+    await expect(row).toBeVisible()
+    await shot(page, '13-tasks-row-with-delete-control')
+
+    await row.getByTestId('delete-task-button').click()
+    await expect(page.getByTestId('delete-task-dialog')).toBeVisible()
+    await shot(page, '14-tasks-delete-confirm')
+    await page.getByTestId('delete-task-dialog-confirm').click()
+    await expect(row).toHaveCount(0)
+    await shot(page, '15-tasks-after-delete')
+  })
+
+  test('appraisal: increment & promotion no longer appear anywhere', async ({ page }) => {
+    await loginAs(page, sunil)
+    await page.goto('/admin/appraisal')
+    await expect(page.getByTestId('appraisal-admin-page')).toBeVisible()
+    await expect(page.getByTestId('appraisal-admin-page')).not.toContainText('Increment')
+    await expect(page.getByTestId('appraisal-admin-page')).not.toContainText('Promotion')
+    await shot(page, '16-appraisal-no-increment-promotion')
+  })
+
+  test('workflows: My Workflows tab, entity dropdown and admin owner filter', async ({
+    browser,
+  }) => {
+    // Employee side: My Workflows with the entity-type dropdown.
+    const empCtx = await browser.newContext()
+    const emp = await empCtx.newPage()
+    await loginAs(emp, raj)
+    await emp.goto('/my-workflows')
+    await expect(emp.getByTestId('my-workflows-page')).toBeVisible()
+
+    await emp.getByTestId('new-definition-button').click()
+    await emp.getByTestId('definition-entity').selectOption({ label: 'Leave' })
+    await shot(emp, '17-workflow-entity-dropdown')
+    await emp.getByTestId('definition-name').fill('Raj Leave Handover')
+    await emp.getByTestId('create-definition-submit').click()
+    await expect(
+      emp.getByTestId('definition-item').filter({ hasText: 'Raj Leave Handover' }),
+    ).toBeVisible()
+    await emp.getByTestId('step-name').fill('Brief the team')
+    await emp.getByTestId('add-step').click()
+    await expect(emp.getByTestId('step-row')).toHaveCount(1)
+    await shot(emp, '18-my-workflows-employee-view')
+    await empCtx.close()
+
+    // Admin side: all workflows with owners, filterable per employee.
+    const admCtx = await browser.newContext()
+    const adm = await admCtx.newPage()
+    await loginAs(adm, sunil)
+    await adm.goto('/admin/workflows')
+    const admItem = adm.getByTestId('definition-item').filter({ hasText: 'Raj Leave Handover' })
+    await expect(admItem).toBeVisible()
+    await shot(adm, '19-workflows-admin-all-users')
+    await adm.getByTestId('workflow-owner-filter').selectOption({ label: raj.fullName })
+    await expect(admItem).toBeVisible()
+    await shot(adm, '20-workflows-admin-filtered-by-user')
+
+    // Clean up the demo workflow through the UI being demonstrated.
+    await admItem.click()
+    await adm.getByTestId('delete-definition').click()
+    await adm.getByTestId('delete-definition-dialog-confirm').click()
+    await expect(admItem).toHaveCount(0)
+    await admCtx.close()
+  })
+
+  test('planning: read-only slot list, add/edit modal and labelled history', async ({ page }) => {
+    await loginAs(page, raj)
+    await page.goto('/planning')
+
+    const future = new Date(Date.now() + 10 * 86_400_000).toISOString().slice(0, 10)
+    await page.getByTestId('plan-date').fill(future)
+
+    // Add slot modal: times + Planning / Working / Completion % / Challenges.
+    await page.getByTestId('add-slot').click()
+    await expect(page.getByTestId('slot-form-modal')).toBeVisible()
+    await page.getByTestId('slot-form-start').fill('09:00')
+    await page.getByTestId('slot-form-end').fill('11:00')
+    await page.getByTestId('slot-form-planning').fill('Prepare sprint demo')
+    await page.getByTestId('slot-form-working').fill('Slides drafted')
+    await page.getByTestId('slot-form-progress').fill('40')
+    await page.getByTestId('slot-form-challenges').fill('Waiting on data from finance')
+    await shot(page, '21-planning-add-slot-modal')
+    await page.getByTestId('slot-form-save').click()
+    await expect(page.getByTestId('slots-list').locator('[data-testid^="slot-card-"]')).toHaveCount(1)
+    await shot(page, '22-planning-slot-list-readonly')
+
+    // Edit once so history has an entry, then show the labelled history.
+    await page.locator('[data-testid^="slot-edit-"]').click()
+    await page.getByTestId('slot-form-progress').fill('70')
+    await page.getByTestId('slot-form-save').click()
+    await page.locator('[data-testid^="slot-history-"]').click()
+    await expect(page.getByTestId('planning-history-modal')).toBeVisible()
+    await expect(page.getByTestId('planning-history-entry').first()).toContainText('Working')
+    await shot(page, '23-planning-history-labels')
+    await page.getByTestId('modal-close').click()
+
+    // Clean up the demo slot.
+    await page.locator('[data-testid^="slot-delete-"]').click()
+    await expect(page.getByTestId('slots-list')).toHaveCount(0)
+  })
+
+  test('planning admin: eye view shows the same labelled slot details', async ({ page }) => {
+    await loginAs(page, sunil)
+
+    // Give Sunil a slot today so the admin eye view has content.
+    await page.goto('/planning')
+    await page.getByTestId('add-slot').click()
+    await page.getByTestId('slot-form-start').fill('14:00')
+    await page.getByTestId('slot-form-end').fill('16:00')
+    await page.getByTestId('slot-form-planning').fill('Quarterly budget review')
+    await page.getByTestId('slot-form-working').fill('Draft shared with finance')
+    await page.getByTestId('slot-form-progress').fill('50')
+    await page.getByTestId('slot-form-save').click()
+
+    await page.goto('/admin/planning')
+    await page.getByTestId(`view-plan-${sunil.email}`).click()
+    const modal = page.getByTestId('plan-view-modal')
+    await expect(modal).toBeVisible()
+    await expect(modal.getByTestId('plan-view-slot').first()).toContainText('Planning')
+    await expect(modal.getByTestId('plan-view-slot').first()).toContainText('Working')
+    await expect(modal.getByTestId('plan-view-slot').first()).toContainText('Completion %')
+    await expect(modal.getByTestId('plan-view-slot').first()).toContainText('Challenges')
+    await shot(page, '24-planning-admin-eye-labels')
+    await page.getByTestId('modal-close').click()
+
+    // Clean up the demo slot.
+    await page.goto('/planning')
+    const row = page
+      .locator('[data-testid^="slot-card-"]')
+      .filter({ hasText: 'Quarterly budget review' })
+    await row.locator('[data-testid^="slot-delete-"]').click()
+    await expect(row).toHaveCount(0)
+  })
+
   test('users: per-user leave quotas in the add & edit employee dialogs', async ({ page }) => {
     await loginAs(page, sunil)
     await page.goto('/admin/users')
