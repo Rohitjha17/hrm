@@ -20,7 +20,7 @@ async function seedPayroll(): Promise<void> {
   await admin.from('attendance_days').delete().eq('user_id', uid).gte('work_date', '2026-08-01').lt('work_date', '2026-09-01')
   await admin.from('attendance_days').insert(days)
   const comp = []
-  for (let d = 1; d <= 26; d++) comp.push({ user_id: uid, work_date: `2026-08-${pad(d)}`, day_end_submitted: true, next_day_submitted: true })
+  for (let d = 1; d <= 26; d++) comp.push({ user_id: uid, work_date: `2026-08-${pad(d)}`, unlocked: true, unlock_remarks: 'e2e seed' })
   await admin.from('planning_compliance').delete().eq('user_id', uid).gte('work_date', '2026-08-01').lt('work_date', '2026-09-01')
   await admin.from('planning_compliance').insert(comp)
   await admin.from('loans_advances').delete().eq('user_id', uid)

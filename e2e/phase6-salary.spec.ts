@@ -37,7 +37,7 @@ async function seedSalaryMonth(): Promise<string> {
 
   // 22 of 23 working days planning-compliant → 1 non-compliant.
   const comp = []
-  for (let d = 1; d <= 22; d++) comp.push({ user_id: uid, work_date: `${MONTH}-${pad(d)}`, day_end_submitted: true, next_day_submitted: true })
+  for (let d = 1; d <= 22; d++) comp.push({ user_id: uid, work_date: `${MONTH}-${pad(d)}`, unlocked: true, unlock_remarks: 'e2e seed' })
   await admin.from('planning_compliance').delete().eq('user_id', uid).gte('work_date', `${MONTH}-01`).lt('work_date', '2026-06-01')
   await admin.from('planning_compliance').insert(comp)
 

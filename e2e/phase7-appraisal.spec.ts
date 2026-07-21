@@ -44,8 +44,8 @@ async function seedAppraisalInputs(): Promise<string> {
     comp.push({
       user_id: uid,
       work_date: `2026-04-${pad(d)}`,
-      day_end_submitted: true,
-      next_day_submitted: true,
+      unlocked: true,
+      unlock_remarks: 'e2e seed',
     })
   await admin
     .from('planning_compliance')

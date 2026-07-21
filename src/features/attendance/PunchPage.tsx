@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Clock, Fingerprint, Lock, MapPin } from 'lucide-react'
 import { useAttendanceConfig, useMyAttendance, type PunchResult } from './hooks'
-import { usePunchInLock } from '@/features/planning/hooks'
+import { usePlanningConfig, usePunchInLock } from '@/features/planning/hooks'
 import { SelfiePunchModal } from './SelfiePunchModal'
 import { todayInTz, formatMinutes } from './geo'
 import { PageHeader } from '@/components/ui/PageHeader'
@@ -31,7 +31,10 @@ export function PunchPage() {
   const day = data?.day
   const punches = data?.punches ?? []
   const { data: lock } = usePunchInLock()
+  const { data: planConfig } = usePlanningConfig()
   const locked = !open && !!lock?.locked
+  const windowStart = planConfig?.day_start?.slice(0, 5) ?? '10:00'
+  const windowEnd = planConfig?.day_end?.slice(0, 5) ?? '18:30'
 
   function handleSuccess(res: PunchResult) {
     setModalType(null)
@@ -53,8 +56,9 @@ export function PunchPage() {
           <Lock className="mt-0.5 size-4 shrink-0" />
           <p>
             <span className="font-semibold">Punch-in locked.</span> Your planning for{' '}
-            {lock?.prev_date ?? 'the previous day'} is incomplete — all working hours must be
-            planned and the day-end update submitted. Ask an admin to unlock.
+            {lock?.prev_date ?? 'your last worked day'} is incomplete — add slots on the Planning
+            page covering the full working day ({windowStart}–{windowEnd}). Punch-in stays blocked
+            every day until that day is fully planned or an admin unlocks it.
           </p>
         </div>
       )}

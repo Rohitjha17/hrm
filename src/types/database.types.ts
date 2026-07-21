@@ -1387,9 +1387,7 @@ export type Database = {
       planning_compliance: {
         Row: {
           created_at: string
-          day_end_submitted: boolean
           id: string
-          next_day_submitted: boolean
           unlock_remarks: string | null
           unlocked: boolean
           unlocked_at: string | null
@@ -1400,9 +1398,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
-          day_end_submitted?: boolean
           id?: string
-          next_day_submitted?: boolean
           unlock_remarks?: string | null
           unlocked?: boolean
           unlocked_at?: string | null
@@ -1413,9 +1409,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
-          day_end_submitted?: boolean
           id?: string
-          next_day_submitted?: boolean
           unlock_remarks?: string | null
           unlocked?: boolean
           unlocked_at?: string | null
@@ -1447,8 +1441,6 @@ export type Database = {
           day_start: string
           id: boolean
           policy: string
-          require_day_end: boolean
-          require_next_day: boolean
           slot_interval_hours: number
           updated_at: string
         }
@@ -1457,8 +1449,6 @@ export type Database = {
           day_start?: string
           id?: boolean
           policy?: string
-          require_day_end?: boolean
-          require_next_day?: boolean
           slot_interval_hours?: number
           updated_at?: string
         }
@@ -1467,12 +1457,52 @@ export type Database = {
           day_start?: string
           id?: boolean
           policy?: string
-          require_day_end?: boolean
-          require_next_day?: boolean
           slot_interval_hours?: number
           updated_at?: string
         }
         Relationships: []
+      }
+      planning_unlock_history: {
+        Row: {
+          created_at: string
+          id: string
+          remarks: string
+          unlocked_by: string | null
+          user_id: string
+          work_date: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          remarks: string
+          unlocked_by?: string | null
+          user_id: string
+          work_date: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          remarks?: string
+          unlocked_by?: string | null
+          user_id?: string
+          work_date?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "planning_unlock_history_unlocked_by_fkey"
+            columns: ["unlocked_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "planning_unlock_history_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       planning_history: {
         Row: {
@@ -2838,6 +2868,7 @@ export type Database = {
         Returns: Json
       }
       punch_in_lock_status: { Args: never; Returns: Json }
+      punch_lock_overview: { Args: never; Returns: Json }
       punch_in_locked_for: {
         Args: { p_today: string; p_user: string }
         Returns: Json
@@ -2860,16 +2891,16 @@ export type Database = {
         Returns: Json
       }
       start_onboarding: { Args: { p_employee: string }; Returns: Json }
-      submit_planning_compliance: {
-        Args: { p_date: string; p_part: string }
-        Returns: Json
+      planning_compliant_days: {
+        Args: { p_from: string; p_to: string; p_user: string }
+        Returns: string[]
       }
       transfer_asset: {
         Args: { p_asset: string; p_new_assignee: string }
         Returns: Json
       }
       unlock_planning: {
-        Args: { p_date: string; p_remarks: string; p_user: string }
+        Args: { p_remarks: string; p_user: string }
         Returns: Json
       }
       update_task_status: {

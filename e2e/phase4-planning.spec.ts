@@ -7,9 +7,9 @@ import { adminClient } from './utils/supabase'
 
 const OFFICE = { latitude: 22.745618, longitude: 75.8933851 }
 const TODAY = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date())
-const YESTERDAY = new Date(new Date(`${TODAY}T00:00:00Z`).getTime() - 86_400_000)
-  .toISOString()
-  .slice(0, 10)
+const daysAgo = (n: number) =>
+  new Date(new Date(`${TODAY}T00:00:00Z`).getTime() - n * 86_400_000).toISOString().slice(0, 10)
+const YESTERDAY = daysAgo(1)
 
 const SHOT_DIR = 'test-results/regression-screens'
 
@@ -24,28 +24,47 @@ async function userId(email: string): Promise<string> {
   return u!.id
 }
 
-// Give a user a worked (punched in + out) previous day with no planning yet.
-async function seedYesterdayAttendance(email: string) {
+// Give a user a worked (punched in + out) day with no planning yet.
+async function seedWorkedDay(email: string, date: string) {
   const admin = adminClient()
   const uid = await userId(email)
-  await admin.from('attendance_punches').delete().eq('user_id', uid).eq('work_date', YESTERDAY)
-  await admin.from('attendance_days').delete().eq('user_id', uid).eq('work_date', YESTERDAY)
-  await admin.from('planning_compliance').delete().eq('user_id', uid).eq('work_date', YESTERDAY)
-  await admin.from('planning_slots').delete().eq('user_id', uid).eq('plan_date', YESTERDAY)
+  await cleanDay(uid, date)
   await admin.from('attendance_punches').insert([
-    { user_id: uid, punch_type: 'in', punched_at: `${YESTERDAY}T10:00:00+05:30`, work_date: YESTERDAY, within_radius: true },
-    { user_id: uid, punch_type: 'out', punched_at: `${YESTERDAY}T18:30:00+05:30`, work_date: YESTERDAY, within_radius: true },
+    { user_id: uid, punch_type: 'in', punched_at: `${date}T10:00:00+05:30`, work_date: date, within_radius: true },
+    { user_id: uid, punch_type: 'out', punched_at: `${date}T18:30:00+05:30`, work_date: date, within_radius: true },
   ])
-  await admin.rpc('recompute_attendance_day', { p_user: uid, p_date: YESTERDAY })
+  await admin.rpc('recompute_attendance_day', { p_user: uid, p_date: date })
   return uid
 }
 
-async function cleanYesterday(uid: string) {
+async function cleanDay(uid: string, date: string) {
   const admin = adminClient()
-  await admin.from('attendance_punches').delete().eq('user_id', uid).eq('work_date', YESTERDAY)
-  await admin.from('attendance_days').delete().eq('user_id', uid).eq('work_date', YESTERDAY)
-  await admin.from('planning_compliance').delete().eq('user_id', uid).eq('work_date', YESTERDAY)
-  await admin.from('planning_slots').delete().eq('user_id', uid).eq('plan_date', YESTERDAY)
+  await admin.from('attendance_punches').delete().eq('user_id', uid).eq('work_date', date)
+  await admin.from('attendance_days').delete().eq('user_id', uid).eq('work_date', date)
+  await admin.from('planning_compliance').delete().eq('user_id', uid).eq('work_date', date)
+  await admin.from('planning_slots').delete().eq('user_id', uid).eq('plan_date', date)
+}
+
+// The punch lock now follows the user's LAST worked day, so leftover state from
+// earlier suites/runs could lock a user. Mark that day unlocked to start clean.
+async function clearPunchLock(email: string) {
+  const admin = adminClient()
+  const uid = await userId(email)
+  const { data: last } = await admin
+    .from('attendance_days')
+    .select('work_date')
+    .eq('user_id', uid)
+    .lt('work_date', TODAY)
+    .order('work_date', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  if (last) {
+    await admin.from('planning_compliance').upsert(
+      { user_id: uid, work_date: last.work_date, unlocked: true, unlock_remarks: 'e2e: clear lock' },
+      { onConflict: 'user_id,work_date' },
+    )
+  }
+  return uid
 }
 
 // Own this test's slice of shared state: clear the user's attendance + planning
@@ -111,67 +130,15 @@ test.describe('Phase 4 — planning & mandatory policy', () => {
     await expect(page.getByTestId('planning-history-entry').first()).toContainText('v2')
   })
 
-  test('punch out is blocked until planning is complete; admin can unlock', async ({ browser }) => {
+  test('punch out is never blocked by planning', async ({ browser }) => {
     await resetTodayFor(raj.email)
-    const { context: rajCtx, page: rajPage } = await openApp(browser)
-    await loginAs(rajPage, raj)
-    await ensurePunchedIn(rajPage)
-
-    // Attempt to punch out → blocked by the mandatory planning policy.
-    await rajPage.getByTestId('punch-button').click()
-    await rajPage.getByTestId('capture-punch-button').click()
-    await expect(rajPage.getByTestId('punch-error')).toBeVisible()
-    await expect(rajPage.getByTestId('punch-error')).toContainText(/Day-End|planning|unlock/i)
-
-    // Admin unlocks Raj's planning (compliance flag recorded).
-    const adminCtx = await browser.newContext()
-    const adminPage = await adminCtx.newPage()
-    await loginAs(adminPage, sunil)
-    await adminPage.goto('/admin/planning')
-    await expect(adminPage.getByTestId('planning-admin-page')).toBeVisible()
-    await adminPage.getByTestId(`unlock-${raj.email}`).click()
-
-    // Unlock demands a remark: save stays disabled until one is entered.
-    await expect(adminPage.getByTestId('unlock-modal')).toBeVisible()
-    await expect(adminPage.getByTestId('unlock-save')).toBeDisabled()
-    await adminPage.getByTestId('unlock-remark').fill('Client escalation ate the afternoon')
-    await adminPage.getByTestId('unlock-save').click()
-    await expect(adminPage.getByTestId(`compliance-${raj.email}`)).toHaveAttribute(
-      'data-compliant',
-      'true',
-      { timeout: 10_000 },
-    )
-    await expect(adminPage.getByTestId(`unlock-remark-${raj.email}`)).toContainText('escalation')
-
-    // Raj retries punch out → now allowed (modal closes on success).
-    await rajPage.getByTestId('capture-punch-button').click()
-    await expect(rajPage.getByTestId('punch-modal')).toBeHidden({ timeout: 15_000 })
-
-    await rajCtx.close()
-    await adminCtx.close()
-  })
-
-  test('completing day-end planning lets the employee punch out', async ({ browser }) => {
-    await resetTodayFor(aarti.email)
+    await clearPunchLock(raj.email)
     const { context, page } = await openApp(browser)
-    await loginAs(page, aarti)
+    await loginAs(page, raj)
     await ensurePunchedIn(page)
 
-    // Blocked first.
-    await page.getByTestId('punch-button').click()
-    await page.getByTestId('capture-punch-button').click()
-    await expect(page.getByTestId('punch-error')).toBeVisible()
-    await page.getByTestId('punch-modal').getByRole('button', { name: 'Cancel' }).click()
-
-    // Complete planning.
-    await page.goto('/planning')
-    await page.getByTestId('submit-day-end').click()
-    await expect(page.getByTestId('compliance-status')).toHaveAttribute('data-compliant', 'true', {
-      timeout: 10_000,
-    })
-
-    // Punch out now succeeds.
-    await page.goto('/attendance')
+    // Punch out with zero planning submitted → succeeds (the old punch-out
+    // gate is gone; only the punch-in lock remains).
     await page.getByTestId('punch-button').click()
     await page.getByTestId('capture-punch-button').click()
     await expect(page.getByTestId('punch-modal')).toBeHidden({ timeout: 15_000 })
@@ -236,9 +203,9 @@ test.describe('Phase 4 — planning & mandatory policy', () => {
     await shot(page, 'planning-history-labels')
   })
 
-  test('punch-in is locked when yesterday is unplanned; admin unlock requires a remark', async ({ browser }) => {
+  test('punch-in is locked when the last worked day is unplanned; date-less admin unlock requires a remark', async ({ browser }) => {
     await resetTodayFor(raj.email)
-    const uid = await seedYesterdayAttendance(raj.email) // worked yesterday, planned nothing
+    const uid = await seedWorkedDay(raj.email, YESTERDAY) // worked yesterday, planned nothing
 
     const { context: rajCtx, page: rajPage } = await openApp(browser)
     await loginAs(rajPage, raj)
@@ -252,27 +219,35 @@ test.describe('Phase 4 — planning & mandatory policy', () => {
     await rajPage.getByTestId('punch-button').click()
     await rajPage.getByTestId('capture-punch-button').click()
     await expect(rajPage.getByTestId('punch-error')).toBeVisible()
-    await expect(rajPage.getByTestId('punch-error')).toContainText(/previous day/i)
+    await expect(rajPage.getByTestId('punch-error')).toContainText(/locked/i)
 
-    // Admin unlocks yesterday — remark is mandatory.
+    // Admin unlocks the user — no date to pick, remark is mandatory.
     const adminCtx = await browser.newContext()
     const adminPage = await adminCtx.newPage()
     await loginAs(adminPage, sunil)
     await adminPage.goto('/admin/planning')
-    await adminPage.getByTestId('planning-admin-date').fill(YESTERDAY)
+    await expect(adminPage.getByTestId(`punch-lock-${raj.email}`)).toHaveAttribute(
+      'data-locked',
+      'true',
+      { timeout: 15_000 },
+    )
     await adminPage.getByTestId(`unlock-${raj.email}`).click()
     await expect(adminPage.getByTestId('unlock-modal')).toBeVisible()
     await expect(adminPage.getByTestId('unlock-save')).toBeDisabled()
     await adminPage.getByTestId('unlock-remark').fill('Missed planning due to network outage')
     await adminPage.getByTestId('unlock-save').click()
-    await expect(adminPage.getByTestId(`compliance-${raj.email}`)).toHaveAttribute(
-      'data-compliant',
-      'true',
-      { timeout: 10_000 },
+    await expect(adminPage.getByTestId(`punch-lock-${raj.email}`)).toHaveAttribute(
+      'data-locked',
+      'false',
+      { timeout: 15_000 },
     )
+    // The unlock is recorded in the on-page history.
+    await expect(
+      adminPage.getByTestId('unlock-history-row').filter({ hasText: 'network outage' }).first(),
+    ).toBeVisible()
     await shot(adminPage, 'planning-admin-unlocked-with-remark')
 
-    // The remark is stored on the compliance row.
+    // The remark lands on the blocking day's compliance row + the audit table.
     const admin = adminClient()
     const { data: comp } = await admin
       .from('planning_compliance')
@@ -282,6 +257,14 @@ test.describe('Phase 4 — planning & mandatory policy', () => {
       .single()
     expect(comp!.unlocked).toBe(true)
     expect(comp!.unlock_remarks).toContain('network outage')
+    const { data: hist } = await admin
+      .from('planning_unlock_history')
+      .select('work_date, remarks')
+      .eq('user_id', uid)
+      .order('created_at', { ascending: false })
+      .limit(1)
+    expect(hist![0].work_date).toBe(YESTERDAY)
+    expect(hist![0].remarks).toContain('network outage')
 
     // Raj can punch in now.
     await rajPage.getByTestId('capture-punch-button').click()
@@ -289,19 +272,34 @@ test.describe('Phase 4 — planning & mandatory policy', () => {
 
     await rajCtx.close()
     await adminCtx.close()
-    await cleanYesterday(uid)
+    await cleanDay(uid, YESTERDAY)
+  })
+
+  test('the lock persists across skipped days — an old unplanned day still blocks punch-in', async ({ browser }) => {
+    await resetTodayFor(raj.email)
+    const uid = await userId(raj.email)
+    // Last worked day is 3 days ago (unplanned); the days in between are empty,
+    // so under the old "yesterday only" rule this user would NOT be locked.
+    await cleanDay(uid, YESTERDAY)
+    await cleanDay(uid, daysAgo(2))
+    await seedWorkedDay(raj.email, daysAgo(3))
+
+    const { context, page } = await openApp(browser)
+    await loginAs(page, raj)
+    await page.goto('/attendance')
+    await expect(page.getByTestId('punch-lock-banner')).toBeVisible({ timeout: 10_000 })
+    await expect(page.getByTestId('punch-lock-banner')).toContainText(daysAgo(3))
+
+    await context.close()
+    await cleanDay(uid, daysAgo(3))
   })
 
   test('full-hours planning of the previous day lifts the punch-in lock without admin help', async ({ browser }) => {
     await resetTodayFor(aarti.email)
-    const uid = await seedYesterdayAttendance(aarti.email)
+    const uid = await seedWorkedDay(aarti.email, YESTERDAY)
     const admin = adminClient()
 
-    // Day-end submitted but hours only partially planned → still locked.
-    await admin.from('planning_compliance').upsert(
-      { user_id: uid, work_date: YESTERDAY, day_end_submitted: true },
-      { onConflict: 'user_id,work_date' },
-    )
+    // Hours only partially planned → still locked (coverage is the only rule).
     await admin.from('planning_slots').insert({
       user_id: uid, plan_date: YESTERDAY, kind: 'day', slot_index: 0,
       slot_label: '10:00–12:00', task_name: 'Morning block', start_time: '10:00', end_time: '12:00',
@@ -328,6 +326,6 @@ test.describe('Phase 4 — planning & mandatory policy', () => {
     })
 
     await context.close()
-    await cleanYesterday(uid)
+    await cleanDay(uid, YESTERDAY)
   })
 })

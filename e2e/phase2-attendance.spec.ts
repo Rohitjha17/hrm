@@ -16,6 +16,28 @@ async function openApp(browser: Browser, geolocation: { latitude: number; longit
   return { context, page }
 }
 
+// The punch lock follows the user's last worked day, so the unplanned days
+// seeded by the working-hours test would block punch-in. Unlock that day.
+async function clearPunchLock(email: string) {
+  const admin = adminClient()
+  const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date())
+  const { data: u } = await admin.from('profiles').select('id').eq('email', email).single()
+  const { data: last } = await admin
+    .from('attendance_days')
+    .select('work_date')
+    .eq('user_id', u!.id)
+    .lt('work_date', today)
+    .order('work_date', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  if (last) {
+    await admin.from('planning_compliance').upsert(
+      { user_id: u!.id, work_date: last.work_date, unlocked: true, unlock_remarks: 'e2e: clear lock' },
+      { onConflict: 'user_id,work_date' },
+    )
+  }
+}
+
 test.describe('Phase 2 — attendance (GPS + selfie + realtime)', () => {
   test('working-hours engine classifies days from actual hours worked', async () => {
     const admin = adminClient()
@@ -50,6 +72,7 @@ test.describe('Phase 2 — attendance (GPS + selfie + realtime)', () => {
   })
 
   test('employee punches in within radius (GPS + live selfie)', async ({ browser }) => {
+    await clearPunchLock(aarti.email)
     const { context, page } = await openApp(browser, OFFICE)
     await loginAs(page, aarti)
     await page.goto('/attendance')

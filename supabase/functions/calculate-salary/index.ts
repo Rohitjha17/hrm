@@ -53,12 +53,11 @@ Deno.serve(async (req: Request) => {
           .eq('status', 'approved')
           .gte('start_date', periodStart)
           .lt('start_date', endStr),
-        admin
-          .from('planning_compliance')
-          .select('work_date,day_end_submitted,next_day_submitted,unlocked')
-          .eq('user_id', userId)
-          .gte('work_date', periodStart)
-          .lt('work_date', endStr),
+        admin.rpc('planning_compliant_days', {
+          p_user: userId,
+          p_from: periodStart,
+          p_to: endStr,
+        }),
         admin
           .from('salary_adjustments')
           .select('kind,amount')
@@ -72,7 +71,7 @@ Deno.serve(async (req: Request) => {
     const monthlyCtc = Number(profileRes.data?.monthly_ctc ?? 0)
     const days = daysRes.data ?? []
     const leaves = leavesRes.data ?? []
-    const compliance = complRes.data ?? []
+    const compliantDays = (complRes.data ?? []) as string[]
     const adjustments = (adjRes.data ?? []) as Array<{ kind: string; amount: number }>
 
     const present = days.filter((d) => d.status === 'full_day' || d.status === 'present').length
@@ -90,11 +89,8 @@ Deno.serve(async (req: Request) => {
     const workingDates = days
       .filter((d) => ['full_day', 'present', 'half_day', 'quarter_day'].includes(d.status))
       .map((d) => d.work_date)
-    const compliantDates = new Set(
-      compliance
-        .filter((c) => c.unlocked || (c.day_end_submitted && c.next_day_submitted))
-        .map((c) => c.work_date),
-    )
+    // A compliant day = slots covered the full working window, or admin unlock.
+    const compliantDates = new Set(compliantDays)
     const nonCompliant = workingDates.filter((d) => !compliantDates.has(d)).length
 
     const wdpm = Number(policy.working_days_per_month)

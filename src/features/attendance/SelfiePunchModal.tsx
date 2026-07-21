@@ -13,10 +13,8 @@ const REASON_TEXT: Record<string, string> = {
   already_punched_in: 'You are already punched in.',
   not_punched_in: 'You need to punch in first.',
   ip_not_allowed: 'Your network is not allowed for attendance.',
-  planning_incomplete:
-    'Submit your Day-End Update and Next-Day Plan before punching out (or ask an admin to unlock).',
   previous_day_planning_incomplete:
-    'Your previous day’s planning is incomplete. Ask an admin to unlock to punch in.',
+    'Punching is locked: your last worked day isn’t fully planned. Cover all its working hours with slots, or ask an admin to unlock.',
 }
 
 async function captureSelfie(video: HTMLVideoElement | null): Promise<Blob> {

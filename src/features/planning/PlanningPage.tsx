@@ -1,12 +1,11 @@
 import { useMemo, useState, type ReactNode } from 'react'
 import { History, Pencil, Plus, Trash2 } from 'lucide-react'
 import {
-  useCompliance,
+  planningCoverage,
   useDeleteSlot,
   usePlanningConfig,
   usePlanningHistory,
   usePlanningSlots,
-  useSubmitCompliance,
   useUpsertSlot,
   type PlanningSlot,
 } from './hooks'
@@ -36,18 +35,15 @@ export function PlanningPage() {
   const today = todayInTz(tz)
   const interval = config?.slot_interval_hours ?? 2
   const [planDate, setPlanDate] = useState(today)
-  const { data: compliance } = useCompliance(planDate)
   const { data: slots = [] } = usePlanningSlots(planDate, 'day')
-  const submit = useSubmitCompliance()
-  const toast = useToast()
   const [addOpen, setAddOpen] = useState(false)
   const [editSlot, setEditSlot] = useState<PlanningSlot | null>(null)
 
   const defaultStart = config?.day_start?.slice(0, 5) ?? '10:00'
+  const windowStart = config?.day_start?.slice(0, 5) ?? '10:00'
+  const windowEnd = config?.day_end?.slice(0, 5) ?? '18:30'
 
-  const required = { dayEnd: config?.require_day_end ?? true }
-  const isCompliant =
-    !!compliance && (compliance.unlocked || !required.dayEnd || compliance.day_end_submitted)
+  const coverage = planningCoverage(slots, windowStart, windowEnd)
 
   // Slots ordered by their chosen start time (fallback to slot_index).
   const ordered = useMemo(
@@ -64,13 +60,29 @@ export function PlanningPage() {
     <div data-testid="planning-page">
       <PageHeader
         title="Planning & Updates"
-        description="Add slots for the day, then open a slot to update it as work progresses. Submit your day-end update when you're done."
+        description={`Plan your whole working day (${windowStart}–${windowEnd}) as slots, then open a slot to update it as work progresses.`}
         actions={
-          <Badge tone={isCompliant ? 'green' : 'amber'} data-testid="compliance-status" data-compliant={isCompliant}>
-            {isCompliant ? 'Planning complete' : 'Planning pending'}
+          <Badge
+            tone={coverage.covered ? 'green' : 'amber'}
+            data-testid="compliance-status"
+            data-compliant={coverage.covered}
+          >
+            {coverage.covered ? 'All hours planned' : 'Planning pending'}
           </Badge>
         }
       />
+
+      {!coverage.covered && (
+        <div
+          data-testid="coverage-hint"
+          className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800"
+        >
+          Plan every working hour from <span className="font-semibold">{windowStart}</span> to{' '}
+          <span className="font-semibold">{windowEnd}</span> — your slots don't cover{' '}
+          <span className="font-semibold">{coverage.gapStart ?? windowStart}</span> onwards yet.
+          Punch-in stays locked after a worked day until it is fully planned.
+        </div>
+      )}
 
       <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
         <section data-testid="day-plan-section">
@@ -89,24 +101,9 @@ export function PlanningPage() {
               />
               {planDate === today && <Badge tone="blue">Today</Badge>}
             </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <Button data-testid="add-slot" onClick={() => setAddOpen(true)}>
-                <Plus className="size-4" /> Add slot
-              </Button>
-              <Button
-                variant="outline"
-                data-testid="submit-day-end"
-                loading={submit.isPending}
-                onClick={() =>
-                  submit.mutate(
-                    { date: planDate, part: 'day_end' },
-                    { onSuccess: () => toast.success('Day-end update submitted') },
-                  )
-                }
-              >
-                Submit Day-End Update
-              </Button>
-            </div>
+            <Button data-testid="add-slot" onClick={() => setAddOpen(true)}>
+              <Plus className="size-4" /> Add slot
+            </Button>
           </div>
 
           {ordered.length === 0 ? (

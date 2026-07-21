@@ -1,9 +1,12 @@
 import { useState } from 'react'
 import { Eye, Unlock } from 'lucide-react'
 import {
-  useComplianceForDate,
+  planningCoverage,
+  useDaySlotsForDate,
   usePlanningConfig,
   usePlanningRealtime,
+  usePunchLockOverview,
+  useUnlockHistory,
   useUnlockPlanning,
   useUserDayPlan,
 } from './hooks'
@@ -25,7 +28,8 @@ export function PlanningAdminPage() {
   const [date, setDate] = useState(todayInTz('Asia/Kolkata'))
   const [employeeFilter, setEmployeeFilter] = useState('')
   const { data: users = [] } = useUsers()
-  const { data: compliance = [] } = useComplianceForDate(date)
+  const { data: daySlots = [] } = useDaySlotsForDate(date)
+  const { data: locks = [] } = usePunchLockOverview()
   const [viewUser, setViewUser] = useState<{ id: string; name: string } | null>(null)
   const [unlockUser, setUnlockUser] = useState<{ id: string; name: string; email: string } | null>(
     null,
@@ -33,15 +37,22 @@ export function PlanningAdminPage() {
 
   usePlanningRealtime()
 
-  const compByUser = new Map(compliance.map((c) => [c.user_id, c]))
-  const required = { dayEnd: config?.require_day_end ?? true }
+  const windowStart = config?.day_start?.slice(0, 5) ?? '10:00'
+  const windowEnd = config?.day_end?.slice(0, 5) ?? '18:30'
+  const slotsByUser = new Map<string, typeof daySlots>()
+  for (const s of daySlots) {
+    const list = slotsByUser.get(s.user_id) ?? []
+    list.push(s)
+    slotsByUser.set(s.user_id, list)
+  }
+  const lockByUser = new Map(locks.map((l) => [l.user_id, l]))
   const visibleUsers = employeeFilter ? users.filter((u) => u.id === employeeFilter) : users
 
   return (
     <div data-testid="planning-admin-page">
       <PageHeader
         title="Planning Monitor"
-        description={`Policy: ${config?.policy ?? '—'}. Incomplete planning blocks punch-out and locks the next day's punch-in — unlock (with a remark) to override.`}
+        description={`A day is planned when slots cover ${windowStart}–${windowEnd}. An unplanned last worked day locks punch-in until it's planned or unlocked with a remark.`}
       />
 
       <div className="mb-4 flex flex-wrap items-center gap-3">
@@ -76,32 +87,35 @@ export function PlanningAdminPage() {
         <Thead>
           <tr>
             <Th>Employee</Th>
-            <Th>Day-End</Th>
-            <Th>Status</Th>
+            <Th>Planning ({date})</Th>
+            <Th>Punch Lock</Th>
             <Th className="text-right">Actions</Th>
           </tr>
         </Thead>
         <Tbody>
           {visibleUsers.map((u) => {
-            const c = compByUser.get(u.id)
-            const compliant = !!c && (c.unlocked || !required.dayEnd || c.day_end_submitted)
+            const coverage = planningCoverage(slotsByUser.get(u.id) ?? [], windowStart, windowEnd)
+            const lock = lockByUser.get(u.id)
             return (
               <tr key={u.id} data-testid={`compliance-row-${u.email}`}>
                 <Td className="font-medium text-slate-900">{u.full_name || u.email}</Td>
-                <Td>{c?.day_end_submitted ? <Badge tone="green">✓</Badge> : <Badge tone="slate">—</Badge>}</Td>
                 <Td>
-                  <Badge tone={compliant ? 'green' : 'amber'} data-testid={`compliance-${u.email}`} data-compliant={compliant}>
-                    {compliant ? (c?.unlocked ? 'unlocked' : 'complete') : 'pending'}
+                  <Badge
+                    tone={coverage.covered ? 'green' : 'amber'}
+                    data-testid={`compliance-${u.email}`}
+                    data-compliant={coverage.covered}
+                  >
+                    {coverage.covered ? 'planned' : `pending from ${coverage.gapStart}`}
                   </Badge>
-                  {c?.unlocked && c.unlock_remarks && (
-                    <p
-                      className="mt-1 max-w-64 truncate text-xs text-slate-400"
-                      data-testid={`unlock-remark-${u.email}`}
-                      title={c.unlock_remarks}
-                    >
-                      {c.unlock_remarks}
-                    </p>
-                  )}
+                </Td>
+                <Td>
+                  <Badge
+                    tone={lock?.locked ? 'red' : 'green'}
+                    data-testid={`punch-lock-${u.email}`}
+                    data-locked={!!lock?.locked}
+                  >
+                    {lock?.locked ? `locked (${lock.prev_date ?? 'previous day'})` : 'clear'}
+                  </Badge>
                 </Td>
                 <Td>
                   <div className="flex justify-end gap-1">
@@ -117,7 +131,7 @@ export function PlanningAdminPage() {
                       size="sm"
                       variant="outline"
                       data-testid={`unlock-${u.email}`}
-                      disabled={compliant}
+                      disabled={!lock?.locked}
                       onClick={() =>
                         setUnlockUser({ id: u.id, name: u.full_name || u.email, email: u.email })
                       }
@@ -132,22 +146,20 @@ export function PlanningAdminPage() {
         </Tbody>
       </Table>
 
+      <UnlockHistory users={users} />
+
       {viewUser && <PlanView user={viewUser} date={date} onClose={() => setViewUser(null)} />}
-      {unlockUser && (
-        <UnlockModal user={unlockUser} date={date} onClose={() => setUnlockUser(null)} />
-      )}
+      {unlockUser && <UnlockModal user={unlockUser} onClose={() => setUnlockUser(null)} />}
     </div>
   )
 }
 
-/** Unlocking overrides the punch gates, so it always needs a written reason. */
+/** Unlocking overrides the punch lock, so it always needs a written reason. */
 function UnlockModal({
   user,
-  date,
   onClose,
 }: {
   user: { id: string; name: string; email: string }
-  date: string
   onClose: () => void
 }) {
   const unlock = useUnlockPlanning()
@@ -155,16 +167,16 @@ function UnlockModal({
   const [remarks, setRemarks] = useState('')
 
   return (
-    <Modal open onClose={onClose} title={`Unlock planning: ${user.name}`} testid="unlock-modal">
+    <Modal open onClose={onClose} title={`Unlock punching: ${user.name}`} testid="unlock-modal">
       <form
         className="space-y-4"
         onSubmit={(e) => {
           e.preventDefault()
           unlock.mutate(
-            { userId: user.id, date, remarks: remarks.trim() },
+            { userId: user.id, remarks: remarks.trim() },
             {
               onSuccess: () => {
-                toast.success('Planning unlocked')
+                toast.success('Punch lock lifted')
                 onClose()
               },
               onError: (err) => toast.error('Unlock failed', (err as Error).message),
@@ -173,8 +185,8 @@ function UnlockModal({
         }}
       >
         <p className="text-sm text-slate-600">
-          Unlocking {date} lifts the punch-out block and the next-day punch-in lock for{' '}
-          {user.name}. A remark is required.
+          This lifts the punch lock for {user.name} — the last worked day that is blocking
+          punch-in is unlocked, whichever day that is. A remark is required and kept on record.
         </p>
         <div>
           <Label htmlFor="unlock-remark">Remark</Label>
@@ -202,6 +214,51 @@ function UnlockModal({
         </div>
       </form>
     </Modal>
+  )
+}
+
+/** Record of every admin unlock — who was unlocked, for which day, by whom, and why. */
+function UnlockHistory({
+  users,
+}: {
+  users: { id: string; email: string; full_name: string | null }[]
+}) {
+  const { data: history = [] } = useUnlockHistory()
+  const nameOf = (id: string | null) => {
+    const u = users.find((x) => x.id === id)
+    return u ? u.full_name || u.email : '—'
+  }
+  if (history.length === 0) return null
+  return (
+    <section className="mt-8" data-testid="unlock-history">
+      <h2 className="mb-3 text-sm font-semibold text-slate-700">Unlock history</h2>
+      <Table>
+        <Thead>
+          <tr>
+            <Th>When</Th>
+            <Th>Employee</Th>
+            <Th>Unlocked day</Th>
+            <Th>By</Th>
+            <Th>Remark</Th>
+          </tr>
+        </Thead>
+        <Tbody>
+          {history.map((h) => (
+            <tr key={h.id} data-testid="unlock-history-row">
+              <Td className="whitespace-nowrap text-slate-500">
+                {new Date(h.created_at).toLocaleString()}
+              </Td>
+              <Td className="font-medium text-slate-900">{nameOf(h.user_id)}</Td>
+              <Td>{h.work_date}</Td>
+              <Td>{nameOf(h.unlocked_by)}</Td>
+              <Td className="max-w-80 truncate" title={h.remarks}>
+                {h.remarks}
+              </Td>
+            </tr>
+          ))}
+        </Tbody>
+      </Table>
+    </section>
   )
 }
 
