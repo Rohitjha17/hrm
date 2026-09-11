@@ -60,11 +60,16 @@ const name = (p: Person) => p?.full_name || p?.email || '—'
 interface AttRow {
   work_date: string
   status: string
+  first_in_at: string | null
+  last_out_at: string | null
   worked_minutes: number
   is_late: boolean
   overtime_minutes: number
   profiles: Person
 }
+
+const fmtTime = (iso: string | null) =>
+  iso ? new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''
 interface LeaveRow {
   start_date: string
   end_date: string
@@ -100,7 +105,7 @@ const fetchers: Record<ReportType, (f: ReportFilters) => Promise<ReportData>> = 
   attendance: async (f) => {
     let q = supabase
       .from('attendance_days')
-      .select('work_date,status,worked_minutes,is_late,overtime_minutes, profiles(full_name,email)')
+      .select('work_date,status,first_in_at,last_out_at,worked_minutes,is_late,overtime_minutes, profiles(full_name,email)')
     if (f.userId) q = q.eq('user_id', f.userId)
     if (f.from) q = q.gte('work_date', f.from)
     if (f.to) q = q.lte('work_date', f.to)
@@ -114,6 +119,8 @@ const fetchers: Record<ReportType, (f: ReportFilters) => Promise<ReportData>> = 
         { key: 'employee', label: 'Employee' },
         { key: 'date', label: 'Date' },
         { key: 'status', label: 'Status' },
+        { key: 'punchIn', label: 'Punch In' },
+        { key: 'punchOut', label: 'Punch Out' },
         { key: 'worked', label: 'Worked (min)' },
         { key: 'late', label: 'Late' },
         { key: 'overtime', label: 'Overtime (min)' },
@@ -122,6 +129,8 @@ const fetchers: Record<ReportType, (f: ReportFilters) => Promise<ReportData>> = 
         employee: name(d.profiles),
         date: d.work_date,
         status: d.status,
+        punchIn: fmtTime(d.first_in_at),
+        punchOut: fmtTime(d.last_out_at),
         worked: d.worked_minutes,
         late: d.is_late ? 'Yes' : 'No',
         overtime: d.overtime_minutes,
