@@ -284,6 +284,7 @@ const fetchers: Record<ReportType, (f: ReportFilters) => Promise<ReportData>> = 
         { key: 'task', label: 'Task' },
         { key: 'progress', label: 'Progress %' },
         { key: 'challenges', label: 'Challenges' },
+        { key: 'remarks', label: 'Remarks' },
       ],
       rows: list.map((r) => ({
         employee: name(r.profiles),
@@ -292,6 +293,7 @@ const fetchers: Record<ReportType, (f: ReportFilters) => Promise<ReportData>> = 
         task: r.task_name,
         progress: r.progress,
         challenges: r.challenges ?? '',
+        remarks: r.remarks ?? '',
       })),
     }
   },
