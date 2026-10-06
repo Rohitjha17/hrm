@@ -4,6 +4,9 @@ import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 
 export default defineConfig({
+  // Support variables created by the Vercel Supabase integration as well as
+  // the native Vite names used for local development.
+  envPrefix: ['VITE_', 'NEXT_PUBLIC_'],
   plugins: [react(), tailwindcss()],
   resolve: {
     alias: { '@': path.resolve(import.meta.dirname, './src') },

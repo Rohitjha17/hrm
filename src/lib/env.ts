@@ -10,7 +10,13 @@ const EnvSchema = z.object({
   VITE_SUPABASE_ANON_KEY: z.string().min(1, 'VITE_SUPABASE_ANON_KEY is required'),
 })
 
-const result = EnvSchema.safeParse(import.meta.env)
+const result = EnvSchema.safeParse({
+  VITE_SUPABASE_URL:
+    import.meta.env.VITE_SUPABASE_URL ?? import.meta.env.NEXT_PUBLIC_SUPABASE_URL,
+  VITE_SUPABASE_ANON_KEY:
+    import.meta.env.VITE_SUPABASE_ANON_KEY ??
+    import.meta.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
+})
 
 if (!result.success) {
   // Fail loud and clear instead of crashing later with a cryptic network error.
