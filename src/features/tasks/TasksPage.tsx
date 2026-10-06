@@ -13,6 +13,7 @@ import {
   useTaskRemarks,
   useUpdateTaskStatus,
   useUpdateTaskDueDate,
+  useUpdateTaskProgress,
   type TaskRow,
 } from './hooks'
 import { useUsers } from '@/features/admin/users/hooks'
@@ -31,6 +32,7 @@ import { Textarea } from '@/components/ui/Textarea'
 import { Table, Tbody, Td, Th, Thead } from '@/components/ui/Table'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { cn } from '@/lib/cn'
+import { formatDate, formatDateTime } from '@/lib/format'
 
 const PRIORITY_TONE = { low: 'slate', medium: 'blue', high: 'red' } as const
 
@@ -43,9 +45,11 @@ export function TasksPage() {
 
   useTasksRealtime()
   const { data: tasks = [], isLoading } = useTasks()
-  const { data: users = [] } = useUsers()
+  const { data: statuses = [] } = useTaskStatuses()
   const [filter, setFilter] = useState<'mine' | 'all'>(canViewAll ? 'all' : 'mine')
-  const [employeeFilter, setEmployeeFilter] = useState('')
+  const [assignorFilter, setAssignorFilter] = useState('')
+  const [assigneeFilter, setAssigneeFilter] = useState('')
+  const [statusFilter, setStatusFilter] = useState('')
   const [newOpen, setNewOpen] = useState(false)
   const [statusTask, setStatusTask] = useState<TaskRow | null>(null)
   const [historyTask, setHistoryTask] = useState<TaskRow | null>(null)
@@ -56,22 +60,46 @@ export function TasksPage() {
   const deleteTask = useDeleteTask()
   const toast = useToast()
 
-  const scoped = useMemo(() => {
-    let list =
+  const inView = useMemo(
+    () =>
       filter === 'all' && canViewAll
         ? tasks
-        : tasks.filter((t) => t.created_by === user?.id || t.assignee_id === user?.id)
-    if (canViewAll && employeeFilter) {
-      list = list.filter((t) => t.assignee_id === employeeFilter || t.created_by === employeeFilter)
+        : tasks.filter((t) => t.created_by === user?.id || t.assignee_id === user?.id),
+    [tasks, filter, canViewAll, user?.id],
+  )
+
+  // Filter options come from the tasks themselves, so they work for employees
+  // who cannot list every user.
+  const { assignors, assignees } = useMemo(() => {
+    const by = new Map<string, string>()
+    const to = new Map<string, string>()
+    for (const t of inView) {
+      if (t.creator) by.set(t.creator.id, t.creator.full_name || t.creator.email)
+      if (t.assignee) to.set(t.assignee.id, t.assignee.full_name || t.assignee.email)
     }
-    return list
-  }, [tasks, filter, canViewAll, user?.id, employeeFilter])
+    const sorted = (m: Map<string, string>) =>
+      [...m.entries()].sort((a, b) => a[1].localeCompare(b[1]))
+    return { assignors: sorted(by), assignees: sorted(to) }
+  }, [inView])
+
+  const scoped = useMemo(
+    () =>
+      inView.filter(
+        (t) =>
+          (!assignorFilter || t.created_by === assignorFilter) &&
+          (!assigneeFilter || t.assignee_id === assigneeFilter),
+      ),
+    [inView, assignorFilter, assigneeFilter],
+  )
 
   const completedCount = useMemo(() => scoped.filter((t) => t.status?.is_terminal).length, [scoped])
-  const visible = useMemo(
-    () => (showCompleted ? scoped : scoped.filter((t) => !t.status?.is_terminal)),
-    [scoped, showCompleted],
-  )
+  // Picking a specific status shows exactly that status (completed included);
+  // otherwise the "Show completed" toggle decides.
+  const visible = useMemo(() => {
+    if (statusFilter) return scoped.filter((t) => t.status_id === statusFilter)
+    return showCompleted ? scoped : scoped.filter((t) => !t.status?.is_terminal)
+  }, [scoped, showCompleted, statusFilter])
+  const hasFilters = !!(assignorFilter || assigneeFilter || statusFilter)
 
   return (
     <div data-testid="tasks-page">
@@ -123,36 +151,87 @@ export function TasksPage() {
           {showCompleted ? <EyeOff className="size-3.5" /> : <Eye className="size-3.5" />}
           {showCompleted ? 'Hide completed' : `Show completed (${completedCount})`}
         </button>
-        {canViewAll && filter === 'all' && (
-            <div className="flex items-center gap-2">
-              <Label htmlFor="task-employee-filter" className="mb-0 text-xs text-slate-500">
-                Employee
-              </Label>
-              <Select
-                id="task-employee-filter"
-                data-testid="task-employee-filter"
-                value={employeeFilter}
-                onChange={(e) => setEmployeeFilter(e.target.value)}
-                className="h-9 w-56"
-              >
-                <option value="">All employees</option>
-                {users.map((u) => (
-                  <option key={u.id} value={u.id}>
-                    {u.full_name || u.email}
-                  </option>
-                ))}
-              </Select>
-            </div>
-          )}
+        <div className="flex items-center gap-2">
+          <Label htmlFor="task-status-filter" className="mb-0 text-xs text-slate-500">
+            Status
+          </Label>
+          <Select
+            id="task-status-filter"
+            data-testid="task-status-filter"
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="h-9 w-40"
+          >
+            <option value="">All statuses</option>
+            {statuses.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.name}
+              </option>
+            ))}
+          </Select>
+        </div>
+        <div className="flex items-center gap-2">
+          <Label htmlFor="task-assignor-filter" className="mb-0 text-xs text-slate-500">
+            Assigned by
+          </Label>
+          <Select
+            id="task-assignor-filter"
+            data-testid="task-assignor-filter"
+            value={assignorFilter}
+            onChange={(e) => setAssignorFilter(e.target.value)}
+            className="h-9 w-44"
+          >
+            <option value="">Anyone</option>
+            {assignors.map(([id, label]) => (
+              <option key={id} value={id}>
+                {label}
+              </option>
+            ))}
+          </Select>
+        </div>
+        <div className="flex items-center gap-2">
+          <Label htmlFor="task-assignee-filter" className="mb-0 text-xs text-slate-500">
+            Assigned to
+          </Label>
+          <Select
+            id="task-assignee-filter"
+            data-testid="task-assignee-filter"
+            value={assigneeFilter}
+            onChange={(e) => setAssigneeFilter(e.target.value)}
+            className="h-9 w-44"
+          >
+            <option value="">Anyone</option>
+            {assignees.map(([id, label]) => (
+              <option key={id} value={id}>
+                {label}
+              </option>
+            ))}
+          </Select>
+        </div>
+        {hasFilters && (
+          <button
+            data-testid="clear-task-filters"
+            className="text-xs font-medium text-brand-600 hover:underline"
+            onClick={() => {
+              setAssignorFilter('')
+              setAssigneeFilter('')
+              setStatusFilter('')
+            }}
+          >
+            Clear filters
+          </button>
+        )}
       </div>
 
       {!isLoading && visible.length === 0 ? (
         <EmptyState
-          title={scoped.length > 0 ? 'No open tasks' : 'No tasks yet'}
+          title={hasFilters ? 'No tasks match these filters' : scoped.length > 0 ? 'No open tasks' : 'No tasks yet'}
           description={
-            scoped.length > 0
-              ? 'All tasks here are completed. Use "Show completed" to see them.'
-              : 'Create your first task.'
+            hasFilters
+              ? 'Change or clear the filters to see more tasks.'
+              : scoped.length > 0
+                ? 'All tasks here are completed. Use "Show completed" to see them.'
+                : 'Create your first task.'
           }
           testid="tasks-empty"
         />
@@ -164,7 +243,9 @@ export function TasksPage() {
               <Th>Assignee</Th>
               <Th>Created by</Th>
               <Th>Created</Th>
+              <Th>Completed</Th>
               <Th>Priority</Th>
+              <Th>Progress</Th>
               <Th>Status</Th>
               <Th className="w-px" />
             </tr>
@@ -174,7 +255,11 @@ export function TasksPage() {
               <tr key={t.id} data-testid="task-row">
                 <Td className="font-medium text-slate-900">
                   {t.title}
-                  {t.due_date && <div className="text-xs font-normal text-slate-400">due {t.due_date}</div>}
+                  {t.due_date && (
+                    <div data-testid="task-due-date" className="text-xs font-normal text-slate-400">
+                      due {formatDate(t.due_date)}
+                    </div>
+                  )}
                   {t.remarks && (
                     <div
                       data-testid="task-remark"
@@ -188,14 +273,24 @@ export function TasksPage() {
                 <Td data-testid="task-assignee">{t.assignee?.full_name || t.assignee?.email || 'Unassigned'}</Td>
                 <Td className="text-slate-500">{t.creator?.full_name || t.creator?.email}</Td>
                 <Td data-testid="task-created-at" className="whitespace-nowrap text-slate-500">
-                  {new Date(t.created_at).toLocaleDateString(undefined, {
-                    day: 'numeric',
-                    month: 'short',
-                    year: 'numeric',
-                  })}
+                  {formatDate(t.created_at)}
+                </Td>
+                <Td data-testid="task-completed-at" className="whitespace-nowrap text-slate-500">
+                  {formatDate(t.completed_at) || '—'}
                 </Td>
                 <Td>
                   <Badge tone={PRIORITY_TONE[t.priority as keyof typeof PRIORITY_TONE]}>{t.priority}</Badge>
+                </Td>
+                <Td>
+                  <div className="flex items-center gap-2" data-testid="task-progress">
+                    <div className="h-1.5 w-16 overflow-hidden rounded-full bg-slate-100">
+                      <div
+                        className="h-full rounded-full bg-brand-500"
+                        style={{ width: `${t.progress_percent}%` }}
+                      />
+                    </div>
+                    <span className="text-xs text-slate-500">{t.progress_percent}%</span>
+                  </div>
                 </Td>
                 <Td>
                   <Badge tone={t.status?.is_terminal ? 'green' : 'slate'} data-testid="task-status">
@@ -353,7 +448,8 @@ function NewTaskModal({
           </div>
           <div>
             <Label htmlFor="task-due">Due date</Label>
-            <Input id="task-due" type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
+            <Input id="task-due" data-testid="task-due-input" type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
+            {dueDate && <p className="mt-1 text-xs text-slate-400">Due {formatDate(dueDate)}</p>}
           </div>
         </div>
         <div>
@@ -472,7 +568,7 @@ function RemarkModal({ task, onClose }: { task: TaskRow; onClose: () => void }) 
               >
                 <div className="text-xs text-slate-500">
                   {r.author?.full_name || r.author?.email || 'Unknown'} ·{' '}
-                  {new Date(r.created_at).toLocaleString()}
+                  {formatDateTime(r.created_at)}
                 </div>
                 <div className="whitespace-pre-wrap text-slate-700">{r.body}</div>
               </li>
@@ -488,10 +584,13 @@ function StatusModal({ task, onClose }: { task: TaskRow; onClose: () => void }) 
   const { data: statuses = [] } = useTaskStatuses()
   const update = useUpdateTaskStatus()
   const updateDueDate = useUpdateTaskDueDate()
+  const updateProgress = useUpdateTaskProgress()
   const toast = useToast()
   const [statusId, setStatusId] = useState(task.status_id)
+  const [progress, setProgress] = useState(task.progress_percent)
   const [dueDate, setDueDate] = useState(task.due_date ?? '')
   const [remarks, setRemarks] = useState('')
+  const completing = !!statuses.find((s) => s.id === statusId)?.is_terminal
 
   return (
     <Modal open onClose={onClose} title={`Update: ${task.title}`} testid="status-modal">
@@ -509,6 +608,10 @@ function StatusModal({ task, onClose }: { task: TaskRow; onClose: () => void }) 
               }
               if (statusChanged || remarks.trim()) {
                 await update.mutateAsync({ taskId: task.id, statusId, remarks: remarks.trim() || undefined })
+              }
+              // A completed status sets 100% on the server; otherwise save the user's value.
+              if (!completing && progress !== task.progress_percent) {
+                await updateProgress.mutateAsync({ taskId: task.id, percent: progress })
               }
               toast.success('Task updated')
               onClose()
@@ -529,6 +632,24 @@ function StatusModal({ task, onClose }: { task: TaskRow; onClose: () => void }) 
           </Select>
         </div>
         <div>
+          <Label htmlFor="status-progress">Completion: {completing ? 100 : progress}%</Label>
+          <input
+            id="status-progress"
+            data-testid="status-progress"
+            type="range"
+            min={0}
+            max={100}
+            step={5}
+            value={completing ? 100 : progress}
+            disabled={completing}
+            onChange={(e) => setProgress(Number(e.target.value))}
+            className="w-full accent-brand-600"
+          />
+          {completing && (
+            <p className="mt-1 text-xs text-slate-400">A completed task is always 100%.</p>
+          )}
+        </div>
+        <div>
           <Label htmlFor="status-due-date">Due date</Label>
           <Input
             id="status-due-date"
@@ -538,7 +659,8 @@ function StatusModal({ task, onClose }: { task: TaskRow; onClose: () => void }) 
             onChange={(e) => setDueDate(e.target.value)}
           />
           <p className="mt-1 text-xs text-slate-400">
-            The assignee, creator or a task manager can change the due date.
+            {dueDate ? `Due ${formatDate(dueDate)}. ` : ''}The assignee, creator or a task manager can
+            change the due date.
           </p>
         </div>
         <div>
@@ -552,7 +674,7 @@ function StatusModal({ task, onClose }: { task: TaskRow; onClose: () => void }) 
           <Button
             type="submit"
             data-testid="save-status-submit"
-            loading={update.isPending || updateDueDate.isPending}
+            loading={update.isPending || updateDueDate.isPending || updateProgress.isPending}
           >
             Save
           </Button>
@@ -577,7 +699,7 @@ function HistoryModal({ task, onClose }: { task: TaskRow; onClose: () => void })
                 {h.to_status?.name}
               </p>
               <p className="text-xs text-slate-500">
-                {h.changer?.full_name || 'System'} · {new Date(h.created_at).toLocaleString()}
+                {h.changer?.full_name || 'System'} · {formatDateTime(h.created_at)}
               </p>
               {h.remarks && <p className="mt-0.5 text-sm text-slate-600">{h.remarks}</p>}
             </li>

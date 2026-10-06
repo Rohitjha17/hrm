@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Camera, MapPin } from 'lucide-react'
+import { Camera, MapPin, RefreshCw } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/features/auth/auth-context'
 import { Modal } from '@/components/ui/Modal'
@@ -9,7 +9,8 @@ import { useAttendanceConfig, usePunch, type PunchResult } from './hooks'
 import { getCurrentCoords, haversineMeters, todayInTz, type Coords } from './geo'
 
 const REASON_TEXT: Record<string, string> = {
-  out_of_radius: 'You are outside the office radius. Move closer and try again.',
+  out_of_radius:
+    'Your device reports a location outside the office radius. If you are at the office, tap “Retry location” — the first reading is often imprecise.',
   already_punched_in: 'You are already punched in.',
   not_punched_in: 'You need to punch in first.',
   ip_not_allowed: 'Your network is not allowed for attendance.',
@@ -90,11 +91,26 @@ export function SelfiePunchModal({
     }
   }, [])
 
+  function retryLocation() {
+    setLocating(true)
+    setGeoError(null)
+    setResult(null)
+    getCurrentCoords()
+      .then((c) => setCoords(c))
+      .catch((e: Error) => setGeoError(e.message))
+      .finally(() => setLocating(false))
+  }
+
   const distance =
     coords && config
       ? haversineMeters(config.office_lat, config.office_lng, coords.latitude, coords.longitude)
       : null
-  const outOfRadius = distance != null && config != null && distance > config.radius_meters
+  // Mirror of the server rule: an imprecise fix may be off by its own accuracy
+  // radius, so allow for it up to the configured cap.
+  const allowance =
+    config && coords ? Math.min(coords.accuracy ?? 0, config.location_accuracy_cap_m) : 0
+  const outOfRadius =
+    distance != null && config != null && distance > config.radius_meters + allowance
 
   async function handlePunch() {
     if (!coords || !config) {
@@ -123,6 +139,7 @@ export function SelfiePunchModal({
       type,
       lat: coords.latitude,
       lng: coords.longitude,
+      accuracy: coords.accuracy,
       selfiePath: upload.error ? null : path,
     })
     setResult(res)
@@ -163,8 +180,21 @@ export function SelfiePunchModal({
           ) : distance != null ? (
             <span className={outOfRadius ? 'text-red-600' : 'text-emerald-700'}>
               {Math.round(distance)} m from office (max {config?.radius_meters} m)
+              {coords?.accuracy != null && (
+                <span className="text-slate-400"> · accuracy ±{Math.round(coords.accuracy)} m</span>
+              )}
             </span>
           ) : null}
+          {!locating && (
+            <button
+              type="button"
+              data-testid="retry-location"
+              onClick={retryLocation}
+              className="ml-auto inline-flex items-center gap-1 text-xs font-medium text-brand-600 hover:underline"
+            >
+              <RefreshCw className="size-3" /> Retry location
+            </button>
+          )}
         </div>
 
         {result && !result.ok && (

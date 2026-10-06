@@ -133,6 +133,21 @@ export function useUpdateTaskStatus() {
   })
 }
 
+/** Set a task's completion percentage (creator, assignee or task manager). */
+export function useUpdateTaskProgress() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (args: { taskId: string; percent: number }) => {
+      const { error } = await supabase.rpc('update_task_progress', {
+        p_task: args.taskId,
+        p_percent: args.percent,
+      })
+      if (error) throw error
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['tasks'] }),
+  })
+}
+
 /** Change a task's due date. RLS allows the creator, assignee or task manager. */
 export function useUpdateTaskDueDate() {
   const qc = useQueryClient()

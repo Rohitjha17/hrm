@@ -4,6 +4,8 @@ import { useAttendanceConfig, useMyAttendance, type PunchResult } from './hooks'
 import { usePlanningConfig, usePunchInLock } from '@/features/planning/hooks'
 import { SelfiePunchModal } from './SelfiePunchModal'
 import { todayInTz, formatMinutes } from './geo'
+import { ATTENDANCE_STATUS, formatLateBy } from './status'
+import { formatDate, formatTime } from '@/lib/format'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { Card, CardBody } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
@@ -12,12 +14,11 @@ import { EmptyState } from '@/components/ui/EmptyState'
 import { useToast } from '@/components/ui/toast-context'
 
 const STATUS_LABEL: Record<string, string> = {
-  present: 'Present (in progress)',
-  full_day: 'Full Day',
-  half_day: 'Half Day',
-  quarter_day: 'Quarter Day',
+  ...Object.fromEntries(Object.entries(ATTENDANCE_STATUS).map(([k, v]) => [k, v.label])),
   absent: 'Absent / Short',
 }
+
+const hrs = (h: number) => `${h} h`
 
 export function PunchPage() {
   const { data: config } = useAttendanceConfig()
@@ -46,7 +47,7 @@ export function PunchPage() {
 
   return (
     <div data-testid="attendance-page">
-      <PageHeader title="My Attendance" description={`Today · ${workDate}`} />
+      <PageHeader title="My Attendance" description={`Today · ${formatDate(workDate)}`} />
 
       {locked && (
         <div
@@ -56,7 +57,7 @@ export function PunchPage() {
           <Lock className="mt-0.5 size-4 shrink-0" />
           <p>
             <span className="font-semibold">Punch-in locked.</span> Your planning for{' '}
-            {lock?.prev_date ?? 'your last worked day'} is incomplete — add slots on the Planning
+            {lock?.prev_date ? formatDate(lock.prev_date) : 'your last worked day'} is incomplete — add slots on the Planning
             page covering the full working day ({windowStart}–{windowEnd}). Punch-in stays blocked
             every day until that day is fully planned or an admin unlocks it.
           </p>
@@ -76,7 +77,11 @@ export function PunchPage() {
                 >
                   {day ? (STATUS_LABEL[day.status] ?? day.status) : 'Not started'}
                 </span>
-                {day?.is_late && <Badge tone="amber">Late</Badge>}
+                {day?.is_late && (
+                  <Badge tone="amber" data-testid="today-late">
+                    Late by {formatLateBy(day.late_minutes)}
+                  </Badge>
+                )}
                 {(day?.overtime_minutes ?? 0) > 0 && <Badge tone="blue">OT</Badge>}
               </div>
             </div>
@@ -104,6 +109,15 @@ export function PunchPage() {
               Requires location within {config?.radius_meters ?? 50} m of the office. A live selfie
               is captured.
             </p>
+
+            {config && (
+              <p className="text-xs text-slate-400" data-testid="attendance-thresholds">
+                Full day {hrs(config.full_day_hours)} · Half day {hrs(config.half_day_hours)} ·
+                Quarter day {hrs(config.quarter_day_hours)} (including a {config.break_minutes} min
+                break). Below that the day counts as absent. Punching in up to{' '}
+                {config.grace_minutes} min after {config.work_start.slice(0, 5)} is not marked late.
+              </p>
+            )}
           </CardBody>
         </Card>
 
@@ -126,7 +140,7 @@ export function PunchPage() {
                       <Badge tone={p.punch_type === 'in' ? 'green' : 'slate'}>
                         {p.punch_type === 'in' ? 'IN' : 'OUT'}
                       </Badge>
-                      {new Date(p.punched_at).toLocaleTimeString()}
+                      {formatTime(p.punched_at)}
                     </span>
                     <span className="flex items-center gap-3 text-xs text-slate-500">
                       {p.distance_meters != null && <span>{Math.round(p.distance_meters)} m</span>}

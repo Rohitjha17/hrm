@@ -156,7 +156,7 @@ test.describe('Phase 3 — task management', () => {
     await empPage.getByTestId('status-due-date').fill('2026-08-15')
     await empPage.getByTestId('save-status-submit').click()
 
-    await expect(row).toContainText('due 2026-08-15')
+    await expect(row).toContainText('due 15-08-2026')
     await shot(empPage, 'tasks-assignee-due-date')
 
     // And can change an existing due date too.
@@ -164,7 +164,7 @@ test.describe('Phase 3 — task management', () => {
     await expect(empPage.getByTestId('status-due-date')).toHaveValue('2026-08-15')
     await empPage.getByTestId('status-due-date').fill('2026-08-20')
     await empPage.getByTestId('save-status-submit').click()
-    await expect(row).toContainText('due 2026-08-20')
+    await expect(row).toContainText('due 20-08-2026')
     await empCtx.close()
   })
 

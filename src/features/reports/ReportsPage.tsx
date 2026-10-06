@@ -1,7 +1,9 @@
 import { useState } from 'react'
 import { FileSpreadsheet, FileText, X } from 'lucide-react'
 import { REPORT_LABELS, useReport, type ReportType } from './hooks'
-import { exportExcel, exportPdf } from './export'
+import { exportExcel, exportPdf, type CellFill } from './export'
+import { ATTENDANCE_STATUS, LEGEND, SUNDAY_META } from '@/features/attendance/status'
+import { Badge } from '@/components/ui/Badge'
 import { useUsers } from '@/features/admin/users/hooks'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { Button } from '@/components/ui/Button'
@@ -31,6 +33,14 @@ const TYPES: ReportType[] = [
   'policies',
   'workflows',
 ]
+
+// Attendance rows carry _status/_sunday hints: the status cell takes the status
+// colour and Sunday rows are shaded, on screen and in the PDF alike.
+const attendanceFill: CellFill = (row, key) => {
+  const meta = ATTENDANCE_STATUS[String(row._status ?? '')]
+  if (key === 'status' && meta) return meta.rgb
+  return row._sunday ? SUNDAY_META.rgb : undefined
+}
 
 export function ReportsPage() {
   const [type, setType] = useState<ReportType>('attendance')
@@ -63,7 +73,15 @@ export function ReportsPage() {
               <Button
                 variant="outline"
                 data-testid="export-pdf"
-                onClick={() => exportPdf(data.title, data.filename, data.columns, data.rows)}
+                onClick={() =>
+                  exportPdf(
+                    data.title,
+                    data.filename,
+                    data.columns,
+                    data.rows,
+                    type === 'attendance' ? attendanceFill : undefined,
+                  )
+                }
               >
                 <FileText className="size-4" /> PDF
               </Button>
@@ -129,6 +147,16 @@ export function ReportsPage() {
         )}
       </div>
 
+      {type === 'attendance' && (
+        <div className="mb-3 flex flex-wrap items-center gap-1.5" data-testid="report-legend">
+          {LEGEND.map((m) => (
+            <span key={m.label} className={cn('rounded-full px-2 py-0.5 text-xs font-medium', m.className)}>
+              {m.label}
+            </span>
+          ))}
+        </div>
+      )}
+
       {isLoading || !data ? (
         <p className="text-sm text-slate-500">Loading…</p>
       ) : data.rows.length === 0 ? (
@@ -144,10 +172,26 @@ export function ReportsPage() {
           </Thead>
           <Tbody>
             {data.rows.map((row, i) => (
-              <tr key={i} data-testid="report-row">
-                {data.columns.map((c) => (
-                  <Td key={c.key}>{String(row[c.key] ?? '')}</Td>
-                ))}
+              <tr
+                key={i}
+                data-testid="report-row"
+                className={cn(type === 'attendance' && !!row._sunday && 'bg-slate-100/70')}
+              >
+                {data.columns.map((c) => {
+                  const meta =
+                    type === 'attendance' && c.key === 'status'
+                      ? ATTENDANCE_STATUS[String(row._status ?? '')]
+                      : undefined
+                  return (
+                    <Td key={c.key}>
+                      {meta ? (
+                        <Badge className={meta.className}>{String(row[c.key] ?? '')}</Badge>
+                      ) : (
+                        String(row[c.key] ?? '')
+                      )}
+                    </Td>
+                  )
+                })}
               </tr>
             ))}
           </Tbody>

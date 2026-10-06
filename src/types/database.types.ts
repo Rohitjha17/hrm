@@ -320,6 +320,8 @@ export type Database = {
           updated_at: string
           work_end: string
           work_start: string
+          break_minutes: number
+          location_accuracy_cap_m: number
         }
         Insert: {
           full_day_hours?: number
@@ -336,6 +338,8 @@ export type Database = {
           updated_at?: string
           work_end?: string
           work_start?: string
+          break_minutes?: number
+          location_accuracy_cap_m?: number
         }
         Update: {
           full_day_hours?: number
@@ -352,8 +356,61 @@ export type Database = {
           updated_at?: string
           work_end?: string
           work_start?: string
+          break_minutes?: number
+          location_accuracy_cap_m?: number
         }
         Relationships: []
+      }
+      attendance_corrections: {
+        Row: {
+          action: string
+          corrected_by: string | null
+          created_at: string
+          id: string
+          new_value: Json | null
+          old_value: Json | null
+          remarks: string
+          user_id: string
+          work_date: string
+        }
+        Insert: {
+          action: string
+          corrected_by?: string | null
+          created_at?: string
+          id?: string
+          new_value?: Json | null
+          old_value?: Json | null
+          remarks: string
+          user_id: string
+          work_date: string
+        }
+        Update: {
+          action?: string
+          corrected_by?: string | null
+          created_at?: string
+          id?: string
+          new_value?: Json | null
+          old_value?: Json | null
+          remarks?: string
+          user_id?: string
+          work_date?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "attendance_corrections_corrected_by_fkey"
+            columns: ["corrected_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "attendance_corrections_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       attendance_days: {
         Row: {
@@ -368,6 +425,13 @@ export type Database = {
           user_id: string
           work_date: string
           worked_minutes: number
+          late_minutes: number
+          credited_minutes: number
+          missed_punch_out: boolean
+          is_manual: boolean
+          remarks: string | null
+          corrected_by: string | null
+          corrected_at: string | null
         }
         Insert: {
           first_in_at?: string | null
@@ -381,6 +445,13 @@ export type Database = {
           user_id: string
           work_date: string
           worked_minutes?: number
+          late_minutes?: number
+          credited_minutes?: number
+          missed_punch_out?: boolean
+          is_manual?: boolean
+          remarks?: string | null
+          corrected_by?: string | null
+          corrected_at?: string | null
         }
         Update: {
           first_in_at?: string | null
@@ -394,6 +465,13 @@ export type Database = {
           user_id?: string
           work_date?: string
           worked_minutes?: number
+          late_minutes?: number
+          credited_minutes?: number
+          missed_punch_out?: boolean
+          is_manual?: boolean
+          remarks?: string | null
+          corrected_by?: string | null
+          corrected_at?: string | null
         }
         Relationships: [
           {
@@ -419,6 +497,7 @@ export type Database = {
           user_id: string
           within_radius: boolean
           work_date: string
+          accuracy_meters: number | null
         }
         Insert: {
           created_at?: string
@@ -433,6 +512,7 @@ export type Database = {
           user_id: string
           within_radius?: boolean
           work_date: string
+          accuracy_meters?: number | null
         }
         Update: {
           created_at?: string
@@ -447,6 +527,7 @@ export type Database = {
           user_id?: string
           within_radius?: boolean
           work_date?: string
+          accuracy_meters?: number | null
         }
         Relationships: [
           {
@@ -2345,6 +2426,8 @@ export type Database = {
           task_type: string
           title: string
           updated_at: string
+          completed_at: string | null
+          progress_percent: number
         }
         Insert: {
           assignee_id?: string | null
@@ -2359,6 +2442,8 @@ export type Database = {
           task_type?: string
           title: string
           updated_at?: string
+          completed_at?: string | null
+          progress_percent?: number
         }
         Update: {
           assignee_id?: string | null
@@ -2373,6 +2458,8 @@ export type Database = {
           task_type?: string
           title?: string
           updated_at?: string
+          completed_at?: string | null
+          progress_percent?: number
         }
         Relationships: [
           {
@@ -2825,8 +2912,24 @@ export type Database = {
         Args: { p_asset: string; p_assignee: string }
         Returns: Json
       }
+      admin_reset_attendance: {
+        Args: { p_date: string; p_remarks: string; p_user: string }
+        Returns: Json
+      }
+      admin_set_attendance: {
+        Args: {
+          p_date: string
+          p_in: string | null
+          p_out: string | null
+          p_remarks: string
+          p_status: string | null
+          p_user: string
+        }
+        Returns: Json
+      }
       attendance_punch: {
         Args: {
+          p_accuracy?: number
           p_ip?: string
           p_lat: number
           p_lng: number
@@ -2835,7 +2938,9 @@ export type Database = {
         }
         Returns: Json
       }
+      attendance_status_for: { Args: { p_minutes: number }; Returns: string }
       clear_exit_item: { Args: { p_clearance: string }; Returns: Json }
+      close_stale_attendance: { Args: { p_user?: string }; Returns: number }
       compute_appraisal_scores: { Args: { p_appraisal: string }; Returns: Json }
       decide_leave: {
         Args: { p_decision: string; p_remarks?: string; p_request: string }
@@ -2901,6 +3006,10 @@ export type Database = {
       }
       unlock_planning: {
         Args: { p_remarks: string; p_user: string }
+        Returns: Json
+      }
+      update_task_progress: {
+        Args: { p_percent: number; p_task: string }
         Returns: Json
       }
       update_task_status: {

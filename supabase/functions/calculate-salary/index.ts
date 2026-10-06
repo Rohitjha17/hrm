@@ -36,6 +36,9 @@ Deno.serve(async (req: Request) => {
 
     // 2) Gather inputs with the service role (bypasses RLS deliberately).
     const admin = createClient(url, service)
+    // Finalize days the employee never punched out of, so salary uses the same
+    // hours-based status the attendance monitor and report show.
+    await admin.rpc('close_stale_attendance', { p_user: userId })
     const [policyRes, profileRes, daysRes, leavesRes, complRes, adjRes, callerUser] =
       await Promise.all([
         admin.from('salary_policy').select('*').eq('id', true).single(),

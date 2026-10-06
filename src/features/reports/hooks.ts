@@ -1,6 +1,8 @@
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import type { ReportColumn } from './export'
+import { statusLabel } from '@/features/attendance/status'
+import { formatDate, formatTime } from '@/lib/format'
 
 export type ReportType =
   | 'attendance'
@@ -64,12 +66,14 @@ interface AttRow {
   last_out_at: string | null
   worked_minutes: number
   is_late: boolean
+  late_minutes: number
+  missed_punch_out: boolean
+  is_manual: boolean
+  remarks: string | null
   overtime_minutes: number
   profiles: Person
 }
 
-const fmtTime = (iso: string | null) =>
-  iso ? new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''
 interface LeaveRow {
   start_date: string
   end_date: string
@@ -89,8 +93,12 @@ interface TaskRow {
   title: string
   priority: string
   due_date: string | null
+  created_at: string
+  completed_at: string | null
+  progress_percent: number
   status: { name: string } | null
   assignee: Person
+  creator: Person
 }
 interface ApprRow {
   attendance_score: number
@@ -103,9 +111,11 @@ interface ApprRow {
 
 const fetchers: Record<ReportType, (f: ReportFilters) => Promise<ReportData>> = {
   attendance: async (f) => {
+    // Same finalization the monitor and salary run, so all three agree.
+    await supabase.rpc('close_stale_attendance')
     let q = supabase
       .from('attendance_days')
-      .select('work_date,status,first_in_at,last_out_at,worked_minutes,is_late,overtime_minutes, profiles(full_name,email)')
+      .select('work_date,status,first_in_at,last_out_at,worked_minutes,is_late,late_minutes,missed_punch_out,is_manual,remarks,overtime_minutes, profiles(full_name,email)')
     if (f.userId) q = q.eq('user_id', f.userId)
     if (f.from) q = q.gte('work_date', f.from)
     if (f.to) q = q.lte('work_date', f.to)
@@ -122,18 +132,28 @@ const fetchers: Record<ReportType, (f: ReportFilters) => Promise<ReportData>> = 
         { key: 'punchIn', label: 'Punch In' },
         { key: 'punchOut', label: 'Punch Out' },
         { key: 'worked', label: 'Worked (min)' },
-        { key: 'late', label: 'Late' },
+        { key: 'late', label: 'Late By (min)' },
         { key: 'overtime', label: 'Overtime (min)' },
+        { key: 'remarks', label: 'Remarks' },
       ],
       rows: list.map((d) => ({
         employee: name(d.profiles),
-        date: d.work_date,
-        status: d.status,
-        punchIn: fmtTime(d.first_in_at),
-        punchOut: fmtTime(d.last_out_at),
+        date: formatDate(d.work_date),
+        status: statusLabel(d.status),
+        punchIn: formatTime(d.first_in_at),
+        punchOut: formatTime(d.last_out_at),
         worked: d.worked_minutes,
-        late: d.is_late ? 'Yes' : 'No',
+        late: d.is_late ? d.late_minutes : 0,
         overtime: d.overtime_minutes,
+        remarks: [
+          d.missed_punch_out ? 'Missed punch-out' : '',
+          d.is_manual ? `Corrected: ${d.remarks ?? ''}` : '',
+        ]
+          .filter(Boolean)
+          .join(' · '),
+        // Not columns — drive the row colours on screen and in the PDF.
+        _status: d.status,
+        _sunday: new Date(`${d.work_date}T00:00:00`).getDay() === 0,
       })),
     }
   },
@@ -203,7 +223,7 @@ const fetchers: Record<ReportType, (f: ReportFilters) => Promise<ReportData>> = 
     let q = supabase
       .from('tasks')
       .select(
-        'title,priority,due_date, status:task_statuses(name), assignee:profiles!tasks_assignee_id_fkey(full_name,email)',
+        'title,priority,due_date,created_at,completed_at,progress_percent, status:task_statuses(name), assignee:profiles!tasks_assignee_id_fkey(full_name,email), creator:profiles!tasks_created_by_fkey(full_name,email)',
       )
     if (f.userId) q = q.eq('assignee_id', f.userId)
     if (f.from) q = q.gte('created_at', f.from)
@@ -217,16 +237,24 @@ const fetchers: Record<ReportType, (f: ReportFilters) => Promise<ReportData>> = 
       columns: [
         { key: 'title', label: 'Task' },
         { key: 'assignee', label: 'Assignee' },
+        { key: 'assignor', label: 'Assigned By' },
         { key: 'status', label: 'Status' },
         { key: 'priority', label: 'Priority' },
-        { key: 'due', label: 'Due' },
+        { key: 'progress', label: 'Completion %' },
+        { key: 'created', label: 'Created Date' },
+        { key: 'due', label: 'Due Date' },
+        { key: 'completed', label: 'Completed Date' },
       ],
       rows: list.map((t) => ({
         title: t.title,
         assignee: name(t.assignee),
+        assignor: name(t.creator),
         status: t.status?.name,
         priority: t.priority,
-        due: t.due_date ?? '',
+        progress: t.progress_percent,
+        created: formatDate(t.created_at),
+        due: formatDate(t.due_date),
+        completed: formatDate(t.completed_at),
       })),
     }
   },

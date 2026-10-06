@@ -17,6 +17,7 @@ export interface PunchResult {
   status?: string
   worked_minutes?: number
   is_late?: boolean
+  late_minutes?: number
   overtime_minutes?: number
 }
 
@@ -69,6 +70,7 @@ export function usePunch() {
       type: 'in' | 'out'
       lat: number
       lng: number
+      accuracy?: number
       selfiePath: string | null
     }) => {
       const { data, error } = await supabase.rpc('attendance_punch', {
@@ -76,6 +78,7 @@ export function usePunch() {
         p_lat: args.lat,
         p_lng: args.lng,
         p_selfie_path: args.selfiePath ?? undefined,
+        p_accuracy: args.accuracy,
       })
       if (error) throw error
       return data as unknown as PunchResult
@@ -153,5 +156,94 @@ export function useUpdateAttendanceConfig() {
       if (error) throw error
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['attendance-config'] }),
+  })
+}
+
+/**
+ * Finalize past days an employee never punched out of, so the monitor, reports
+ * and salary all read the same hours-based status. Runs once per mount.
+ */
+export function useCloseStaleAttendance() {
+  const qc = useQueryClient()
+  useEffect(() => {
+    void supabase.rpc('close_stale_attendance').then(({ data }) => {
+      if (data) qc.invalidateQueries({ queryKey: ['admin-attendance'] })
+    })
+  }, [qc])
+}
+
+export interface AttendanceEntry {
+  userId: string
+  date: string
+  /** Office-local HH:MM, or null when only a status is being set. */
+  timeIn: string | null
+  timeOut: string | null
+  /** null = derive the status from the in/out times. */
+  status: 'full_day' | 'half_day' | 'quarter_day' | 'absent' | null
+  remarks: string
+}
+
+/** Admin: enter historical attendance or correct a day (remarks mandatory). */
+export function useSetAttendance() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (e: AttendanceEntry) => {
+      const { error } = await supabase.rpc('admin_set_attendance', {
+        p_user: e.userId,
+        p_date: e.date,
+        p_in: e.timeIn,
+        p_out: e.timeOut,
+        p_status: e.status,
+        p_remarks: e.remarks,
+      })
+      if (error) throw error
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin-attendance'] })
+      qc.invalidateQueries({ queryKey: ['attendance-today'] })
+      qc.invalidateQueries({ queryKey: ['attendance-corrections'] })
+    },
+  })
+}
+
+/** Admin: discard a correction and return the day to what its punches say. */
+export function useResetAttendance() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (args: { userId: string; date: string; remarks: string }) => {
+      const { error } = await supabase.rpc('admin_reset_attendance', {
+        p_user: args.userId,
+        p_date: args.date,
+        p_remarks: args.remarks,
+      })
+      if (error) throw error
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin-attendance'] })
+      qc.invalidateQueries({ queryKey: ['attendance-today'] })
+      qc.invalidateQueries({ queryKey: ['attendance-corrections'] })
+    },
+  })
+}
+
+export interface AttendanceCorrectionRow extends Tables<'attendance_corrections'> {
+  corrector: { full_name: string; email: string } | null
+}
+
+/** Audit trail of admin corrections for one employee-day (newest first). */
+export function useAttendanceCorrections(userId: string, date: string) {
+  return useQuery({
+    queryKey: ['attendance-corrections', userId, date],
+    enabled: !!userId && !!date,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('attendance_corrections')
+        .select('*, corrector:profiles!attendance_corrections_corrected_by_fkey(full_name,email)')
+        .eq('user_id', userId)
+        .eq('work_date', date)
+        .order('created_at', { ascending: false })
+      if (error) throw error
+      return (data ?? []) as unknown as AttendanceCorrectionRow[]
+    },
   })
 }

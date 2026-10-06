@@ -1,12 +1,18 @@
 import { useMemo, useState } from 'react'
-import { Settings } from 'lucide-react'
+import { CalendarPlus, Pencil, Settings } from 'lucide-react'
 import {
   useAdminAttendance,
   useAttendanceConfig,
   useAttendanceRealtime,
+  useCloseStaleAttendance,
   useUpdateAttendanceConfig,
 } from './hooks'
 import { todayInTz, formatMinutes } from './geo'
+import { ATTENDANCE_STATUS, LEGEND, SUNDAY_META, formatLateBy, isSunday, statusLabel } from './status'
+import { AttendanceCorrectionModal } from './AttendanceCorrectionModal'
+import { AttendanceRegister } from './AttendanceRegister'
+import { formatDate, formatTime } from '@/lib/format'
+import { cn } from '@/lib/cn'
 import { useProfile } from '@/features/rbac/profile-context'
 import { useToast } from '@/components/ui/toast-context'
 import { PageHeader } from '@/components/ui/PageHeader'
@@ -18,14 +24,6 @@ import { Modal } from '@/components/ui/Modal'
 import { Table, Tbody, Td, Th, Thead } from '@/components/ui/Table'
 import { EmptyState } from '@/components/ui/EmptyState'
 
-const STATUS_TONE: Record<string, 'green' | 'amber' | 'red' | 'slate' | 'blue'> = {
-  full_day: 'green',
-  present: 'blue',
-  half_day: 'amber',
-  quarter_day: 'amber',
-  absent: 'red',
-}
-
 export function AttendanceMonitorPage() {
   const { hasPermission } = useProfile()
   const canManage = hasPermission('attendance.manage')
@@ -36,9 +34,12 @@ export function AttendanceMonitorPage() {
   const [to, setTo] = useState(today)
   const { data: rows = [], isLoading } = useAdminAttendance(from, to)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [view, setView] = useState<'list' | 'register'>('list')
+  const [correction, setCorrection] = useState<{ userId: string; date: string } | null>(null)
   const multiDay = from !== to
 
   useAttendanceRealtime()
+  useCloseStaleAttendance()
 
   const summary = useMemo(() => {
     const s = {
@@ -94,13 +95,56 @@ export function AttendanceMonitorPage() {
         description="Live view — punches sync here in real time."
         actions={
           canManage && (
-            <Button variant="outline" data-testid="monitor-settings-button" onClick={() => setSettingsOpen(true)}>
-              <Settings className="size-4" /> Settings
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                data-testid="add-attendance-button"
+                onClick={() => setCorrection({ userId: '', date: today })}
+              >
+                <CalendarPlus className="size-4" /> Add / correct attendance
+              </Button>
+              <Button variant="outline" data-testid="monitor-settings-button" onClick={() => setSettingsOpen(true)}>
+                <Settings className="size-4" /> Settings
+              </Button>
+            </div>
           )
         }
       />
 
+      <div className="mb-4 flex flex-wrap items-center gap-3">
+        <div className="inline-flex rounded-lg border border-slate-200 bg-slate-50 p-0.5">
+          {(['list', 'register'] as const).map((v) => (
+            <button
+              key={v}
+              data-testid={`monitor-view-${v}`}
+              onClick={() => setView(v)}
+              className={cn(
+                'rounded-md px-3 py-1 text-xs font-medium',
+                view === v ? 'bg-white text-brand-700 shadow-sm' : 'text-slate-500',
+              )}
+            >
+              {v === 'list' ? 'Daily list' : 'Monthly register'}
+            </button>
+          ))}
+        </div>
+        <div className="flex flex-wrap items-center gap-1.5" data-testid="attendance-legend">
+          {LEGEND.map((m) => (
+            <span key={m.label} className={cn('rounded-full px-2 py-0.5 text-xs font-medium', m.className)}>
+              {m.label}
+            </span>
+          ))}
+        </div>
+      </div>
+
+      {view === 'register' && (
+        <AttendanceRegister
+          today={today}
+          onCellClick={canManage ? (userId, date) => setCorrection({ userId, date }) : undefined}
+        />
+      )}
+
+      {view === 'list' && (
+      <>
       <div className="mb-4 flex flex-wrap items-center gap-2">
         <Label htmlFor="monitor-from" className="mb-0">
           From
@@ -143,7 +187,9 @@ export function AttendanceMonitorPage() {
 
       {multiDay && perEmployee.length > 0 && (
         <div className="mb-6">
-          <h3 className="mb-2 text-sm font-semibold text-slate-700">Per-employee summary ({from} → {to})</h3>
+          <h3 className="mb-2 text-sm font-semibold text-slate-700">
+            Per-employee summary ({formatDate(from)} → {formatDate(to)})
+          </h3>
           <Table data-testid="monitor-emp-summary">
             <Thead>
               <tr>
@@ -181,38 +227,78 @@ export function AttendanceMonitorPage() {
               <Th>Worked</Th>
               <Th>First In</Th>
               <Th>Last Out</Th>
+              <Th>Late by</Th>
               <Th>Flags</Th>
+              {canManage && <Th className="w-px" />}
             </tr>
           </Thead>
           <Tbody>
-            {rows.map((r) => (
-              <tr key={r.id} data-testid={`monitor-row-${r.profiles?.email ?? r.user_id}`}>
-                <Td className="font-medium text-slate-900">
-                  {r.profiles?.full_name || r.profiles?.email || r.user_id}
-                </Td>
-                {multiDay && <Td className="text-xs text-slate-500">{r.work_date}</Td>}
-                <Td>
-                  <span data-status={r.status}>
-                    <Badge tone={STATUS_TONE[r.status] ?? 'slate'}>{r.status}</Badge>
-                  </span>
-                </Td>
-                <Td>{formatMinutes(r.worked_minutes)}</Td>
-                <Td className="text-xs text-slate-500">
-                  {r.first_in_at ? new Date(r.first_in_at).toLocaleTimeString() : '—'}
-                </Td>
-                <Td className="text-xs text-slate-500">
-                  {r.last_out_at ? new Date(r.last_out_at).toLocaleTimeString() : '—'}
-                </Td>
-                <Td>
-                  <div className="flex gap-1">
-                    {r.is_late && <Badge tone="amber">Late</Badge>}
-                    {r.overtime_minutes > 0 && <Badge tone="blue">OT {r.overtime_minutes}m</Badge>}
-                  </div>
-                </Td>
-              </tr>
-            ))}
+            {rows.map((r) => {
+              const sunday = isSunday(r.work_date)
+              return (
+                <tr
+                  key={r.id}
+                  data-testid={`monitor-row-${r.profiles?.email ?? r.user_id}`}
+                  className={cn(sunday && 'bg-slate-100/70')}
+                >
+                  <Td className="font-medium text-slate-900">
+                    {r.profiles?.full_name || r.profiles?.email || r.user_id}
+                  </Td>
+                  {multiDay && (
+                    <Td className="text-xs whitespace-nowrap text-slate-500">{formatDate(r.work_date)}</Td>
+                  )}
+                  <Td>
+                    <span data-status={r.status}>
+                      <Badge className={ATTENDANCE_STATUS[r.status]?.className}>{statusLabel(r.status)}</Badge>
+                    </span>
+                  </Td>
+                  <Td>{formatMinutes(r.worked_minutes)}</Td>
+                  <Td className="text-xs whitespace-nowrap text-slate-500">{formatTime(r.first_in_at) || '—'}</Td>
+                  <Td className="text-xs whitespace-nowrap text-slate-500">{formatTime(r.last_out_at) || '—'}</Td>
+                  <Td data-testid="monitor-late-by" className="whitespace-nowrap">
+                    {r.is_late ? <Badge tone="amber">{formatLateBy(r.late_minutes) || 'Late'}</Badge> : '—'}
+                  </Td>
+                  <Td>
+                    <div className="flex flex-wrap gap-1">
+                      {sunday && <Badge className={SUNDAY_META.className}>Sunday</Badge>}
+                      {r.overtime_minutes > 0 && <Badge tone="blue">OT {r.overtime_minutes}m</Badge>}
+                      {r.missed_punch_out && <Badge tone="red">Missed punch-out</Badge>}
+                      {r.is_manual && (
+                        <span title={r.remarks ?? undefined}>
+                          <Badge tone="slate">Corrected</Badge>
+                        </span>
+                      )}
+                    </div>
+                  </Td>
+                  {canManage && (
+                    <Td>
+                      <button
+                        data-testid="correct-attendance-button"
+                        aria-label={`Correct attendance of ${r.profiles?.full_name ?? 'employee'}`}
+                        className="rounded-md p-1 text-slate-400 hover:text-brand-600"
+                        onClick={() => setCorrection({ userId: r.user_id, date: r.work_date })}
+                      >
+                        <Pencil className="size-4" />
+                      </button>
+                    </Td>
+                  )}
+                </tr>
+              )
+            })}
           </Tbody>
         </Table>
+      )}
+      </>
+      )}
+
+      {correction && (
+        <AttendanceCorrectionModal
+          initialUserId={correction.userId}
+          initialDate={correction.date}
+          today={today}
+          tz={tz}
+          onClose={() => setCorrection(null)}
+        />
       )}
 
       {settingsOpen && <ConfigModal onClose={() => setSettingsOpen(false)} />}
@@ -244,10 +330,12 @@ function ConfigModal({ onClose }: { onClose: () => void }) {
   const update = useUpdateAttendanceConfig()
   const toast = useToast()
   const [radius, setRadius] = useState(String(config?.radius_meters ?? 50))
-  const [fullDay, setFullDay] = useState(String(config?.full_day_hours ?? 8))
-  const [halfDay, setHalfDay] = useState(String(config?.half_day_hours ?? 4))
-  const [quarterDay, setQuarterDay] = useState(String(config?.quarter_day_hours ?? 2))
-  const [grace, setGrace] = useState(String(config?.grace_minutes ?? 10))
+  const [fullDay, setFullDay] = useState(String(config?.full_day_hours ?? 8.5))
+  const [halfDay, setHalfDay] = useState(String(config?.half_day_hours ?? 4.25))
+  const [quarterDay, setQuarterDay] = useState(String(config?.quarter_day_hours ?? 2.13))
+  const [grace, setGrace] = useState(String(config?.grace_minutes ?? 5))
+  const [breakMin, setBreakMin] = useState(String(config?.break_minutes ?? 60))
+  const [accuracyCap, setAccuracyCap] = useState(String(config?.location_accuracy_cap_m ?? 100))
 
   return (
     <Modal open onClose={onClose} title="Attendance settings" testid="config-modal">
@@ -262,6 +350,8 @@ function ConfigModal({ onClose }: { onClose: () => void }) {
               half_day_hours: Number(halfDay),
               quarter_day_hours: Number(quarterDay),
               grace_minutes: Number(grace),
+              break_minutes: Number(breakMin),
+              location_accuracy_cap_m: Number(accuracyCap),
             },
             {
               onSuccess: () => {
@@ -279,22 +369,36 @@ function ConfigModal({ onClose }: { onClose: () => void }) {
             <Input id="cfg-radius" data-testid="cfg-radius" type="number" value={radius} onChange={(e) => setRadius(e.target.value)} />
           </div>
           <div>
-            <Label htmlFor="cfg-grace">Late grace (min)</Label>
-            <Input id="cfg-grace" type="number" value={grace} onChange={(e) => setGrace(e.target.value)} />
+            <Label htmlFor="cfg-grace">Grace / consideration (min)</Label>
+            <Input id="cfg-grace" data-testid="cfg-grace" type="number" min="0" value={grace} onChange={(e) => setGrace(e.target.value)} />
           </div>
           <div>
             <Label htmlFor="cfg-full">Full day (hrs)</Label>
-            <Input id="cfg-full" data-testid="cfg-full-day" type="number" step="0.5" value={fullDay} onChange={(e) => setFullDay(e.target.value)} />
+            <Input id="cfg-full" data-testid="cfg-full-day" type="number" step="0.01" value={fullDay} onChange={(e) => setFullDay(e.target.value)} />
           </div>
           <div>
             <Label htmlFor="cfg-half">Half day (hrs)</Label>
-            <Input id="cfg-half" data-testid="cfg-half-day" type="number" step="0.5" value={halfDay} onChange={(e) => setHalfDay(e.target.value)} />
+            <Input id="cfg-half" data-testid="cfg-half-day" type="number" step="0.01" value={halfDay} onChange={(e) => setHalfDay(e.target.value)} />
           </div>
           <div>
             <Label htmlFor="cfg-quarter">Quarter day (hrs)</Label>
-            <Input id="cfg-quarter" data-testid="cfg-quarter-day" type="number" step="0.5" value={quarterDay} onChange={(e) => setQuarterDay(e.target.value)} />
+            <Input id="cfg-quarter" data-testid="cfg-quarter-day" type="number" step="0.01" value={quarterDay} onChange={(e) => setQuarterDay(e.target.value)} />
+          </div>
+          <div>
+            <Label htmlFor="cfg-break">Break included (min)</Label>
+            <Input id="cfg-break" data-testid="cfg-break" type="number" min="0" value={breakMin} onChange={(e) => setBreakMin(e.target.value)} />
+          </div>
+          <div>
+            <Label htmlFor="cfg-accuracy">GPS accuracy allowance (m)</Label>
+            <Input id="cfg-accuracy" data-testid="cfg-accuracy" type="number" min="0" value={accuracyCap} onChange={(e) => setAccuracyCap(e.target.value)} />
           </div>
         </div>
+        <p className="text-xs text-slate-500">
+          Day thresholds include the break: a punch-out gap up to the break allowance still counts
+          towards the day. The grace minutes apply both to late marking and to each threshold. GPS
+          accuracy allowance extends the radius by the device&apos;s reported accuracy, up to this
+          cap (0 = strict radius).
+        </p>
         <div className="flex justify-end gap-2">
           <Button type="button" variant="outline" onClick={onClose}>
             Cancel
