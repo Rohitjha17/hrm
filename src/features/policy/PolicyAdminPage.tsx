@@ -23,8 +23,7 @@ import { Label } from '@/components/ui/Label'
 import { Select } from '@/components/ui/Select'
 import { Textarea } from '@/components/ui/Textarea'
 import { cn } from '@/lib/cn'
-
-const CATEGORIES = ['attendance', 'leave', 'salary', 'planning', 'wfh', 'appraisal', 'general']
+import { useMasterItems } from '@/features/admin/masters/hooks'
 
 export function PolicyAdminPage() {
   const { data: policies = [] } = usePolicies()
@@ -76,7 +75,11 @@ export function PolicyAdminPage() {
                   <Badge tone="slate">{selected.category}</Badge>
                 </div>
                 <div className="flex gap-2">
-                  <Button size="sm" data-testid="publish-version-button" onClick={() => setPublishOpen(true)}>
+                  <Button
+                    size="sm"
+                    data-testid="publish-version-button"
+                    onClick={() => setPublishOpen(true)}
+                  >
                     Publish new version
                   </Button>
                   <Button
@@ -92,20 +95,28 @@ export function PolicyAdminPage() {
 
               <AttachmentsSection policy={selected} />
 
-              <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
+              <h3 className="mb-2 text-xs font-semibold tracking-wide text-slate-400 uppercase">
                 Version history
               </h3>
               <ul className="space-y-2" data-testid="version-history">
-                {versions.length === 0 && <li className="text-sm text-slate-500">No versions yet.</li>}
+                {versions.length === 0 && (
+                  <li className="text-sm text-slate-500">No versions yet.</li>
+                )}
                 {versions.map((v) => (
-                  <li key={v.id} data-testid="version-row" className="rounded-lg border border-slate-100 p-3 text-sm">
+                  <li
+                    key={v.id}
+                    data-testid="version-row"
+                    className="rounded-lg border border-slate-100 p-3 text-sm"
+                  >
                     <div className="flex items-center gap-2">
                       <Badge tone="brand">v{v.version}</Badge>
                       <span className="text-xs text-slate-400">
                         {new Date(v.created_at).toLocaleString()}
                       </span>
                     </div>
-                    {v.change_note && <p className="mt-1 text-xs text-slate-500">{v.change_note}</p>}
+                    {v.change_note && (
+                      <p className="mt-1 text-xs text-slate-500">{v.change_note}</p>
+                    )}
                     <p className="mt-1 whitespace-pre-wrap text-slate-700">{v.content}</p>
                   </li>
                 ))}
@@ -146,7 +157,7 @@ function AttachmentsSection({ policy }: { policy: Policy }) {
   return (
     <div className="mb-4 rounded-lg border border-slate-100 p-3" data-testid="policy-attachments">
       <div className="mb-2 flex items-center justify-between">
-        <h3 className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-slate-400">
+        <h3 className="flex items-center gap-1.5 text-xs font-semibold tracking-wide text-slate-400 uppercase">
           <Paperclip className="size-3.5" /> Attachments
         </h3>
         <input
@@ -182,11 +193,15 @@ function AttachmentsSection({ policy }: { policy: Policy }) {
       ) : (
         <ul className="space-y-1">
           {attachments.map((a) => (
-            <li key={a.path} data-testid="attachment-row" className="flex items-center justify-between rounded-md bg-slate-50 px-2 py-1.5 text-sm">
+            <li
+              key={a.path}
+              data-testid="attachment-row"
+              className="flex items-center justify-between rounded-md bg-slate-50 px-2 py-1.5 text-sm"
+            >
               <button
                 type="button"
                 data-testid="attachment-download"
-                className="flex items-center gap-1.5 text-slate-700 hover:text-brand-600"
+                className="hover:text-brand-600 flex items-center gap-1.5 text-slate-700"
                 onClick={() => openAttachment(a.path)}
               >
                 <Download className="size-3.5" /> {a.name}
@@ -231,8 +246,8 @@ function DeleteConfirmModal({
     <Modal open onClose={onClose} title="Delete policy" testid="delete-policy-modal">
       <div className="space-y-4">
         <p className="text-sm text-slate-600">
-          Delete <span className="font-semibold text-slate-900">{policy.title}</span>? This removes all
-          versions and attachments. This action cannot be undone.
+          Delete <span className="font-semibold text-slate-900">{policy.title}</span>? This removes
+          all versions and attachments. This action cannot be undone.
         </p>
         <div className="flex justify-end gap-2">
           <Button type="button" variant="outline" onClick={onClose}>
@@ -266,6 +281,7 @@ function DeleteConfirmModal({
 
 function NewPolicyModal({ onClose }: { onClose: () => void }) {
   const create = useCreatePolicy()
+  const { data: categoryOptions = [] } = useMasterItems('policy_categories')
   const toast = useToast()
   const [category, setCategory] = useState('general')
   const [title, setTitle] = useState('')
@@ -290,17 +306,30 @@ function NewPolicyModal({ onClose }: { onClose: () => void }) {
       >
         <div>
           <Label htmlFor="pol-cat">Category</Label>
-          <Select id="pol-cat" data-testid="policy-category" value={category} onChange={(e) => setCategory(e.target.value)}>
-            {CATEGORIES.map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
-            ))}
+          <Select
+            id="pol-cat"
+            data-testid="policy-category"
+            value={category}
+            onChange={(e) => setCategory(e.target.value)}
+          >
+            {categoryOptions
+              .filter((item) => item.is_active)
+              .map((item) => (
+                <option key={item.id} value={item.name}>
+                  {item.name}
+                </option>
+              ))}
           </Select>
         </div>
         <div>
           <Label htmlFor="pol-title">Title</Label>
-          <Input id="pol-title" data-testid="policy-title" value={title} onChange={(e) => setTitle(e.target.value)} required />
+          <Input
+            id="pol-title"
+            data-testid="policy-title"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            required
+          />
         </div>
         <div className="flex justify-end gap-2">
           <Button type="button" variant="outline" onClick={onClose}>
@@ -341,11 +370,23 @@ function PublishModal({ policyId, onClose }: { policyId: string; onClose: () => 
       >
         <div>
           <Label htmlFor="pv-content">Content</Label>
-          <Textarea id="pv-content" data-testid="version-content" rows={5} value={content} onChange={(e) => setContent(e.target.value)} required />
+          <Textarea
+            id="pv-content"
+            data-testid="version-content"
+            rows={5}
+            value={content}
+            onChange={(e) => setContent(e.target.value)}
+            required
+          />
         </div>
         <div>
           <Label htmlFor="pv-note">Change note</Label>
-          <Input id="pv-note" data-testid="version-note" value={changeNote} onChange={(e) => setChangeNote(e.target.value)} />
+          <Input
+            id="pv-note"
+            data-testid="version-note"
+            value={changeNote}
+            onChange={(e) => setChangeNote(e.target.value)}
+          />
         </div>
         <div className="flex justify-end gap-2">
           <Button type="button" variant="outline" onClick={onClose}>

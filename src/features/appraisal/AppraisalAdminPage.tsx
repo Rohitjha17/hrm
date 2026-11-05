@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { Calculator, Eye, Plus, Trash2, Users } from 'lucide-react'
+import { useMemo, useState } from 'react'
+import { Calculator, Eye, Pencil, Plus, Trash2, Users } from 'lucide-react'
 import {
   useAddAllEmployees,
   useAppraisals,
@@ -11,13 +11,17 @@ import {
   useDeleteAppraisal,
   useDeleteCycle,
   useUpdateAppraisal,
+  useUpdateCycle,
+  type AppraisalCycle,
   type AppraisalRow,
 } from './hooks'
 import { AppraisalHistoryList, RatingStars } from './components'
+import { APPRAISAL_FORMULA, appraisalMarks, appraisalRating } from './scoring'
 import { useUsers } from '@/features/admin/users/hooks'
 import { useToast } from '@/components/ui/toast-context'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { Card, CardBody } from '@/components/ui/Card'
+import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { Modal } from '@/components/ui/Modal'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
@@ -27,6 +31,7 @@ import { Select } from '@/components/ui/Select'
 import { Textarea } from '@/components/ui/Textarea'
 import { Table, Tbody, Td, Th, Thead } from '@/components/ui/Table'
 import { cn } from '@/lib/cn'
+import { useMasterItems } from '@/features/admin/masters/hooks'
 
 export function AppraisalAdminPage() {
   const { data: cycles = [] } = useCycles()
@@ -41,6 +46,7 @@ export function AppraisalAdminPage() {
   const deleteCycle = useDeleteCycle()
   const toast = useToast()
   const [cycleModal, setCycleModal] = useState(false)
+  const [editingCycle, setEditingCycle] = useState<AppraisalCycle | null>(null)
   const [apprModal, setApprModal] = useState(false)
   const [detailRow, setDetailRow] = useState<AppraisalRow | null>(null)
   const [confirmRemoveRow, setConfirmRemoveRow] = useState<AppraisalRow | null>(null)
@@ -52,7 +58,13 @@ export function AppraisalAdminPage() {
         title="Appraisals"
         description="Define a review period, add employees, and score them from real attendance, task & planning data."
         actions={
-          <Button data-testid="new-cycle-button" onClick={() => setCycleModal(true)}>
+          <Button
+            data-testid="new-cycle-button"
+            onClick={() => {
+              setEditingCycle(null)
+              setCycleModal(true)
+            }}
+          >
             <Plus className="size-4" /> New period
           </Button>
         }
@@ -88,6 +100,17 @@ export function AppraisalAdminPage() {
             <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
               <div className="flex items-center gap-1">
                 <h2 className="text-lg font-semibold text-slate-900">{selected.name}</h2>
+                <button
+                  data-testid="edit-cycle"
+                  aria-label={`Edit review period ${selected.name}`}
+                  className="hover:bg-brand-50 hover:text-brand-600 rounded p-1 text-slate-400"
+                  onClick={() => {
+                    setEditingCycle(selected)
+                    setCycleModal(true)
+                  }}
+                >
+                  <Pencil className="size-4" />
+                </button>
                 <button
                   data-testid="delete-cycle"
                   aria-label={`Delete review period ${selected.name}`}
@@ -151,6 +174,7 @@ export function AppraisalAdminPage() {
                   <Th>Task</Th>
                   <Th>Plan</Th>
                   <Th>Overall</Th>
+                  <Th>Final rating</Th>
                   <Th className="text-right">Action</Th>
                 </tr>
               </Thead>
@@ -168,6 +192,10 @@ export function AppraisalAdminPage() {
                     <Td>{a.planning_score}</Td>
                     <Td className="font-semibold" data-testid="appraisal-overall">
                       {a.overall_score}
+                    </Td>
+                    <Td>
+                      {appraisalRating(a.overall_score).code} ·{' '}
+                      {appraisalRating(a.overall_score).label}
                     </Td>
                     <Td>
                       <div className="flex justify-end gap-1">
@@ -211,7 +239,7 @@ export function AppraisalAdminPage() {
         )}
       </div>
 
-      {cycleModal && <CycleModal onClose={() => setCycleModal(false)} />}
+      {cycleModal && <CycleModal cycle={editingCycle} onClose={() => setCycleModal(false)} />}
       {apprModal && selected && (
         <AppraisalModal cycleId={selected.id} onClose={() => setApprModal(false)} />
       )}
@@ -294,6 +322,12 @@ function DetailsModal({ appraisal, onClose }: { appraisal: AppraisalRow; onClose
   const [kpi, setKpi] = useState(appraisal.kpi ?? '')
   const [managerFeedback, setManagerFeedback] = useState(appraisal.manager_feedback ?? '')
   const [hrFeedback, setHrFeedback] = useState(appraisal.hr_feedback ?? '')
+  const marks = appraisalMarks(
+    appraisal.attendance_score,
+    appraisal.task_score,
+    appraisal.planning_score,
+  )
+  const finalRating = appraisalRating(appraisal.overall_score)
 
   return (
     <Modal
@@ -321,6 +355,24 @@ function DetailsModal({ appraisal, onClose }: { appraisal: AppraisalRow; onClose
             <span className="text-slate-500">Performance</span>
             <RatingStars value={appraisal.performance_rating} />
           </span>
+          <Badge tone="green">
+            Final rating: {finalRating.code} · {finalRating.label}
+          </Badge>
+          <span className="text-slate-600">
+            Marks: <strong>{marks.obtained}</strong> / {marks.total}
+          </span>
+        </div>
+        <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-900">
+          <p className="font-semibold">Score formula and weightage</p>
+          <p className="mt-1">{APPRAISAL_FORMULA}</p>
+        </div>
+        <div>
+          <p className="text-xs font-semibold tracking-wide text-slate-400 uppercase">
+            Employee remarks
+          </p>
+          <p className="mt-1 text-sm whitespace-pre-wrap text-slate-700">
+            {appraisal.employee_feedback || <span className="text-slate-300">—</span>}
+          </p>
         </div>
 
         <form
@@ -418,31 +470,90 @@ function DetailsModal({ appraisal, onClose }: { appraisal: AppraisalRow; onClose
   )
 }
 
-function CycleModal({ onClose }: { onClose: () => void }) {
+function CycleModal({ cycle, onClose }: { cycle: AppraisalCycle | null; onClose: () => void }) {
   const create = useCreateCycle()
+  const update = useUpdateCycle()
+  const { data: appraisalTypes = [] } = useMasterItems('appraisal_types')
   const toast = useToast()
-  const [name, setName] = useState('')
-  const [start, setStart] = useState('')
-  const [end, setEnd] = useState('')
+  const [name, setName] = useState(cycle?.name ?? '')
+  const [start, setStart] = useState(cycle?.period_start ?? '')
+  const [end, setEnd] = useState(cycle?.period_end ?? '')
+  const [cycleType, setCycleType] = useState(cycle?.cycle_type ?? '')
+  const isSaving = cycle ? update.isPending : create.isPending
+
+  // Year + month + quick preset selectors drive the From/To date pickers so
+  // admins don't have to type dates manually (client requirement: "sara
+  // calender me year and date choose krne ka option aaye same like drop down").
+  const years = useMemo(() => {
+    const now = new Date().getFullYear()
+    return Array.from({ length: 11 }, (_, i) => now - 5 + i)
+  }, [])
+
+  function pad(n: number) {
+    return String(n).padStart(2, '0')
+  }
+  function lastDay(year: number, monthIdx: number) {
+    return new Date(year, monthIdx + 1, 0).getDate()
+  }
+  function applyPreset(preset: 'month' | 'quarter' | 'half' | 'year', year: number, monthIdx: number) {
+    const spans: Record<typeof preset, number> = { month: 1, quarter: 3, half: 6, year: 12 }
+    const monthsForward = spans[preset] - 1
+    const lastMonthIdx = monthIdx + monthsForward
+    const endYear = year + Math.floor(lastMonthIdx / 12)
+    const endMonth = lastMonthIdx % 12
+    setStart(`${year}-${pad(monthIdx + 1)}-01`)
+    setEnd(`${endYear}-${pad(endMonth + 1)}-${pad(lastDay(endYear, endMonth))}`)
+  }
 
   return (
-    <Modal open onClose={onClose} title="New review period" testid="cycle-modal">
+    <Modal
+      open
+      onClose={onClose}
+      title={cycle ? 'Edit review period' : 'New review period'}
+      testid="cycle-modal"
+    >
       <form
         className="space-y-4"
         onSubmit={(e) => {
           e.preventDefault()
-          create.mutate(
-            { name: name.trim(), periodStart: start, periodEnd: end },
-            {
-              onSuccess: () => {
-                toast.success('Review period created')
-                onClose()
-              },
-              onError: (err) => toast.error('Failed', (err as Error).message),
+          if (end < start) {
+            toast.error('Invalid period', 'End date must be on or after the start date')
+            return
+          }
+          const values = {
+            name: name.trim(),
+            periodStart: start,
+            periodEnd: end,
+            cycleType: cycleType || appraisalTypes.find((type) => type.is_active)?.name,
+          }
+          const options = {
+            onSuccess: () => {
+              toast.success(cycle ? 'Review period updated' : 'Review period created')
+              onClose()
             },
-          )
+            onError: (err: Error) => toast.error('Failed', err.message),
+          }
+          if (cycle) update.mutate({ ...values, id: cycle.id }, options)
+          else create.mutate(values, options)
         }}
       >
+        <div>
+          <Label htmlFor="cyc-type">Appraisal type</Label>
+          <Select
+            id="cyc-type"
+            value={cycleType || appraisalTypes.find((type) => type.is_active)?.name || ''}
+            onChange={(event) => setCycleType(event.target.value)}
+            required
+          >
+            {appraisalTypes
+              .filter((type) => type.is_active)
+              .map((type) => (
+                <option key={type.id} value={type.name}>
+                  {type.name}
+                </option>
+              ))}
+          </Select>
+        </div>
         <div>
           <Label htmlFor="cyc-name">Name</Label>
           <Input
@@ -453,6 +564,69 @@ function CycleModal({ onClose }: { onClose: () => void }) {
             onChange={(e) => setName(e.target.value)}
             required
           />
+        </div>
+        <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+          <p className="mb-2 text-xs font-semibold tracking-wide text-slate-500 uppercase">
+            Quick period picker
+          </p>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+            <div>
+              <Label htmlFor="cyc-year" className="text-xs">Year</Label>
+              <Select
+                id="cyc-year"
+                data-testid="cycle-year"
+                value={start ? Number(start.slice(0, 4)) : new Date().getFullYear()}
+                onChange={(e) => {
+                  const y = Number(e.target.value)
+                  const m = start ? Number(start.slice(5, 7)) - 1 : 0
+                  applyPreset('year', y, m)
+                }}
+              >
+                {years.map((y) => (
+                  <option key={y} value={y}>{y}</option>
+                ))}
+              </Select>
+            </div>
+            <div>
+              <Label htmlFor="cyc-month" className="text-xs">Starts in month</Label>
+              <Select
+                id="cyc-month"
+                data-testid="cycle-month"
+                value={start ? Number(start.slice(5, 7)) - 1 : 0}
+                onChange={(e) => {
+                  const m = Number(e.target.value)
+                  const y = start
+                    ? Number(start.slice(0, 4))
+                    : new Date().getFullYear()
+                  applyPreset('month', y, m)
+                }}
+              >
+                {['January','February','March','April','May','June','July','August','September','October','November','December'].map((name, i) => (
+                  <option key={i} value={i}>{name}</option>
+                ))}
+              </Select>
+            </div>
+            <div className="col-span-2">
+              <Label className="text-xs">Fill period</Label>
+              <div className="mt-1 flex flex-wrap gap-1">
+                {(['month','quarter','half','year'] as const).map((preset) => (
+                  <button
+                    key={preset}
+                    type="button"
+                    data-testid={`cycle-preset-${preset}`}
+                    onClick={() => {
+                      const y = start ? Number(start.slice(0,4)) : new Date().getFullYear()
+                      const m = start ? Number(start.slice(5,7)) - 1 : 0
+                      applyPreset(preset, y, m)
+                    }}
+                    className="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-medium text-slate-700 hover:border-brand-300 hover:text-brand-700"
+                  >
+                    {preset === 'month' ? 'Monthly' : preset === 'quarter' ? 'Quarterly' : preset === 'half' ? 'Half-yearly' : 'Yearly'}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div>
@@ -482,8 +656,8 @@ function CycleModal({ onClose }: { onClose: () => void }) {
           <Button type="button" variant="outline" onClick={onClose}>
             Cancel
           </Button>
-          <Button type="submit" data-testid="create-cycle-submit" loading={create.isPending}>
-            Create
+          <Button type="submit" data-testid="create-cycle-submit" loading={isSaving}>
+            {cycle ? 'Save changes' : 'Create'}
           </Button>
         </div>
       </form>

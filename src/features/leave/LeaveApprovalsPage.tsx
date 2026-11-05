@@ -5,7 +5,7 @@ import {
   type LeaveDuration,
   useAllLeaveRequests,
   useCreateHoliday,
-  useDecideLeave,
+  useDeleteLeaveRequest,
   useDeleteHoliday,
   useHolidays,
   useLeaveRealtime,
@@ -27,6 +27,8 @@ import { Select } from '@/components/ui/Select'
 import { Textarea } from '@/components/ui/Textarea'
 import { Table, Tbody, Td, Th, Thead } from '@/components/ui/Table'
 import { EmptyState } from '@/components/ui/EmptyState'
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
+import { LeaveDecisionModal } from './LeaveDecisionModal'
 
 const STATUS_TONE = {
   pending: 'amber',
@@ -52,9 +54,14 @@ export function LeaveApprovalsPage() {
   const canManageHolidays = hasPermission('holidays.manage')
   const { data: pending = [], isLoading } = usePendingApprovals()
   const { data: all = [] } = useAllLeaveRequests()
-  const decide = useDecideLeave()
+  const remove = useDeleteLeaveRequest()
   const toast = useToast()
   const [remarkReq, setRemarkReq] = useState<LeaveRequestRow | null>(null)
+  const [deleteReq, setDeleteReq] = useState<LeaveRequestRow | null>(null)
+  const [decisionReq, setDecisionReq] = useState<{
+    request: LeaveRequestRow
+    decision: 'approved' | 'rejected'
+  } | null>(null)
   const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'approved' | 'rejected' | 'cancelled'>('all')
 
   const today = todayInTz('Asia/Kolkata')
@@ -107,13 +114,7 @@ export function LeaveApprovalsPage() {
                     <Button
                       size="sm"
                       data-testid="approve-leave"
-                      loading={decide.isPending}
-                      onClick={() =>
-                        decide.mutate(
-                          { id: r.id, decision: 'approved' },
-                          { onSuccess: () => toast.success('Approved'), onError: (e) => toast.error('Failed', (e as Error).message) },
-                        )
-                      }
+                      onClick={() => setDecisionReq({ request: r, decision: 'approved' })}
                     >
                       <Check className="size-4" /> Approve
                     </Button>
@@ -121,12 +122,7 @@ export function LeaveApprovalsPage() {
                       size="sm"
                       variant="danger"
                       data-testid="reject-leave"
-                      onClick={() =>
-                        decide.mutate(
-                          { id: r.id, decision: 'rejected' },
-                          { onSuccess: () => toast.info('Rejected') },
-                        )
-                      }
+                      onClick={() => setDecisionReq({ request: r, decision: 'rejected' })}
                     >
                       <X className="size-4" />
                     </Button>
@@ -193,14 +189,24 @@ export function LeaveApprovalsPage() {
                     {r.admin_remarks || <span className="text-slate-300">—</span>}
                   </Td>
                   <Td>
-                    <button
-                      data-testid={`remark-leave-${r.requester?.email}`}
-                      aria-label={`Add remark for ${r.requester?.full_name}`}
-                      className="rounded-md p-1 text-slate-400 hover:text-brand-600"
-                      onClick={() => setRemarkReq(r)}
-                    >
-                      <MessageSquarePlus className="size-4" />
-                    </button>
+                    <div className="flex gap-1">
+                      <button
+                        data-testid={`remark-leave-${r.requester?.email}`}
+                        aria-label={`Add remark for ${r.requester?.full_name}`}
+                        className="rounded-md p-1 text-slate-400 hover:text-brand-600"
+                        onClick={() => setRemarkReq(r)}
+                      >
+                        <MessageSquarePlus className="size-4" />
+                      </button>
+                      <button
+                        data-testid={`delete-leave-${r.id}`}
+                        aria-label={`Delete leave request for ${r.requester?.full_name}`}
+                        className="rounded-md p-1 text-slate-400 hover:bg-red-50 hover:text-red-600"
+                        onClick={() => setDeleteReq(r)}
+                      >
+                        <Trash2 className="size-4" />
+                      </button>
+                    </div>
                   </Td>
                 </tr>
               ))}
@@ -210,6 +216,34 @@ export function LeaveApprovalsPage() {
       </section>
 
       {remarkReq && <RemarkModal request={remarkReq} onClose={() => setRemarkReq(null)} />}
+      {deleteReq && (
+        <ConfirmDialog
+          title="Delete leave request"
+          message={`Delete the ${deleteReq.leave_type?.name ?? 'leave'} request for ${deleteReq.requester?.full_name ?? deleteReq.requester?.email ?? 'this employee'}? Approved leave will be removed from the used balance.`}
+          confirmLabel="Delete request"
+          loading={remove.isPending}
+          onClose={() => setDeleteReq(null)}
+          onConfirm={() =>
+            remove.mutate(
+              { id: deleteReq.id },
+              {
+                onSuccess: () => {
+                  toast.success('Leave request deleted')
+                  setDeleteReq(null)
+                },
+                onError: (error) => toast.error('Delete failed', (error as Error).message),
+              },
+            )
+          }
+        />
+      )}
+      {decisionReq && (
+        <LeaveDecisionModal
+          request={decisionReq.request}
+          decision={decisionReq.decision}
+          onClose={() => setDecisionReq(null)}
+        />
+      )}
       {canManageHolidays && <HolidaySection />}
     </div>
   )

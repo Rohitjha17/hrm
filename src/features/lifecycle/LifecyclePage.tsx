@@ -55,6 +55,7 @@ export function LifecyclePage() {
 
   const [eventType, setEventType] = useState('promotion')
   const [eventDate, setEventDate] = useState('')
+  const [eventNote, setEventNote] = useState('')
   const [exitDate, setExitDate] = useState('')
   const [tplOpen, setTplOpen] = useState(false)
   const [editingEvent, setEditingEvent] = useState<LifecycleEvent | null>(null)
@@ -134,11 +135,12 @@ export function LifecyclePage() {
               onSubmit={(e) => {
                 e.preventDefault()
                 addEvent.mutate(
-                  { employeeId: effectiveUser, eventType, eventDate },
+                  { employeeId: effectiveUser, eventType, eventDate, note: eventNote },
                   {
                     onSuccess: () => {
                       toast.success('Event added')
                       setEventDate('')
+                      setEventNote('')
                     },
                     onError: (err) => toast.error('Failed', (err as Error).message),
                   },
@@ -164,6 +166,14 @@ export function LifecyclePage() {
                 onChange={(e) => setEventDate(e.target.value)}
                 required
                 className="h-9 w-40"
+              />
+              <Input
+                data-testid="event-remarks"
+                value={eventNote}
+                onChange={(e) => setEventNote(e.target.value)}
+                placeholder="Reason / remarks"
+                required
+                className="h-9 w-52"
               />
               <Button type="submit" size="sm" data-testid="add-event" loading={addEvent.isPending}>
                 <Plus className="size-4" /> Add

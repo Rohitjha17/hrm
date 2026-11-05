@@ -8,6 +8,7 @@ import {
   useModuleAssignments,
   useTrainingAttachments,
   useTrainingModules,
+  useUpdateTrainingResult,
   useUploadTrainingAttachment,
 } from './hooks'
 import { useDirectory } from '@/features/engagement/hooks'
@@ -84,7 +85,12 @@ export function TrainingPage() {
                   {selected.title}
                 </h2>
                 <div className="flex items-center gap-2">
-                  <Button size="sm" variant="outline" data-testid="assign-module" onClick={() => setAssignModal(true)}>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    data-testid="assign-module"
+                    onClick={() => setAssignModal(true)}
+                  >
                     <UserPlus className="size-4" /> Assign
                   </Button>
                   <button
@@ -134,7 +140,7 @@ function AttachmentsBlock({ moduleId }: { moduleId: string }) {
     <div className="border-t border-slate-100 pt-3" data-testid="module-attachments">
       <div className="mb-2 flex items-center justify-between">
         <h3 className="text-sm font-semibold text-slate-700">Attachments</h3>
-        <label className="cursor-pointer rounded px-2 py-1 text-xs font-medium text-brand-600 hover:bg-brand-50">
+        <label className="text-brand-600 hover:bg-brand-50 cursor-pointer rounded px-2 py-1 text-xs font-medium">
           <Paperclip className="mr-1 inline size-3.5" />
           Upload
           <input
@@ -161,11 +167,15 @@ function AttachmentsBlock({ moduleId }: { moduleId: string }) {
       ) : (
         <ul className="space-y-1">
           {attachments.map((a) => (
-            <li key={a.id} data-testid="attachment-row" className="flex items-center justify-between rounded border border-slate-100 px-2 py-1.5 text-sm">
+            <li
+              key={a.id}
+              data-testid="attachment-row"
+              className="flex items-center justify-between rounded border border-slate-100 px-2 py-1.5 text-sm"
+            >
               <span className="truncate text-slate-700">{a.title}</span>
               <button
                 data-testid="attachment-view"
-                className="ml-2 flex shrink-0 items-center gap-1 text-xs font-medium text-brand-600 hover:underline"
+                className="text-brand-600 ml-2 flex shrink-0 items-center gap-1 text-xs font-medium hover:underline"
                 onClick={async () => {
                   try {
                     const url = await getTrainingAttachmentUrl(a.storage_path)
@@ -197,21 +207,78 @@ function AssignmentsBlock({ moduleId }: { moduleId: string }) {
         </p>
       ) : (
         <ul className="space-y-1">
-          {assignments.map((a) => (
-            <li
-              key={a.id}
-              data-testid={`assignment-row-${a.assignee?.email ?? a.user_id}`}
-              className="flex items-center justify-between rounded border border-slate-100 px-2 py-1.5 text-sm"
-            >
-              <span className="text-slate-700">{a.assignee?.full_name || a.assignee?.email || '—'}</span>
-              <Badge tone={STATUS_TONE[a.status] ?? 'slate'} data-testid="assignment-status">
-                {a.status}
-              </Badge>
-            </li>
+          {assignments.map((assignment) => (
+            <AssignmentResult key={assignment.id} assignment={assignment} />
           ))}
         </ul>
       )}
     </div>
+  )
+}
+
+function AssignmentResult({ assignment }: { assignment: import('./hooks').AssignmentRow }) {
+  const update = useUpdateTrainingResult()
+  const toast = useToast()
+  const [score, setScore] = useState(assignment.assessment_score?.toString() ?? '')
+  const [result, setResult] = useState(assignment.assessment_result ?? '')
+  const [certificate, setCertificate] = useState(assignment.certificate_issued)
+
+  return (
+    <li
+      data-testid={`assignment-row-${assignment.assignee?.email ?? assignment.user_id}`}
+      className="grid gap-2 rounded border border-slate-100 p-2 text-sm sm:grid-cols-[1fr_auto_90px_1fr_auto] sm:items-center"
+    >
+      <span className="text-slate-700">
+        {assignment.assignee?.full_name || assignment.assignee?.email || '—'}
+      </span>
+      <Badge tone={STATUS_TONE[assignment.status] ?? 'slate'}>{assignment.status}</Badge>
+      <Input
+        type="number"
+        min="0"
+        max="100"
+        value={score}
+        onChange={(event) => setScore(event.target.value)}
+        placeholder="Score"
+        className="h-8"
+      />
+      <Input
+        value={result}
+        onChange={(event) => setResult(event.target.value)}
+        placeholder="Assessment result"
+        className="h-8"
+      />
+      <div className="flex items-center gap-2">
+        <label className="flex items-center gap-1 text-xs whitespace-nowrap">
+          <input
+            type="checkbox"
+            checked={certificate}
+            onChange={(event) => setCertificate(event.target.checked)}
+          />{' '}
+          Certificate
+        </label>
+        <Button
+          size="sm"
+          variant="outline"
+          loading={update.isPending}
+          onClick={() =>
+            update.mutate(
+              {
+                id: assignment.id,
+                certificateIssued: certificate,
+                assessmentScore: score === '' ? null : Number(score),
+                assessmentResult: result,
+              },
+              {
+                onSuccess: () => toast.success('Training result saved'),
+                onError: (error) => toast.error('Save failed', (error as Error).message),
+              },
+            )
+          }
+        >
+          Save
+        </Button>
+      </div>
+    </li>
   )
 }
 
@@ -241,15 +308,33 @@ function ModuleModal({ onClose }: { onClose: () => void }) {
       >
         <div>
           <Label htmlFor="tm-title">Title</Label>
-          <Input id="tm-title" data-testid="module-title-input" value={title} onChange={(e) => setTitle(e.target.value)} required />
+          <Input
+            id="tm-title"
+            data-testid="module-title-input"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            required
+          />
         </div>
         <div>
           <Label htmlFor="tm-body">Content</Label>
-          <Textarea id="tm-body" data-testid="module-body-input" rows={6} placeholder="Training content, instructions, links…" value={body} onChange={(e) => setBody(e.target.value)} required />
+          <Textarea
+            id="tm-body"
+            data-testid="module-body-input"
+            rows={6}
+            placeholder="Training content, instructions, links…"
+            value={body}
+            onChange={(e) => setBody(e.target.value)}
+            required
+          />
         </div>
         <div className="flex justify-end gap-2">
-          <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
-          <Button type="submit" data-testid="create-module-submit" loading={create.isPending}>Create</Button>
+          <Button type="button" variant="outline" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button type="submit" data-testid="create-module-submit" loading={create.isPending}>
+            Create
+          </Button>
         </div>
       </form>
     </Modal>
@@ -276,13 +361,18 @@ function AssignModal({ moduleId, onClose }: { moduleId: string; onClose: () => v
   return (
     <Modal open onClose={onClose} title="Assign training" testid="assign-modal">
       <div className="space-y-4">
-        <div className="max-h-56 space-y-1 overflow-y-auto rounded-lg border border-slate-200 p-2" data-testid="assign-picker">
+        <div
+          className="max-h-56 space-y-1 overflow-y-auto rounded-lg border border-slate-200 p-2"
+          data-testid="assign-picker"
+        >
           {directory.map((d) => (
             <label
               key={d.id}
               className={cn(
                 'flex items-center gap-2 rounded px-1 py-0.5 text-sm',
-                alreadyAssigned.has(d.id) ? 'cursor-default text-slate-400' : 'cursor-pointer hover:bg-slate-50',
+                alreadyAssigned.has(d.id)
+                  ? 'cursor-default text-slate-400'
+                  : 'cursor-pointer hover:bg-slate-50',
               )}
             >
               <input
@@ -298,7 +388,9 @@ function AssignModal({ moduleId, onClose }: { moduleId: string; onClose: () => v
           ))}
         </div>
         <div className="flex justify-end gap-2">
-          <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
+          <Button type="button" variant="outline" onClick={onClose}>
+            Cancel
+          </Button>
           <Button
             data-testid="assign-submit"
             disabled={selected.size === 0}

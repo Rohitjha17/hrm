@@ -9,19 +9,51 @@ export interface TaskRow extends Tables<'tasks'> {
   creator: { id: string; full_name: string; email: string } | null
   assignee: { id: string; full_name: string; email: string } | null
   status: { id: string; name: string; slug: string; is_terminal: boolean } | null
+  category: { id: string; name: string } | null
 }
 
 const TASK_SELECT =
-  '*, creator:profiles!tasks_created_by_fkey(id,full_name,email), assignee:profiles!tasks_assignee_id_fkey(id,full_name,email), status:task_statuses(id,name,slug,is_terminal)'
+  '*, creator:profiles!tasks_created_by_fkey(id,full_name,email), assignee:profiles!tasks_assignee_id_fkey(id,full_name,email), status:task_statuses(id,name,slug,is_terminal), category:task_categories(id,name)'
+
+export function useTaskCategories() {
+  return useQuery({
+    queryKey: ['task-categories'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('task_categories')
+        .select('*')
+        .eq('is_active', true)
+        .order('sort_order')
+        .order('name')
+      if (error) throw error
+      return data
+    },
+  })
+}
+
+export function useCreateTaskCategory() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (name: string) => {
+      const { data: auth } = await supabase.auth.getUser()
+      if (!auth.user) throw new Error('Not authenticated')
+      const { data, error } = await supabase
+        .from('task_categories')
+        .insert({ name: name.trim(), created_by: auth.user.id })
+        .select('*')
+        .single()
+      if (error) throw error
+      return data
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['task-categories'] }),
+  })
+}
 
 export function useTaskStatuses() {
   return useQuery({
     queryKey: ['task-statuses'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('task_statuses')
-        .select('*')
-        .order('sort_order')
+      const { data, error } = await supabase.from('task_statuses').select('*').order('sort_order')
       if (error) throw error
       return data
     },
@@ -52,6 +84,7 @@ export interface NewTask {
   dueDate: string | null
   createdBy: string
   remarks?: string
+  categoryId?: string | null
 }
 
 export function useCreateTask() {
@@ -59,18 +92,24 @@ export function useCreateTask() {
   return useMutation({
     mutationFn: async (t: NewTask) => {
       const assigned = t.assigneeId != null && t.assigneeId !== t.createdBy
-      const { error } = await supabase.from('tasks').insert({
-        title: t.title,
-        description: t.description || null,
-        assignee_id: t.assigneeId,
-        status_id: t.statusId,
-        priority: t.priority,
-        due_date: t.dueDate,
-        created_by: t.createdBy,
-        task_type: assigned ? 'assigned' : 'self',
-        remarks: t.remarks?.trim() || null,
-      })
+      const { data, error } = await supabase
+        .from('tasks')
+        .insert({
+          title: t.title,
+          description: t.description || null,
+          assignee_id: t.assigneeId,
+          status_id: t.statusId,
+          priority: t.priority,
+          due_date: t.dueDate,
+          created_by: t.createdBy,
+          task_type: assigned ? 'assigned' : 'self',
+          remarks: t.remarks?.trim() || null,
+          category_id: t.categoryId || null,
+        })
+        .select(TASK_SELECT)
+        .single()
       if (error) throw error
+      return data as unknown as TaskRow
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['tasks'] }),
   })
@@ -246,4 +285,147 @@ export function useTasksRealtime() {
       if (channel) void supabase.removeChannel(channel)
     }
   }, [qc])
+}
+
+/* ============================================================================
+ * Approval lifecycle & capacity (client requirement)
+ * -------------------------------------------------------------------------- */
+
+function invalidateTasks(qc: ReturnType<typeof useQueryClient>) {
+  qc.invalidateQueries({ queryKey: ['tasks'] })
+  qc.invalidateQueries({ queryKey: ['task-history'] })
+  qc.invalidateQueries({ queryKey: ['open-task-count'] })
+}
+
+/** Current open-task count for a user (= tasks counted against capacity). */
+export function useOpenTaskCount(userId: string | null | undefined) {
+  return useQuery({
+    queryKey: ['open-task-count', userId ?? ''],
+    enabled: !!userId,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('open_task_count', { p_user: userId! })
+      if (error) throw error
+      return (data as number) ?? 0
+    },
+  })
+}
+
+/** Resolved capacity for a user (per-user override or global default). */
+export function useEffectiveCapacity(userId: string | null | undefined) {
+  return useQuery({
+    queryKey: ['effective-capacity', userId ?? ''],
+    enabled: !!userId,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('effective_task_capacity', { p_user: userId! })
+      if (error) throw error
+      return (data as number) ?? 25
+    },
+  })
+}
+
+export function useTaskPolicy() {
+  return useQuery({
+    queryKey: ['task-policy'],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('task_policy').select('*').single()
+      if (error) throw error
+      return data
+    },
+  })
+}
+
+export function useUpdateTaskPolicy() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (patch: Partial<Tables<'task_policy'>>) => {
+      const { error } = await supabase.from('task_policy').update(patch).eq('id', true)
+      if (error) throw error
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['task-policy'] }),
+  })
+}
+
+export function useSetUserCapacity() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (args: { userId: string; capacity: number | null }) => {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ task_capacity: args.capacity })
+        .eq('id', args.userId)
+      if (error) throw error
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['users'] })
+      qc.invalidateQueries({ queryKey: ['effective-capacity'] })
+    },
+  })
+}
+
+async function callLifecycle(name: string, body: Record<string, unknown>) {
+  const { data, error } = await supabase.rpc(name as 'accept_task', body as never)
+  if (error) throw error
+  return data as { ok?: boolean; warning?: string | null; status?: string; open_count?: number; capacity?: number }
+}
+
+/** Assignee: accept an assigned task. Returns a warning if over capacity. */
+export function useAcceptTask() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (args: { taskId: string; remarks?: string }) =>
+      callLifecycle('accept_task', { p_task: args.taskId, p_remarks: args.remarks ?? null }),
+    onSuccess: () => invalidateTasks(qc),
+  })
+}
+
+/** Assignee: decline an assignment with a mandatory reason. */
+export function useRejectTask() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (args: { taskId: string; reason: string }) =>
+      callLifecycle('reject_task', { p_task: args.taskId, p_reason: args.reason }),
+    onSuccess: () => invalidateTasks(qc),
+  })
+}
+
+/** Assignee: start work (accepted/rework/on_hold → in_progress). */
+export function useStartTask() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (taskId: string) => callLifecycle('start_task', { p_task: taskId }),
+    onSuccess: () => invalidateTasks(qc),
+  })
+}
+
+/**
+ * Assignee: submit for approval. On self-tasks the RPC closes it directly;
+ * the result's `status` field tells the UI which happened.
+ */
+export function useSubmitTask() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (args: { taskId: string; remarks?: string }) =>
+      callLifecycle('submit_task', { p_task: args.taskId, p_remarks: args.remarks ?? null }),
+    onSuccess: () => invalidateTasks(qc),
+  })
+}
+
+/** Approver: approve → completed. */
+export function useApproveTask() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (args: { taskId: string; remarks?: string }) =>
+      callLifecycle('approve_task', { p_task: args.taskId, p_remarks: args.remarks ?? null }),
+    onSuccess: () => invalidateTasks(qc),
+  })
+}
+
+/** Approver: send back with a mandatory reason → rework. */
+export function useReworkTask() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (args: { taskId: string; reason: string }) =>
+      callLifecycle('rework_task', { p_task: args.taskId, p_reason: args.reason }),
+    onSuccess: () => invalidateTasks(qc),
+  })
 }

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Calculator, FileText, Plus, Trash2 } from 'lucide-react'
+import { Calculator, FileText, Plus, Settings2, Trash2 } from 'lucide-react'
 import {
   parseComponents,
   useAddAdjustment,
@@ -7,6 +7,8 @@ import {
   useComputeFnf,
   useComputeSalary,
   useSalaryProfile,
+  usePayslipTemplates,
+  useSavePayslipTemplate,
   useUpsertSalaryProfile,
   type FnfSettlement,
   type SalaryComponent,
@@ -23,6 +25,8 @@ import { Input } from '@/components/ui/Input'
 import { Label } from '@/components/ui/Label'
 import { Select } from '@/components/ui/Select'
 import { Badge } from '@/components/ui/Badge'
+import { Modal } from '@/components/ui/Modal'
+import { Textarea } from '@/components/ui/Textarea'
 
 function currentMonth() {
   return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' })
@@ -36,6 +40,13 @@ export function SalaryAdminPage() {
   const { data: users = [] } = useUsers()
   const [userId, setUserId] = useState('')
   const [month, setMonth] = useState(currentMonth())
+  const { data: payslipTemplates = [] } = usePayslipTemplates()
+  const [templateId, setTemplateId] = useState('')
+  const [templateModal, setTemplateModal] = useState(false)
+  const selectedTemplate =
+    payslipTemplates.find((template) => template.id === templateId) ??
+    payslipTemplates.find((template) => template.is_default) ??
+    payslipTemplates[0]
   const effectiveUser = userId || users[0]?.id || ''
 
   const { data: adjustments = [] } = useAdjustments(effectiveUser, `${month}-01`)
@@ -53,7 +64,13 @@ export function SalaryAdminPage() {
       <div className="mb-4 flex flex-wrap items-end gap-3">
         <div>
           <Label htmlFor="salary-user">Employee</Label>
-          <Select id="salary-user" data-testid="salary-user-select" value={effectiveUser} onChange={(e) => setUserId(e.target.value)} className="w-56">
+          <Select
+            id="salary-user"
+            data-testid="salary-user-select"
+            value={effectiveUser}
+            onChange={(e) => setUserId(e.target.value)}
+            className="w-56"
+          >
             {users.map((u) => (
               <option key={u.id} value={u.id}>
                 {u.full_name || u.email}
@@ -63,7 +80,14 @@ export function SalaryAdminPage() {
         </div>
         <div>
           <Label htmlFor="salary-month">Month</Label>
-          <Input id="salary-month" data-testid="salary-month" type="month" value={month} onChange={(e) => setMonth(e.target.value)} className="w-44" />
+          <Input
+            id="salary-month"
+            data-testid="salary-month"
+            type="month"
+            value={month}
+            onChange={(e) => setMonth(e.target.value)}
+            className="w-44"
+          />
         </div>
         <Button
           data-testid="compute-salary"
@@ -84,10 +108,36 @@ export function SalaryAdminPage() {
         >
           <Calculator className="size-4" /> Compute
         </Button>
+        <div>
+          <Label htmlFor="payslip-template">Payslip template</Label>
+          <Select
+            id="payslip-template"
+            value={selectedTemplate?.id ?? ''}
+            onChange={(event) => setTemplateId(event.target.value)}
+            className="w-48"
+          >
+            {payslipTemplates.map((template) => (
+              <option key={template.id} value={template.id}>
+                {template.name}
+              </option>
+            ))}
+          </Select>
+        </div>
+        {canManage && (
+          <Button variant="outline" onClick={() => setTemplateModal(true)}>
+            <Settings2 className="size-4" /> Customize format
+          </Button>
+        )}
       </div>
 
       <div className="grid gap-4 lg:grid-cols-3">
-        <BaseSalaryCard key={effectiveUser} userId={effectiveUser} month={month} canManage={canManage} adjustments={adjustments} />
+        <BaseSalaryCard
+          key={effectiveUser}
+          userId={effectiveUser}
+          month={month}
+          canManage={canManage}
+          adjustments={adjustments}
+        />
 
         <Card className="lg:col-span-2">
           <CardBody>
@@ -136,14 +186,24 @@ export function SalaryAdminPage() {
                     size="sm"
                     variant="outline"
                     data-testid="download-payslip"
-                    onClick={() =>
-                      generateLetterPdf(`payslip-${month}`, 'Salary Slip', [
-                        `Pay period: ${month}`,
-                        `Gross: ${run.gross}   Net: ${run.net}`,
-                        `Earnings — base ${run.base_earned}, overtime ${run.overtime_pay}, incentives ${run.incentives}, increments ${run.increments}`,
-                        `Deductions — penalties ${run.penalties}, PF ${run.pf}, ESIC ${run.esic}, professional tax ${run.professional_tax}, TDS ${run.tds}`,
-                      ])
-                    }
+                    onClick={() => {
+                      const earnings = `base ${run.base_earned}, overtime ${run.overtime_pay}, incentives ${run.incentives}, increments ${run.increments}`
+                      const deductions = `penalties ${run.penalties}, PF ${run.pf}, ESIC ${run.esic}, professional tax ${run.professional_tax}, TDS ${run.tds}`
+                      const body = (
+                        selectedTemplate?.body_template ||
+                        'Pay period: {{month}}\nGross: {{gross}}\nNet: {{net}}\nEarnings: {{earnings}}\nDeductions: {{deductions}}'
+                      )
+                        .replaceAll('{{month}}', month)
+                        .replaceAll('{{gross}}', String(run.gross))
+                        .replaceAll('{{net}}', String(run.net))
+                        .replaceAll('{{earnings}}', earnings)
+                        .replaceAll('{{deductions}}', deductions)
+                      void generateLetterPdf(`payslip-${month}`, 'Salary Slip', body.split('\n'), {
+                        letterhead: selectedTemplate?.letterhead,
+                        logoUrl: selectedTemplate?.logo_url,
+                        footer: selectedTemplate?.footer,
+                      })
+                    }}
                   >
                     <FileText className="size-4" /> Download payslip
                   </Button>
@@ -155,7 +215,86 @@ export function SalaryAdminPage() {
       </div>
 
       <FnfSection canManage={canManage} />
+      {templateModal && <PayslipTemplateModal onClose={() => setTemplateModal(false)} />}
     </div>
+  )
+}
+
+function PayslipTemplateModal({ onClose }: { onClose: () => void }) {
+  const save = useSavePayslipTemplate()
+  const toast = useToast()
+  const [name, setName] = useState('')
+  const [letterhead, setLetterhead] = useState('')
+  const [logoUrl, setLogoUrl] = useState('')
+  const [footer, setFooter] = useState('')
+  const [body, setBody] = useState(
+    'Pay period: {{month}}\nGross: {{gross}}\nNet: {{net}}\nEarnings: {{earnings}}\nDeductions: {{deductions}}',
+  )
+  return (
+    <Modal open onClose={onClose} title="New payslip template">
+      <form
+        className="space-y-3"
+        onSubmit={(event) => {
+          event.preventDefault()
+          save.mutate(
+            {
+              name,
+              letterhead,
+              logo_url: logoUrl || null,
+              body_template: body,
+              footer: footer || null,
+              is_default: true,
+            },
+            {
+              onSuccess: () => {
+                toast.success('Payslip template saved')
+                onClose()
+              },
+              onError: (error) => toast.error('Save failed', (error as Error).message),
+            },
+          )
+        }}
+      >
+        <div>
+          <Label>Template name</Label>
+          <Input value={name} onChange={(event) => setName(event.target.value)} required />
+        </div>
+        <div>
+          <Label>Letterhead / company name</Label>
+          <Input value={letterhead} onChange={(event) => setLetterhead(event.target.value)} />
+        </div>
+        <div>
+          <Label>Logo URL</Label>
+          <Input
+            type="url"
+            value={logoUrl}
+            onChange={(event) => setLogoUrl(event.target.value)}
+            placeholder="https://…/logo.png"
+          />
+        </div>
+        <div>
+          <Label>Customized format</Label>
+          <Textarea
+            rows={6}
+            value={body}
+            onChange={(event) => setBody(event.target.value)}
+            required
+          />
+        </div>
+        <div>
+          <Label>Footer</Label>
+          <Input value={footer} onChange={(event) => setFooter(event.target.value)} />
+        </div>
+        <div className="flex justify-end gap-2">
+          <Button type="button" variant="outline" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button type="submit" loading={save.isPending}>
+            Save template
+          </Button>
+        </div>
+      </form>
+    </Modal>
   )
 }
 
@@ -174,13 +313,30 @@ function FnfSection({ canManage }: { canManage: boolean }) {
       <div className="flex flex-wrap items-end gap-3">
         <div>
           <Label htmlFor="fnf-user">Employee</Label>
-          <Select id="fnf-user" data-testid="fnf-user-select" value={effectiveUser} onChange={(e) => setUserId(e.target.value)} className="w-48">
-            {users.map((u) => (<option key={u.id} value={u.id}>{u.full_name || u.email}</option>))}
+          <Select
+            id="fnf-user"
+            data-testid="fnf-user-select"
+            value={effectiveUser}
+            onChange={(e) => setUserId(e.target.value)}
+            className="w-48"
+          >
+            {users.map((u) => (
+              <option key={u.id} value={u.id}>
+                {u.full_name || u.email}
+              </option>
+            ))}
           </Select>
         </div>
         <div>
           <Label htmlFor="fnf-date">Last working day</Label>
-          <Input id="fnf-date" data-testid="fnf-date" type="date" value={lastDay} onChange={(e) => setLastDay(e.target.value)} className="w-44" />
+          <Input
+            id="fnf-date"
+            data-testid="fnf-date"
+            type="date"
+            value={lastDay}
+            onChange={(e) => setLastDay(e.target.value)}
+            className="w-44"
+          />
         </div>
         <Button
           data-testid="compute-fnf"
@@ -189,7 +345,13 @@ function FnfSection({ canManage }: { canManage: boolean }) {
           onClick={() =>
             compute.mutate(
               { userId: effectiveUser, lastWorkingDate: lastDay },
-              { onSuccess: (r) => { setResult(r); toast.success('F&F computed') }, onError: (e) => toast.error('Failed', (e as Error).message) },
+              {
+                onSuccess: (r) => {
+                  setResult(r)
+                  toast.success('F&F computed')
+                },
+                onError: (e) => toast.error('Failed', (e as Error).message),
+              },
             )
           }
         >
@@ -204,7 +366,9 @@ function FnfSection({ canManage }: { canManage: boolean }) {
           <Stat label="Dues" value={result.dues} />
           <div>
             <p className="text-xs text-slate-500">Net payable</p>
-            <p className="text-2xl font-bold text-emerald-700" data-testid="fnf-net">{result.net_payable}</p>
+            <p className="text-2xl font-bold text-emerald-700" data-testid="fnf-net">
+              {result.net_payable}
+            </p>
           </div>
           <Button
             size="sm"
@@ -270,8 +434,12 @@ function BaseSalaryCard({
         : DEFAULT_COMPONENTS
   const [rows, setRows] = useState<SalaryComponent[]>(initial)
 
-  const gross = rows.filter((r) => r.kind === 'earning').reduce((s, r) => s + Number(r.amount || 0), 0)
-  const deductions = rows.filter((r) => r.kind === 'deduction').reduce((s, r) => s + Number(r.amount || 0), 0)
+  const gross = rows
+    .filter((r) => r.kind === 'earning')
+    .reduce((s, r) => s + Number(r.amount || 0), 0)
+  const deductions = rows
+    .filter((r) => r.kind === 'deduction')
+    .reduce((s, r) => s + Number(r.amount || 0), 0)
   const net = gross - deductions
 
   const update = (i: number, patch: Partial<SalaryComponent>) =>
@@ -331,7 +499,13 @@ function BaseSalaryCard({
         </div>
 
         {canManage && (
-          <Button type="button" size="sm" variant="outline" data-testid="add-component" onClick={add}>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            data-testid="add-component"
+            onClick={add}
+          >
             <Plus className="size-4" /> Add component
           </Button>
         )}
@@ -339,15 +513,21 @@ function BaseSalaryCard({
         <dl className="rounded-lg bg-slate-50 p-3 text-sm">
           <div className="flex justify-between">
             <dt className="text-slate-500">Gross (earnings)</dt>
-            <dd className="font-medium text-slate-800" data-testid="breakdown-gross">{gross}</dd>
+            <dd className="font-medium text-slate-800" data-testid="breakdown-gross">
+              {gross}
+            </dd>
           </div>
           <div className="flex justify-between">
             <dt className="text-slate-500">Deductions</dt>
-            <dd className="font-medium text-slate-800" data-testid="breakdown-deductions">{deductions}</dd>
+            <dd className="font-medium text-slate-800" data-testid="breakdown-deductions">
+              {deductions}
+            </dd>
           </div>
           <div className="mt-1 flex justify-between border-t border-slate-200 pt-1">
             <dt className="font-medium text-slate-600">Net (in-hand)</dt>
-            <dd className="font-bold text-emerald-700" data-testid="breakdown-net">{net}</dd>
+            <dd className="font-bold text-emerald-700" data-testid="breakdown-net">
+              {net}
+            </dd>
           </div>
         </dl>
 
@@ -373,7 +553,11 @@ function BaseSalaryCard({
         <ul className="space-y-1 text-sm">
           {adjustments.map((a) => (
             <li key={a.id} className="flex justify-between">
-              <Badge tone={a.kind === 'penalty' ? 'red' : a.kind === 'incentive' ? 'green' : 'blue'}>{a.kind}</Badge>
+              <Badge
+                tone={a.kind === 'penalty' ? 'red' : a.kind === 'incentive' ? 'green' : 'blue'}
+              >
+                {a.kind}
+              </Badge>
               <span>{a.amount}</span>
             </li>
           ))}
@@ -408,13 +592,26 @@ function AdjustmentForm({ userId, month }: { userId: string; month: string }) {
     >
       <div>
         <Label className="text-xs">Adjustment</Label>
-        <Select data-testid="adj-kind" value={kind} onChange={(e) => setKind(e.target.value as typeof kind)} className="h-9">
+        <Select
+          data-testid="adj-kind"
+          value={kind}
+          onChange={(e) => setKind(e.target.value as typeof kind)}
+          className="h-9"
+        >
           <option value="incentive">Incentive</option>
           <option value="penalty">Penalty</option>
           <option value="increment">Increment</option>
         </Select>
       </div>
-      <Input data-testid="adj-amount" type="number" placeholder="Amount" value={amount} onChange={(e) => setAmount(e.target.value)} className="h-9 w-28" required />
+      <Input
+        data-testid="adj-amount"
+        type="number"
+        placeholder="Amount"
+        value={amount}
+        onChange={(e) => setAmount(e.target.value)}
+        className="h-9 w-28"
+        required
+      />
       <Button type="submit" size="sm" data-testid="add-adj" loading={add.isPending}>
         <Plus className="size-4" />
       </Button>

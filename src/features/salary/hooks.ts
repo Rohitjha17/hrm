@@ -3,6 +3,41 @@ import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/features/auth/auth-context'
 import type { Tables } from '@/types/database.types'
 
+export type PayslipTemplate = Tables<'payslip_templates'>
+
+export function usePayslipTemplates() {
+  return useQuery({
+    queryKey: ['payslip-templates'],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('payslip_templates').select('*').order('name')
+      if (error) throw error
+      return data
+    },
+  })
+}
+
+export function useSavePayslipTemplate() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (
+      input: Omit<PayslipTemplate, 'id' | 'created_at' | 'updated_at'> & { id?: string },
+    ) => {
+      const { id, ...values } = input
+      if (!values.name.trim()) throw new Error('Template name is required')
+      if (values.is_default)
+        await supabase
+          .from('payslip_templates')
+          .update({ is_default: false })
+          .neq('id', id ?? '')
+      const { error } = id
+        ? await supabase.from('payslip_templates').update(values).eq('id', id)
+        : await supabase.from('payslip_templates').insert(values)
+      if (error) throw error
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['payslip-templates'] }),
+  })
+}
+
 export type SalaryRun = Tables<'salary_runs'>
 export type SalaryAdjustment = Tables<'salary_adjustments'>
 
@@ -125,7 +160,9 @@ export interface FnfSettlement {
 export function useComputeFnf() {
   return useMutation({
     mutationFn: async (args: { userId: string; lastWorkingDate: string }) => {
-      const { data, error } = await supabase.functions.invoke('full-final-settlement', { body: args })
+      const { data, error } = await supabase.functions.invoke('full-final-settlement', {
+        body: args,
+      })
       if (error) throw error
       return (data as { settlement: FnfSettlement }).settlement
     },

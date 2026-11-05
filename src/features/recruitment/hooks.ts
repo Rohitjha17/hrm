@@ -32,7 +32,11 @@ export function useOpenings() {
 export function useCreateOpening() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async (input: { departmentId: string; designation: string; description?: string }) => {
+    mutationFn: async (input: {
+      departmentId: string
+      designation: string
+      description?: string
+    }) => {
       const { error } = await supabase.from('job_openings').insert({
         // Openings are identified by department + designation; title mirrors the
         // designation for backwards compatibility (column is NOT NULL).
@@ -67,10 +71,20 @@ export function useCandidates(openingId: string | null) {
 export function useAddCandidate() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async (input: { openingId: string; fullName: string; email: string; phone?: string }) => {
+    mutationFn: async (input: {
+      openingId: string
+      fullName: string
+      email: string
+      phone?: string
+    }) => {
       const { data, error } = await supabase
         .from('candidates')
-        .insert({ opening_id: input.openingId, full_name: input.fullName, email: input.email, phone: input.phone || null })
+        .insert({
+          opening_id: input.openingId,
+          full_name: input.fullName,
+          email: input.email,
+          phone: input.phone || null,
+        })
         .select('id')
         .single()
       if (error) throw error
@@ -83,7 +97,11 @@ export function useAddCandidate() {
 export function useUpdateCandidate() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async (input: { id: string; status?: Candidate['status']; offer_status?: Candidate['offer_status'] }) => {
+    mutationFn: async (input: {
+      id: string
+      status?: Candidate['status']
+      offer_status?: Candidate['offer_status']
+    }) => {
       const patch: { status?: Candidate['status']; offer_status?: Candidate['offer_status'] } = {}
       if (input.status) patch.status = input.status
       if (input.offer_status) patch.offer_status = input.offer_status
@@ -149,7 +167,9 @@ export function useUploadCandidateDocument() {
   return useMutation({
     mutationFn: async (input: { candidateId: string; title: string; file: File }) => {
       const path = `candidates/${input.candidateId}/${crypto.randomUUID()}-${input.file.name}`
-      const up = await supabase.storage.from('documents').upload(path, input.file, { upsert: false })
+      const up = await supabase.storage
+        .from('documents')
+        .upload(path, input.file, { upsert: false })
       if (up.error) throw up.error
       const { data: auth } = await supabase.auth.getUser()
       const { error } = await supabase.from('candidate_documents').insert({
@@ -190,7 +210,9 @@ export function useStartCandidateChecklist() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async (candidateId: string) => {
-      const { error } = await supabase.rpc('start_candidate_checklist', { p_candidate: candidateId })
+      const { error } = await supabase.rpc('start_candidate_checklist', {
+        p_candidate: candidateId,
+      })
       if (error) throw error
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['candidate-checklist'] }),
@@ -232,15 +254,22 @@ export function useInterviews(candidateId: string | null) {
 export function useScheduleInterview() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async (input: { candidateId: string; scheduledAt: string; interviewerId: string | null; mode: string }) => {
+    mutationFn: async (input: {
+      candidateId: string
+      scheduledAt: string
+      interviewerId: string | null
+      mode: string
+      interviewRound: string
+    }) => {
       const { error } = await supabase.from('interviews').insert({
         candidate_id: input.candidateId,
         scheduled_at: input.scheduledAt,
         interviewer_id: input.interviewerId,
         mode: input.mode,
+        interview_round: input.interviewRound,
       })
       if (error) throw error
-      await supabase.from('candidates').update({ status: 'interview_scheduled' }).eq('id', input.candidateId)
+      await supabase.from('candidates').update({ status: 'interview' }).eq('id', input.candidateId)
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['interviews'] })
@@ -252,10 +281,19 @@ export function useScheduleInterview() {
 export function useSaveFeedback() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async (input: { interviewId: string; feedback: string; rating: number; recommendation: string }) => {
+    mutationFn: async (input: {
+      interviewId: string
+      feedback: string
+      rating: number
+      recommendation: string
+    }) => {
       const { error } = await supabase
         .from('interviews')
-        .update({ feedback: input.feedback, rating: input.rating, recommendation: input.recommendation })
+        .update({
+          feedback: input.feedback,
+          rating: input.rating,
+          recommendation: input.recommendation,
+        })
         .eq('id', input.interviewId)
       if (error) throw error
     },

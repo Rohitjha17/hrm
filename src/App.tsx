@@ -38,6 +38,7 @@ import { MonitoringPage } from '@/features/monitoring/MonitoringPage'
 import { MonitoringReportPage } from '@/features/monitoring/MonitoringReportPage'
 import { TrainingPage } from '@/features/training/TrainingPage'
 import { MyTrainingPage } from '@/features/training/MyTrainingPage'
+import { MastersPage } from '@/features/admin/masters/MastersPage'
 
 export function App() {
   return (
@@ -230,6 +231,14 @@ export function App() {
           }
         />
         <Route path="/training" element={<MyTrainingPage />} />
+        <Route
+          path="/admin/masters"
+          element={
+            <RequirePermission perm="users.manage">
+              <MastersPage />
+            </RequirePermission>
+          }
+        />
         <Route
           path="/admin/users"
           element={

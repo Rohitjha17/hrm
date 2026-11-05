@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { Pencil, Plus, Trash2 } from 'lucide-react'
 import {
   useCreateEmployee,
@@ -8,9 +8,12 @@ import {
   useUpdateCredentials,
   useUpdateProfile,
   useUserLeaveBalances,
+  useUserFieldAccess,
+  useSetUserFieldAccess,
   useUsers,
   type LeaveQuotaInput,
   type UserRow,
+  uploadProfilePicture,
 } from './hooks'
 import { useLeaveTypes, type LeaveType } from '@/features/leave/hooks'
 import { useRoles } from '@/features/admin/roles/hooks'
@@ -79,13 +82,24 @@ export function UsersPage() {
           {users.map((u) => (
             <tr key={u.id} data-testid={`user-row-${u.email}`}>
               <Td className="font-medium text-slate-900">
-                {u.full_name || '—'}
+                <div className="flex items-center gap-2">
+                  {u.avatar_url ? (
+                    <img src={u.avatar_url} alt="" className="size-8 rounded-full object-cover" />
+                  ) : (
+                    <span className="flex size-8 items-center justify-center rounded-full bg-slate-200 text-xs">
+                      {(u.full_name || u.email).slice(0, 1).toUpperCase()}
+                    </span>
+                  )}
+                  <span>{u.full_name || '—'}</span>
+                </div>
                 <div className="text-xs font-normal text-slate-500">{u.email}</div>
               </Td>
               <Td>{u.employee_code ?? '—'}</Td>
               <Td>{u.department_id ? (deptById.get(u.department_id) ?? '—') : '—'}</Td>
               <Td>{u.team_id ? (teamById.get(u.team_id) ?? '—') : '—'}</Td>
-              <Td>{u.reporting_manager_id ? (nameById.get(u.reporting_manager_id) ?? '—') : '—'}</Td>
+              <Td>
+                {u.reporting_manager_id ? (nameById.get(u.reporting_manager_id) ?? '—') : '—'}
+              </Td>
               <Td>
                 <div className="flex flex-wrap gap-1">
                   {u.user_roles.map((ur) => (
@@ -106,7 +120,7 @@ export function UsersPage() {
                     <button
                       data-testid={`edit-user-${u.email}`}
                       aria-label={`Edit ${u.full_name || u.email}`}
-                      className="text-slate-400 hover:text-brand-600"
+                      className="hover:text-brand-600 text-slate-400"
                       onClick={() => setEditing(u)}
                     >
                       <Pencil className="size-4" />
@@ -127,7 +141,9 @@ export function UsersPage() {
         </Tbody>
       </Table>
 
-      {editing && <EditUserModal user={editing} onClose={() => setEditing(null)} allUsers={users} />}
+      {editing && (
+        <EditUserModal user={editing} onClose={() => setEditing(null)} allUsers={users} />
+      )}
       {adding && <AddEmployeeModal onClose={() => setAdding(false)} allUsers={users} />}
       {deleting && (
         <Modal open onClose={() => setDeleting(null)} title="Delete employee" testid="delete-modal">
@@ -189,7 +205,10 @@ function LeaveQuotaFields({
       <div className="grid gap-3 sm:grid-cols-2">
         {types.map((t) => (
           <div key={t.id}>
-            <Label htmlFor={`${testPrefix}-${t.slug}`} className="text-xs font-normal text-slate-500">
+            <Label
+              htmlFor={`${testPrefix}-${t.slug}`}
+              className="text-xs font-normal text-slate-500"
+            >
               {t.name}
               {!t.is_paid && ' (unpaid)'}
             </Label>
@@ -231,6 +250,27 @@ function EditUserModal({
   const updateCredentials = useUpdateCredentials()
   const setLeaveQuotas = useSetLeaveQuotas()
   const toast = useToast()
+  const [fieldModule, setFieldModule] = useState('attendance')
+  const { data: userFieldAccess = new Map<string, boolean>() } = useUserFieldAccess(
+    user.id,
+    fieldModule,
+  )
+  const setUserFieldAccess = useSetUserFieldAccess()
+  const fieldCatalog: Record<string, string[]> = {
+    attendance: ['date', 'status', 'firstIn', 'lastOut', 'worked', 'late', 'overtime', 'remarks'],
+    tasks: [
+      'title',
+      'assignee',
+      'assignor',
+      'status',
+      'priority',
+      'progress',
+      'created',
+      'due',
+      'completed',
+    ],
+    leave: ['employee', 'type', 'from', 'to', 'days', 'status', 'reason', 'remainingBalance'],
+  }
 
   const [roleIds, setRoleIds] = useState<Set<string>>(
     new Set(user.user_roles.map((ur) => ur.role_id)),
@@ -246,6 +286,9 @@ function EditUserModal({
   const [teamId, setTeamId] = useState(user.team_id ?? '')
   const [managerId, setManagerId] = useState(user.reporting_manager_id ?? '')
   const [status, setStatus] = useState<'active' | 'inactive'>(user.status as 'active' | 'inactive')
+  const [taskCapacity, setTaskCapacity] = useState(
+    user.task_capacity != null ? String(user.task_capacity) : '',
+  )
 
   const saving =
     updateProfile.isPending ||
@@ -262,6 +305,7 @@ function EditUserModal({
         team_id: teamId || null,
         reporting_manager_id: managerId || null,
         status,
+        task_capacity: taskCapacity.trim() ? Math.max(1, Math.round(Number(taskCapacity))) : null,
       })
       await setUserRoles.mutateAsync({ userId: user.id, roleIds: [...roleIds] })
       if (Object.keys(quotaOverrides).length > 0) {
@@ -287,7 +331,12 @@ function EditUserModal({
   }
 
   return (
-    <Modal open onClose={onClose} title={`Edit ${user.full_name || user.email}`} testid="user-modal">
+    <Modal
+      open
+      onClose={onClose}
+      title={`Edit ${user.full_name || user.email}`}
+      testid="user-modal"
+    >
       <div className="space-y-4">
         <div>
           <Label htmlFor="user-name">Full name</Label>
@@ -388,6 +437,21 @@ function EditUserModal({
               <option value="inactive">Inactive</option>
             </Select>
           </div>
+          <div>
+            <Label htmlFor="user-task-capacity">Task capacity</Label>
+            <Input
+              id="user-task-capacity"
+              data-testid="user-task-capacity"
+              type="number"
+              min="1"
+              placeholder="Default from policy"
+              value={taskCapacity}
+              onChange={(e) => setTaskCapacity(e.target.value)}
+            />
+            <p className="mt-1 text-xs text-slate-400">
+              Max pending tasks before planning is blocked. Leave empty to use the global default.
+            </p>
+          </div>
         </div>
 
         <div>
@@ -422,6 +486,40 @@ function EditUserModal({
           testPrefix="edit-quota"
         />
 
+        <div className="rounded-lg border border-slate-200 p-3">
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <Label>User-specific field access</Label>
+            <Select
+              value={fieldModule}
+              onChange={(event) => setFieldModule(event.target.value)}
+              className="w-36"
+            >
+              {Object.keys(fieldCatalog).map((module) => (
+                <option key={module} value={module}>
+                  {module}
+                </option>
+              ))}
+            </Select>
+          </div>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {fieldCatalog[fieldModule].map((field) => (
+              <Checkbox
+                key={field}
+                label={field}
+                checked={userFieldAccess.get(field) ?? true}
+                onChange={(event) =>
+                  setUserFieldAccess.mutate({
+                    userId: user.id,
+                    module: fieldModule,
+                    fieldKey: field,
+                    visible: event.target.checked,
+                  })
+                }
+              />
+            ))}
+          </div>
+        </div>
+
         <div className="flex justify-end gap-2">
           <Button type="button" variant="outline" onClick={onClose}>
             Cancel
@@ -452,6 +550,7 @@ function AddEmployeeModal({ onClose, allUsers }: { onClose: () => void; allUsers
   const [managerId, setManagerId] = useState('')
   const [roleIds, setRoleIds] = useState<Set<string>>(new Set())
   const [quotaOverrides, setQuotaOverrides] = useState<Record<string, string>>({})
+  const pictureRef = useRef<HTMLInputElement>(null)
   const quotaBaseline = (t: LeaveType) => Number(t.default_annual_quota)
 
   return (
@@ -476,7 +575,9 @@ function AddEmployeeModal({ onClose, allUsers }: { onClose: () => void; allUsers
               })),
             },
             {
-              onSuccess: () => {
+              onSuccess: async (created) => {
+                const picture = pictureRef.current?.files?.[0]
+                if (picture) await uploadProfilePicture(created.userId, picture)
                 toast.success('Employee created', 'Share the temporary password out-of-band.')
                 onClose()
               },
@@ -488,23 +589,53 @@ function AddEmployeeModal({ onClose, allUsers }: { onClose: () => void; allUsers
         <div className="grid grid-cols-2 gap-3">
           <div>
             <Label htmlFor="ne-email">Email</Label>
-            <Input id="ne-email" data-testid="new-emp-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+            <Input
+              id="ne-email"
+              data-testid="new-emp-email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+            />
           </div>
           <div>
             <Label htmlFor="ne-password">Temporary password</Label>
-            <Input id="ne-password" data-testid="new-emp-password" type="text" value={password} onChange={(e) => setPassword(e.target.value)} required />
+            <Input
+              id="ne-password"
+              data-testid="new-emp-password"
+              type="text"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+            />
           </div>
           <div>
             <Label htmlFor="ne-name">Full name</Label>
-            <Input id="ne-name" data-testid="new-emp-name" value={fullName} onChange={(e) => setFullName(e.target.value)} required />
+            <Input
+              id="ne-name"
+              data-testid="new-emp-name"
+              value={fullName}
+              onChange={(e) => setFullName(e.target.value)}
+              required
+            />
           </div>
           <div>
             <Label htmlFor="ne-code">Employee code</Label>
-            <Input id="ne-code" data-testid="new-emp-code" value={employeeCode} onChange={(e) => setEmployeeCode(e.target.value)} />
+            <Input
+              id="ne-code"
+              data-testid="new-emp-code"
+              value={employeeCode}
+              onChange={(e) => setEmployeeCode(e.target.value)}
+            />
           </div>
           <div>
             <Label htmlFor="ne-dept">Department</Label>
-            <Select id="ne-dept" data-testid="new-emp-dept" value={departmentId} onChange={(e) => setDepartmentId(e.target.value)}>
+            <Select
+              id="ne-dept"
+              data-testid="new-emp-dept"
+              value={departmentId}
+              onChange={(e) => setDepartmentId(e.target.value)}
+            >
               <option value="">— None —</option>
               {departments.map((d) => (
                 <option key={d.id} value={d.id}>
@@ -515,7 +646,12 @@ function AddEmployeeModal({ onClose, allUsers }: { onClose: () => void; allUsers
           </div>
           <div>
             <Label htmlFor="ne-team">Team</Label>
-            <Select id="ne-team" data-testid="new-emp-team" value={teamId} onChange={(e) => setTeamId(e.target.value)}>
+            <Select
+              id="ne-team"
+              data-testid="new-emp-team"
+              value={teamId}
+              onChange={(e) => setTeamId(e.target.value)}
+            >
               <option value="">— None —</option>
               {teams.map((t) => (
                 <option key={t.id} value={t.id}>
@@ -526,7 +662,12 @@ function AddEmployeeModal({ onClose, allUsers }: { onClose: () => void; allUsers
           </div>
           <div className="col-span-2">
             <Label htmlFor="ne-manager">Reporting manager</Label>
-            <Select id="ne-manager" data-testid="new-emp-manager" value={managerId} onChange={(e) => setManagerId(e.target.value)}>
+            <Select
+              id="ne-manager"
+              data-testid="new-emp-manager"
+              value={managerId}
+              onChange={(e) => setManagerId(e.target.value)}
+            >
               <option value="">— None —</option>
               {allUsers.map((u) => (
                 <option key={u.id} value={u.id}>
@@ -535,6 +676,16 @@ function AddEmployeeModal({ onClose, allUsers }: { onClose: () => void; allUsers
               ))}
             </Select>
           </div>
+        </div>
+        <div>
+          <Label htmlFor="new-emp-picture">Profile picture</Label>
+          <input
+            ref={pictureRef}
+            id="new-emp-picture"
+            type="file"
+            accept="image/*"
+            className="block text-sm"
+          />
         </div>
         <div>
           <Label>Roles</Label>

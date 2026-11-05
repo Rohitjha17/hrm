@@ -66,6 +66,7 @@ export function useMyLeaveRequests() {
         .from('leave_requests')
         .select('*, leave_type:leave_types(name,is_paid)')
         .eq('user_id', user!.id)
+        .is('deleted_at', null)
         .order('created_at', { ascending: false })
       if (error) throw error
       return (data ?? []) as unknown as LeaveRequestRow[]
@@ -141,6 +142,7 @@ export function usePendingApprovals() {
           '*, leave_type:leave_types(name,is_paid), requester:profiles!leave_requests_user_id_fkey(full_name,email)',
         )
         .eq('status', 'pending')
+        .is('deleted_at', null)
         .order('created_at', { ascending: false })
       if (error) throw error
       return (data ?? []) as unknown as LeaveRequestRow[]
@@ -159,6 +161,7 @@ export function useAllLeaveRequests() {
         .select(
           '*, leave_type:leave_types(name,is_paid), requester:profiles!leave_requests_user_id_fkey(full_name,email)',
         )
+        .is('deleted_at', null)
         .order('created_at', { ascending: false })
       if (error) throw error
       return (data ?? []) as unknown as LeaveRequestRow[]
@@ -199,6 +202,25 @@ export function useDecideLeave() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['leave-approvals'] })
       qc.invalidateQueries({ queryKey: ['my-leave'] })
+      qc.invalidateQueries({ queryKey: ['my-balances'] })
+    },
+  })
+}
+
+export function useDeleteLeaveRequest() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (args: { id: string; reason?: string }) => {
+      const { error } = await supabase.rpc('delete_leave_request', {
+        p_request: args.id,
+        p_reason: args.reason || undefined,
+      })
+      if (error) throw error
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['my-leave'] })
+      qc.invalidateQueries({ queryKey: ['leave-all'] })
+      qc.invalidateQueries({ queryKey: ['leave-approvals'] })
       qc.invalidateQueries({ queryKey: ['my-balances'] })
     },
   })

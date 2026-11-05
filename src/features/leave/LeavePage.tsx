@@ -1,10 +1,11 @@
 import { useState } from 'react'
-import { Plus } from 'lucide-react'
+import { Plus, Trash2 } from 'lucide-react'
 import {
   DURATION_FACTOR,
   DURATION_LABEL,
   useApplyLeave,
   useCancelLeave,
+  useDeleteLeaveRequest,
   useLeaveRealtime,
   useLeaveTypes,
   useMyBalances,
@@ -23,6 +24,8 @@ import { Select } from '@/components/ui/Select'
 import { Textarea } from '@/components/ui/Textarea'
 import { Table, Tbody, Td, Th, Thead } from '@/components/ui/Table'
 import { EmptyState } from '@/components/ui/EmptyState'
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
+import type { LeaveRequestRow } from './hooks'
 
 const STATUS_TONE = {
   pending: 'amber',
@@ -36,8 +39,10 @@ export function LeavePage() {
   const { data: balances = [] } = useMyBalances()
   const { data: requests = [], isLoading } = useMyLeaveRequests()
   const cancel = useCancelLeave()
+  const remove = useDeleteLeaveRequest()
   const toast = useToast()
   const [applyOpen, setApplyOpen] = useState(false)
+  const [deleting, setDeleting] = useState<LeaveRequestRow | null>(null)
 
   const totalAllocated = balances.reduce((s, b) => s + Number(b.allocated), 0)
   const totalUsed = balances.reduce((s, b) => s + Number(b.used), 0)
@@ -129,15 +134,27 @@ export function LeavePage() {
                   {r.admin_remarks || r.decision_remarks || <span className="text-slate-300">—</span>}
                 </Td>
                 <Td>
-                  {r.status === 'pending' && (
-                    <button
-                      data-testid="cancel-leave"
-                      className="text-xs font-medium text-slate-500 hover:text-red-600"
-                      onClick={() => cancel.mutate(r.id, { onSuccess: () => toast.info('Leave cancelled') })}
-                    >
-                      Cancel
-                    </button>
-                  )}
+                  <div className="flex items-center gap-2">
+                    {r.status === 'pending' && (
+                      <button
+                        data-testid="cancel-leave"
+                        className="text-xs font-medium text-slate-500 hover:text-red-600"
+                        onClick={() => cancel.mutate(r.id, { onSuccess: () => toast.info('Leave cancelled') })}
+                      >
+                        Cancel
+                      </button>
+                    )}
+                    {(r.status === 'pending' || r.status === 'cancelled') && (
+                      <button
+                        data-testid="delete-leave"
+                        aria-label="Delete leave request"
+                        className="rounded p-1 text-slate-400 hover:bg-red-50 hover:text-red-600"
+                        onClick={() => setDeleting(r)}
+                      >
+                        <Trash2 className="size-4" />
+                      </button>
+                    )}
+                  </div>
                 </Td>
               </tr>
             ))}
@@ -146,6 +163,27 @@ export function LeavePage() {
       )}
 
       {applyOpen && <ApplyModal onClose={() => setApplyOpen(false)} />}
+      {deleting && (
+        <ConfirmDialog
+          title="Delete leave request"
+          message="Remove this leave request from active records? Its audit information will be retained."
+          confirmLabel="Delete request"
+          loading={remove.isPending}
+          onClose={() => setDeleting(null)}
+          onConfirm={() =>
+            remove.mutate(
+              { id: deleting.id },
+              {
+                onSuccess: () => {
+                  toast.success('Leave request deleted')
+                  setDeleting(null)
+                },
+                onError: (error) => toast.error('Delete failed', (error as Error).message),
+              },
+            )
+          }
+        />
+      )}
     </div>
   )
 }

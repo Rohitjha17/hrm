@@ -1,10 +1,4 @@
-export type Json =
-  | string
-  | number
-  | boolean
-  | null
-  | { [key: string]: Json | undefined }
-  | Json[]
+export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[]
 
 export type Database = {
   graphql_public: {
@@ -36,36 +30,42 @@ export type Database = {
     Tables: {
       announcements: {
         Row: {
+          expires_at: string | null
           body: string
           category: string
           created_at: string
           id: string
           published_by: string | null
+          starts_at: string
           title: string
         }
         Insert: {
+          expires_at?: string | null
           body: string
           category?: string
           created_at?: string
           id?: string
           published_by?: string | null
+          starts_at?: string
           title: string
         }
         Update: {
+          expires_at?: string | null
           body?: string
           category?: string
           created_at?: string
           id?: string
           published_by?: string | null
+          starts_at?: string
           title?: string
         }
         Relationships: [
           {
-            foreignKeyName: "announcements_published_by_fkey"
-            columns: ["published_by"]
+            foreignKeyName: 'announcements_published_by_fkey'
+            columns: ['published_by']
             isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
           },
         ]
       }
@@ -129,20 +129,47 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "appraisal_history_appraisal_id_fkey"
-            columns: ["appraisal_id"]
+            foreignKeyName: 'appraisal_history_appraisal_id_fkey'
+            columns: ['appraisal_id']
             isOneToOne: false
-            referencedRelation: "appraisals"
-            referencedColumns: ["id"]
+            referencedRelation: 'appraisals'
+            referencedColumns: ['id']
           },
           {
-            foreignKeyName: "appraisal_history_changed_by_fkey"
-            columns: ["changed_by"]
+            foreignKeyName: 'appraisal_history_changed_by_fkey'
+            columns: ['changed_by']
             isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
           },
         ]
+      }
+      appraisal_types: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          name: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: []
       }
       appraisals: {
         Row: {
@@ -150,6 +177,7 @@ export type Database = {
           created_at: string
           created_by: string | null
           cycle_id: string
+          employee_feedback: string | null
           hr_feedback: string | null
           id: string
           increment_recommendation: number
@@ -169,6 +197,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           cycle_id: string
+          employee_feedback?: string | null
           hr_feedback?: string | null
           id?: string
           increment_recommendation?: number
@@ -188,6 +217,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           cycle_id?: string
+          employee_feedback?: string | null
           hr_feedback?: string | null
           id?: string
           increment_recommendation?: number
@@ -204,25 +234,25 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "appraisals_created_by_fkey"
-            columns: ["created_by"]
+            foreignKeyName: 'appraisals_created_by_fkey'
+            columns: ['created_by']
             isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
           },
           {
-            foreignKeyName: "appraisals_cycle_id_fkey"
-            columns: ["cycle_id"]
+            foreignKeyName: 'appraisals_cycle_id_fkey'
+            columns: ['cycle_id']
             isOneToOne: false
-            referencedRelation: "appraisal_cycles"
-            referencedColumns: ["id"]
+            referencedRelation: 'appraisal_cycles'
+            referencedColumns: ['id']
           },
           {
-            foreignKeyName: "appraisals_user_id_fkey"
-            columns: ["user_id"]
+            foreignKeyName: 'appraisals_user_id_fkey'
+            columns: ['user_id']
             isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
           },
         ]
       }
@@ -256,18 +286,18 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "asset_assignments_asset_id_fkey"
-            columns: ["asset_id"]
+            foreignKeyName: 'asset_assignments_asset_id_fkey'
+            columns: ['asset_id']
             isOneToOne: false
-            referencedRelation: "assets"
-            referencedColumns: ["id"]
+            referencedRelation: 'assets'
+            referencedColumns: ['id']
           },
           {
-            foreignKeyName: "asset_assignments_assignee_id_fkey"
-            columns: ["assignee_id"]
+            foreignKeyName: 'asset_assignments_assignee_id_fkey'
+            columns: ['assignee_id']
             isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
           },
         ]
       }
@@ -397,18 +427,18 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "attendance_corrections_corrected_by_fkey"
-            columns: ["corrected_by"]
+            foreignKeyName: 'attendance_corrections_corrected_by_fkey'
+            columns: ['corrected_by']
             isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
           },
           {
-            foreignKeyName: "attendance_corrections_user_id_fkey"
-            columns: ["user_id"]
+            foreignKeyName: 'attendance_corrections_user_id_fkey'
+            columns: ['user_id']
             isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
           },
         ]
       }
@@ -475,8 +505,58 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "attendance_days_user_id_fkey"
-            columns: ["user_id"]
+            foreignKeyName: 'attendance_days_user_id_fkey'
+            columns: ['user_id']
+            isOneToOne: false
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      attendance_locations: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          is_active: boolean
+          latitude: number
+          longitude: number
+          name: string
+          notes: string | null
+          radius_meters: number
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          latitude: number
+          longitude: number
+          name: string
+          notes?: string | null
+          radius_meters?: number
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          latitude?: number
+          longitude?: number
+          name?: string
+          notes?: string | null
+          radius_meters?: number
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "attendance_locations_created_by_fkey"
+            columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
@@ -498,6 +578,8 @@ export type Database = {
           within_radius: boolean
           work_date: string
           accuracy_meters: number | null
+          location_id: string | null
+          location_name: string | null
         }
         Insert: {
           created_at?: string
@@ -513,6 +595,8 @@ export type Database = {
           within_radius?: boolean
           work_date: string
           accuracy_meters?: number | null
+          location_id?: string | null
+          location_name?: string | null
         }
         Update: {
           created_at?: string
@@ -528,14 +612,16 @@ export type Database = {
           within_radius?: boolean
           work_date?: string
           accuracy_meters?: number | null
+          location_id?: string | null
+          location_name?: string | null
         }
         Relationships: [
           {
-            foreignKeyName: "attendance_punches_user_id_fkey"
-            columns: ["user_id"]
+            foreignKeyName: 'attendance_punches_user_id_fkey'
+            columns: ['user_id']
             isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
           },
         ]
       }
@@ -602,11 +688,11 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "candidate_checklist_items_candidate_id_fkey"
-            columns: ["candidate_id"]
+            foreignKeyName: 'candidate_checklist_items_candidate_id_fkey'
+            columns: ['candidate_id']
             isOneToOne: false
-            referencedRelation: "candidates"
-            referencedColumns: ["id"]
+            referencedRelation: 'candidates'
+            referencedColumns: ['id']
           },
         ]
       }
@@ -637,18 +723,18 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "candidate_documents_candidate_id_fkey"
-            columns: ["candidate_id"]
+            foreignKeyName: 'candidate_documents_candidate_id_fkey'
+            columns: ['candidate_id']
             isOneToOne: false
-            referencedRelation: "candidates"
-            referencedColumns: ["id"]
+            referencedRelation: 'candidates'
+            referencedColumns: ['id']
           },
           {
-            foreignKeyName: "candidate_documents_uploaded_by_fkey"
-            columns: ["uploaded_by"]
+            foreignKeyName: 'candidate_documents_uploaded_by_fkey'
+            columns: ['uploaded_by']
             isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
           },
         ]
       }
@@ -691,11 +777,11 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "candidates_opening_id_fkey"
-            columns: ["opening_id"]
+            foreignKeyName: 'candidates_opening_id_fkey'
+            columns: ['opening_id']
             isOneToOne: false
-            referencedRelation: "job_openings"
-            referencedColumns: ["id"]
+            referencedRelation: 'job_openings'
+            referencedColumns: ['id']
           },
         ]
       }
@@ -719,6 +805,41 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      dashboard_preferences: {
+        Row: {
+          created_at: string
+          hidden_items: string[]
+          item_order: string[]
+          updated_at: string
+          user_id: string
+          view_mode: string
+        }
+        Insert: {
+          created_at?: string
+          hidden_items?: string[]
+          item_order?: string[]
+          updated_at?: string
+          user_id: string
+          view_mode: string
+        }
+        Update: {
+          created_at?: string
+          hidden_items?: string[]
+          item_order?: string[]
+          updated_at?: string
+          user_id?: string
+          view_mode?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'dashboard_preferences_user_id_fkey'
+            columns: ['user_id']
+            isOneToOne: false
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
+          },
+        ]
       }
       departments: {
         Row: {
@@ -744,13 +865,91 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "departments_company_id_fkey"
-            columns: ["company_id"]
+            foreignKeyName: 'departments_company_id_fkey'
+            columns: ['company_id']
             isOneToOne: false
-            referencedRelation: "companies"
-            referencedColumns: ["id"]
+            referencedRelation: 'companies'
+            referencedColumns: ['id']
           },
         ]
+      }
+      document_file_activity: {
+        Row: {
+          action: string
+          actor_id: string | null
+          doc_type: string
+          document_id: string | null
+          employee_id: string
+          file_title: string
+          id: string
+          occurred_at: string
+        }
+        Insert: {
+          action: string
+          actor_id?: string | null
+          doc_type: string
+          document_id?: string | null
+          employee_id: string
+          file_title: string
+          id?: string
+          occurred_at?: string
+        }
+        Update: {
+          action?: string
+          actor_id?: string | null
+          doc_type?: string
+          document_id?: string | null
+          employee_id?: string
+          file_title?: string
+          id?: string
+          occurred_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'document_file_activity_employee_id_fkey'
+            columns: ['employee_id']
+            isOneToOne: false
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'document_file_activity_actor_id_fkey'
+            columns: ['actor_id']
+            isOneToOne: false
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      document_types: {
+        Row: {
+          code: string
+          created_at: string
+          id: string
+          is_active: boolean
+          name: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: []
       }
       employee_documents: {
         Row: {
@@ -785,18 +984,18 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "employee_documents_employee_id_fkey"
-            columns: ["employee_id"]
+            foreignKeyName: 'employee_documents_employee_id_fkey'
+            columns: ['employee_id']
             isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
           },
           {
-            foreignKeyName: "employee_documents_uploaded_by_fkey"
-            columns: ["uploaded_by"]
+            foreignKeyName: 'employee_documents_uploaded_by_fkey'
+            columns: ['uploaded_by']
             isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
           },
         ]
       }
@@ -827,18 +1026,18 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "exit_clearances_cleared_by_fkey"
-            columns: ["cleared_by"]
+            foreignKeyName: 'exit_clearances_cleared_by_fkey'
+            columns: ['cleared_by']
             isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
           },
           {
-            foreignKeyName: "exit_clearances_resignation_id_fkey"
-            columns: ["resignation_id"]
+            foreignKeyName: 'exit_clearances_resignation_id_fkey'
+            columns: ['resignation_id']
             isOneToOne: false
-            referencedRelation: "resignations"
-            referencedColumns: ["id"]
+            referencedRelation: 'resignations'
+            referencedColumns: ['id']
           },
         ]
       }
@@ -881,20 +1080,47 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "fnf_settlements_computed_by_fkey"
-            columns: ["computed_by"]
+            foreignKeyName: 'fnf_settlements_computed_by_fkey'
+            columns: ['computed_by']
             isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
           },
           {
-            foreignKeyName: "fnf_settlements_user_id_fkey"
-            columns: ["user_id"]
+            foreignKeyName: 'fnf_settlements_user_id_fkey'
+            columns: ['user_id']
             isOneToOne: true
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
           },
         ]
+      }
+      helpdesk_categories: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          name: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: []
       }
       holidays: {
         Row: {
@@ -924,6 +1150,7 @@ export type Database = {
           feedback: string | null
           id: string
           interviewer_id: string | null
+          interview_round: string | null
           mode: string
           rating: number | null
           recommendation: string | null
@@ -935,6 +1162,7 @@ export type Database = {
           feedback?: string | null
           id?: string
           interviewer_id?: string | null
+          interview_round?: string | null
           mode?: string
           rating?: number | null
           recommendation?: string | null
@@ -946,6 +1174,7 @@ export type Database = {
           feedback?: string | null
           id?: string
           interviewer_id?: string | null
+          interview_round?: string | null
           mode?: string
           rating?: number | null
           recommendation?: string | null
@@ -953,18 +1182,18 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "interviews_candidate_id_fkey"
-            columns: ["candidate_id"]
+            foreignKeyName: 'interviews_candidate_id_fkey'
+            columns: ['candidate_id']
             isOneToOne: false
-            referencedRelation: "candidates"
-            referencedColumns: ["id"]
+            referencedRelation: 'candidates'
+            referencedColumns: ['id']
           },
           {
-            foreignKeyName: "interviews_interviewer_id_fkey"
-            columns: ["interviewer_id"]
+            foreignKeyName: 'interviews_interviewer_id_fkey'
+            columns: ['interviewer_id']
             isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
           },
         ]
       }
@@ -998,11 +1227,11 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "job_openings_department_id_fkey"
-            columns: ["department_id"]
+            foreignKeyName: 'job_openings_department_id_fkey'
+            columns: ['department_id']
             isOneToOne: false
-            referencedRelation: "departments"
-            referencedColumns: ["id"]
+            referencedRelation: 'departments'
+            referencedColumns: ['id']
           },
         ]
       }
@@ -1036,18 +1265,18 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "leave_balances_leave_type_id_fkey"
-            columns: ["leave_type_id"]
+            foreignKeyName: 'leave_balances_leave_type_id_fkey'
+            columns: ['leave_type_id']
             isOneToOne: false
-            referencedRelation: "leave_types"
-            referencedColumns: ["id"]
+            referencedRelation: 'leave_types'
+            referencedColumns: ['id']
           },
           {
-            foreignKeyName: "leave_balances_user_id_fkey"
-            columns: ["user_id"]
+            foreignKeyName: 'leave_balances_user_id_fkey'
+            columns: ['user_id']
             isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
           },
         ]
       }
@@ -1059,6 +1288,9 @@ export type Database = {
           decided_at: string | null
           decided_by: string | null
           decision_remarks: string | null
+          deleted_at: string | null
+          deleted_by: string | null
+          deletion_reason: string | null
           duration: string
           end_date: string
           id: string
@@ -1076,6 +1308,9 @@ export type Database = {
           decided_at?: string | null
           decided_by?: string | null
           decision_remarks?: string | null
+          deleted_at?: string | null
+          deleted_by?: string | null
+          deletion_reason?: string | null
           duration?: string
           end_date: string
           id?: string
@@ -1093,6 +1328,9 @@ export type Database = {
           decided_at?: string | null
           decided_by?: string | null
           decision_remarks?: string | null
+          deleted_at?: string | null
+          deleted_by?: string | null
+          deletion_reason?: string | null
           duration?: string
           end_date?: string
           id?: string
@@ -1105,25 +1343,32 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "leave_requests_decided_by_fkey"
-            columns: ["decided_by"]
+            foreignKeyName: 'leave_requests_deleted_by_fkey'
+            columns: ['deleted_by']
             isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
           },
           {
-            foreignKeyName: "leave_requests_leave_type_id_fkey"
-            columns: ["leave_type_id"]
+            foreignKeyName: 'leave_requests_decided_by_fkey'
+            columns: ['decided_by']
             isOneToOne: false
-            referencedRelation: "leave_types"
-            referencedColumns: ["id"]
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
           },
           {
-            foreignKeyName: "leave_requests_user_id_fkey"
-            columns: ["user_id"]
+            foreignKeyName: 'leave_requests_leave_type_id_fkey'
+            columns: ['leave_type_id']
             isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
+            referencedRelation: 'leave_types'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'leave_requests_user_id_fkey'
+            columns: ['user_id']
+            isOneToOne: false
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
           },
         ]
       }
@@ -1190,18 +1435,59 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "lifecycle_events_created_by_fkey"
-            columns: ["created_by"]
+            foreignKeyName: 'lifecycle_events_created_by_fkey'
+            columns: ['created_by']
             isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
           },
           {
-            foreignKeyName: "lifecycle_events_employee_id_fkey"
-            columns: ["employee_id"]
+            foreignKeyName: 'lifecycle_events_employee_id_fkey'
+            columns: ['employee_id']
             isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      master_audit_log: {
+        Row: {
+          action: string
+          changed_at: string
+          changed_by: string | null
+          id: number
+          master_type: string
+          new_value: Json | null
+          old_value: Json | null
+          record_id: string
+        }
+        Insert: {
+          action: string
+          changed_at?: string
+          changed_by?: string | null
+          id?: number
+          master_type: string
+          new_value?: Json | null
+          old_value?: Json | null
+          record_id: string
+        }
+        Update: {
+          action?: string
+          changed_at?: string
+          changed_by?: string | null
+          id?: number
+          master_type?: string
+          new_value?: Json | null
+          old_value?: Json | null
+          record_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'master_audit_log_changed_by_fkey'
+            columns: ['changed_by']
+            isOneToOne: false
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
           },
         ]
       }
@@ -1235,11 +1521,11 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "loans_advances_user_id_fkey"
-            columns: ["user_id"]
+            foreignKeyName: 'loans_advances_user_id_fkey'
+            columns: ['user_id']
             isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
           },
         ]
       }
@@ -1267,18 +1553,18 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "meeting_invitees_meeting_id_fkey"
-            columns: ["meeting_id"]
+            foreignKeyName: 'meeting_invitees_meeting_id_fkey'
+            columns: ['meeting_id']
             isOneToOne: false
-            referencedRelation: "meetings"
-            referencedColumns: ["id"]
+            referencedRelation: 'meetings'
+            referencedColumns: ['id']
           },
           {
-            foreignKeyName: "meeting_invitees_user_id_fkey"
-            columns: ["user_id"]
+            foreignKeyName: 'meeting_invitees_user_id_fkey'
+            columns: ['user_id']
             isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
           },
         ]
       }
@@ -1318,11 +1604,11 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "meetings_host_id_fkey"
-            columns: ["host_id"]
+            foreignKeyName: 'meetings_host_id_fkey'
+            columns: ['host_id']
             isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
           },
         ]
       }
@@ -1368,11 +1654,11 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "onboarding_employee_id_fkey"
-            columns: ["employee_id"]
+            foreignKeyName: 'onboarding_employee_id_fkey'
+            columns: ['employee_id']
             isOneToOne: true
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
           },
         ]
       }
@@ -1406,11 +1692,11 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "onboarding_items_onboarding_id_fkey"
-            columns: ["onboarding_id"]
+            foreignKeyName: 'onboarding_items_onboarding_id_fkey'
+            columns: ['onboarding_id']
             isOneToOne: false
-            referencedRelation: "onboarding"
-            referencedColumns: ["id"]
+            referencedRelation: 'onboarding'
+            referencedColumns: ['id']
           },
         ]
       }
@@ -1438,6 +1724,42 @@ export type Database = {
           doc_type?: string
           id?: string
           title?: string
+        }
+        Relationships: []
+      }
+      payslip_templates: {
+        Row: {
+          body_template: string
+          created_at: string
+          footer: string | null
+          id: string
+          is_default: boolean
+          letterhead: string | null
+          logo_url: string | null
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          body_template?: string
+          created_at?: string
+          footer?: string | null
+          id?: string
+          is_default?: boolean
+          letterhead?: string | null
+          logo_url?: string | null
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          body_template?: string
+          created_at?: string
+          footer?: string | null
+          id?: string
+          is_default?: boolean
+          letterhead?: string | null
+          logo_url?: string | null
+          name?: string
+          updated_at?: string
         }
         Relationships: []
       }
@@ -1501,18 +1823,18 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "planning_compliance_unlocked_by_fkey"
-            columns: ["unlocked_by"]
+            foreignKeyName: 'planning_compliance_unlocked_by_fkey'
+            columns: ['unlocked_by']
             isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
           },
           {
-            foreignKeyName: "planning_compliance_user_id_fkey"
-            columns: ["user_id"]
+            foreignKeyName: 'planning_compliance_user_id_fkey'
+            columns: ['user_id']
             isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
           },
         ]
       }
@@ -1570,18 +1892,18 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "planning_unlock_history_unlocked_by_fkey"
-            columns: ["unlocked_by"]
+            foreignKeyName: 'planning_unlock_history_unlocked_by_fkey'
+            columns: ['unlocked_by']
             isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
           },
           {
-            foreignKeyName: "planning_unlock_history_user_id_fkey"
-            columns: ["user_id"]
+            foreignKeyName: 'planning_unlock_history_user_id_fkey'
+            columns: ['user_id']
             isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
           },
         ]
       }
@@ -1612,18 +1934,18 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "planning_history_changed_by_fkey"
-            columns: ["changed_by"]
+            foreignKeyName: 'planning_history_changed_by_fkey'
+            columns: ['changed_by']
             isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
           },
           {
-            foreignKeyName: "planning_history_slot_id_fkey"
-            columns: ["slot_id"]
+            foreignKeyName: 'planning_history_slot_id_fkey'
+            columns: ['slot_id']
             isOneToOne: false
-            referencedRelation: "planning_slots"
-            referencedColumns: ["id"]
+            referencedRelation: 'planning_slots'
+            referencedColumns: ['id']
           },
         ]
       }
@@ -1640,6 +1962,7 @@ export type Database = {
           slot_index: number
           slot_label: string
           start_time: string | null
+          task_id: string | null
           task_name: string
           updated_at: string
           user_id: string
@@ -1656,6 +1979,7 @@ export type Database = {
           slot_index: number
           slot_label: string
           start_time?: string | null
+          task_id?: string | null
           task_name?: string
           updated_at?: string
           user_id: string
@@ -1672,19 +1996,54 @@ export type Database = {
           slot_index?: number
           slot_label?: string
           start_time?: string | null
+          task_id?: string | null
           task_name?: string
           updated_at?: string
           user_id?: string
         }
         Relationships: [
           {
-            foreignKeyName: "planning_slots_user_id_fkey"
-            columns: ["user_id"]
+            foreignKeyName: 'planning_slots_task_id_fkey'
+            columns: ['task_id']
             isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
+            referencedRelation: 'tasks'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'planning_slots_user_id_fkey'
+            columns: ['user_id']
+            isOneToOne: false
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
           },
         ]
+      }
+      policy_categories: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          name: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: []
       }
       policies: {
         Row: {
@@ -1740,18 +2099,18 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "policy_acknowledgements_policy_version_id_fkey"
-            columns: ["policy_version_id"]
+            foreignKeyName: 'policy_acknowledgements_policy_version_id_fkey'
+            columns: ['policy_version_id']
             isOneToOne: false
-            referencedRelation: "policy_versions"
-            referencedColumns: ["id"]
+            referencedRelation: 'policy_versions'
+            referencedColumns: ['id']
           },
           {
-            foreignKeyName: "policy_acknowledgements_user_id_fkey"
-            columns: ["user_id"]
+            foreignKeyName: 'policy_acknowledgements_user_id_fkey'
+            columns: ['user_id']
             isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
           },
         ]
       }
@@ -1785,23 +2144,24 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "policy_versions_created_by_fkey"
-            columns: ["created_by"]
+            foreignKeyName: 'policy_versions_created_by_fkey'
+            columns: ['created_by']
             isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
           },
           {
-            foreignKeyName: "policy_versions_policy_id_fkey"
-            columns: ["policy_id"]
+            foreignKeyName: 'policy_versions_policy_id_fkey'
+            columns: ['policy_id']
             isOneToOne: false
-            referencedRelation: "policies"
-            referencedColumns: ["id"]
+            referencedRelation: 'policies'
+            referencedColumns: ['id']
           },
         ]
       }
       profiles: {
         Row: {
+          avatar_url: string | null
           created_at: string
           department_id: string | null
           email: string
@@ -1813,8 +2173,10 @@ export type Database = {
           status: string
           team_id: string | null
           updated_at: string
+          task_capacity: number | null
         }
         Insert: {
+          avatar_url?: string | null
           created_at?: string
           department_id?: string | null
           email: string
@@ -1826,8 +2188,10 @@ export type Database = {
           status?: string
           team_id?: string | null
           updated_at?: string
+          task_capacity?: number | null
         }
         Update: {
+          avatar_url?: string | null
           created_at?: string
           department_id?: string | null
           email?: string
@@ -1839,28 +2203,29 @@ export type Database = {
           status?: string
           team_id?: string | null
           updated_at?: string
+          task_capacity?: number | null
         }
         Relationships: [
           {
-            foreignKeyName: "profiles_department_id_fkey"
-            columns: ["department_id"]
+            foreignKeyName: 'profiles_department_id_fkey'
+            columns: ['department_id']
             isOneToOne: false
-            referencedRelation: "departments"
-            referencedColumns: ["id"]
+            referencedRelation: 'departments'
+            referencedColumns: ['id']
           },
           {
-            foreignKeyName: "profiles_reporting_manager_id_fkey"
-            columns: ["reporting_manager_id"]
+            foreignKeyName: 'profiles_reporting_manager_id_fkey'
+            columns: ['reporting_manager_id']
             isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
           },
           {
-            foreignKeyName: "profiles_team_id_fkey"
-            columns: ["team_id"]
+            foreignKeyName: 'profiles_team_id_fkey'
+            columns: ['team_id']
             isOneToOne: false
-            referencedRelation: "teams"
-            referencedColumns: ["id"]
+            referencedRelation: 'teams'
+            referencedColumns: ['id']
           },
         ]
       }
@@ -1894,18 +2259,18 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "recognitions_awarded_by_fkey"
-            columns: ["awarded_by"]
+            foreignKeyName: 'recognitions_awarded_by_fkey'
+            columns: ['awarded_by']
             isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
           },
           {
-            foreignKeyName: "recognitions_employee_id_fkey"
-            columns: ["employee_id"]
+            foreignKeyName: 'recognitions_employee_id_fkey'
+            columns: ['employee_id']
             isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
           },
         ]
       }
@@ -1942,13 +2307,60 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "resignations_employee_id_fkey"
-            columns: ["employee_id"]
+            foreignKeyName: 'resignations_employee_id_fkey'
+            columns: ['employee_id']
             isOneToOne: true
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
           },
         ]
+      }
+      sidebar_preferences: {
+        Row: {
+          collapsed: boolean
+          created_at: string
+          hidden_items: string[]
+          item_order: string[]
+          updated_at: string
+          user_id: string
+          view_mode: string
+          collapsed_groups: string[]
+        }
+        Insert: {
+          collapsed?: boolean
+          created_at?: string
+          hidden_items?: string[]
+          item_order?: string[]
+          updated_at?: string
+          user_id: string
+          view_mode: string
+          collapsed_groups?: string[]
+        }
+        Update: {
+          collapsed?: boolean
+          created_at?: string
+          hidden_items?: string[]
+          item_order?: string[]
+          updated_at?: string
+          user_id?: string
+          view_mode?: string
+          collapsed_groups?: string[]
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'sidebar_preferences_user_id_fkey'
+            columns: ['user_id']
+            isOneToOne: false
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      role_field_access: {
+        Row: { field_key: string; is_visible: boolean; module: string; role_id: string }
+        Insert: { field_key: string; is_visible?: boolean; module: string; role_id: string }
+        Update: { field_key?: string; is_visible?: boolean; module?: string; role_id?: string }
+        Relationships: []
       }
       role_permissions: {
         Row: {
@@ -1971,18 +2383,18 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "role_permissions_permission_id_fkey"
-            columns: ["permission_id"]
+            foreignKeyName: 'role_permissions_permission_id_fkey'
+            columns: ['permission_id']
             isOneToOne: false
-            referencedRelation: "permissions"
-            referencedColumns: ["id"]
+            referencedRelation: 'permissions'
+            referencedColumns: ['id']
           },
           {
-            foreignKeyName: "role_permissions_role_id_fkey"
-            columns: ["role_id"]
+            foreignKeyName: 'role_permissions_role_id_fkey'
+            columns: ['role_id']
             isOneToOne: false
-            referencedRelation: "roles"
-            referencedColumns: ["id"]
+            referencedRelation: 'roles'
+            referencedColumns: ['id']
           },
         ]
       }
@@ -2049,18 +2461,18 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "salary_adjustments_created_by_fkey"
-            columns: ["created_by"]
+            foreignKeyName: 'salary_adjustments_created_by_fkey'
+            columns: ['created_by']
             isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
           },
           {
-            foreignKeyName: "salary_adjustments_user_id_fkey"
-            columns: ["user_id"]
+            foreignKeyName: 'salary_adjustments_user_id_fkey'
+            columns: ['user_id']
             isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
           },
         ]
       }
@@ -2136,11 +2548,11 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "salary_profiles_user_id_fkey"
-            columns: ["user_id"]
+            foreignKeyName: 'salary_profiles_user_id_fkey'
+            columns: ['user_id']
             isOneToOne: true
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
           },
         ]
       }
@@ -2231,18 +2643,18 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "salary_runs_computed_by_fkey"
-            columns: ["computed_by"]
+            foreignKeyName: 'salary_runs_computed_by_fkey'
+            columns: ['computed_by']
             isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
           },
           {
-            foreignKeyName: "salary_runs_user_id_fkey"
-            columns: ["user_id"]
+            foreignKeyName: 'salary_runs_user_id_fkey'
+            columns: ['user_id']
             isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
           },
         ]
       }
@@ -2276,11 +2688,11 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "screenshots_user_id_fkey"
-            columns: ["user_id"]
+            foreignKeyName: 'screenshots_user_id_fkey'
+            columns: ['user_id']
             isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
           },
         ]
       }
@@ -2308,18 +2720,18 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "task_remarks_author_id_fkey"
-            columns: ["author_id"]
+            foreignKeyName: 'task_remarks_author_id_fkey'
+            columns: ['author_id']
             isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
           },
           {
-            foreignKeyName: "task_remarks_task_id_fkey"
-            columns: ["task_id"]
+            foreignKeyName: 'task_remarks_task_id_fkey'
+            columns: ['task_id']
             isOneToOne: false
-            referencedRelation: "tasks"
-            referencedColumns: ["id"]
+            referencedRelation: 'tasks'
+            referencedColumns: ['id']
           },
         ]
       }
@@ -2353,32 +2765,70 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "task_status_history_changed_by_fkey"
-            columns: ["changed_by"]
+            foreignKeyName: 'task_status_history_changed_by_fkey'
+            columns: ['changed_by']
             isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
           },
           {
-            foreignKeyName: "task_status_history_from_status_id_fkey"
-            columns: ["from_status_id"]
+            foreignKeyName: 'task_status_history_from_status_id_fkey'
+            columns: ['from_status_id']
             isOneToOne: false
-            referencedRelation: "task_statuses"
-            referencedColumns: ["id"]
+            referencedRelation: 'task_statuses'
+            referencedColumns: ['id']
           },
           {
-            foreignKeyName: "task_status_history_task_id_fkey"
-            columns: ["task_id"]
+            foreignKeyName: 'task_status_history_task_id_fkey'
+            columns: ['task_id']
             isOneToOne: false
-            referencedRelation: "tasks"
-            referencedColumns: ["id"]
+            referencedRelation: 'tasks'
+            referencedColumns: ['id']
           },
           {
-            foreignKeyName: "task_status_history_to_status_id_fkey"
-            columns: ["to_status_id"]
+            foreignKeyName: 'task_status_history_to_status_id_fkey'
+            columns: ['to_status_id']
             isOneToOne: false
-            referencedRelation: "task_statuses"
-            referencedColumns: ["id"]
+            referencedRelation: 'task_statuses'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      task_categories: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          is_active: boolean
+          name: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'task_categories_created_by_fkey'
+            columns: ['created_by']
+            isOneToOne: false
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
           },
         ]
       }
@@ -2412,9 +2862,28 @@ export type Database = {
         }
         Relationships: []
       }
+      task_policy: {
+        Row: {
+          default_task_capacity: number
+          id: boolean
+          updated_at: string
+        }
+        Insert: {
+          default_task_capacity?: number
+          id?: boolean
+          updated_at?: string
+        }
+        Update: {
+          default_task_capacity?: number
+          id?: boolean
+          updated_at?: string
+        }
+        Relationships: []
+      }
       tasks: {
         Row: {
           assignee_id: string | null
+          category_id: string | null
           created_at: string
           created_by: string
           description: string | null
@@ -2428,9 +2897,17 @@ export type Database = {
           updated_at: string
           completed_at: string | null
           progress_percent: number
+          accepted_at: string | null
+          rejected_at: string | null
+          submitted_at: string | null
+          approved_at: string | null
+          approved_by: string | null
+          rejection_reason: string | null
+          rework_reason: string | null
         }
         Insert: {
           assignee_id?: string | null
+          category_id?: string | null
           created_at?: string
           created_by: string
           description?: string | null
@@ -2444,9 +2921,17 @@ export type Database = {
           updated_at?: string
           completed_at?: string | null
           progress_percent?: number
+          accepted_at?: string | null
+          rejected_at?: string | null
+          submitted_at?: string | null
+          approved_at?: string | null
+          approved_by?: string | null
+          rejection_reason?: string | null
+          rework_reason?: string | null
         }
         Update: {
           assignee_id?: string | null
+          category_id?: string | null
           created_at?: string
           created_by?: string
           description?: string | null
@@ -2460,28 +2945,42 @@ export type Database = {
           updated_at?: string
           completed_at?: string | null
           progress_percent?: number
+          accepted_at?: string | null
+          rejected_at?: string | null
+          submitted_at?: string | null
+          approved_at?: string | null
+          approved_by?: string | null
+          rejection_reason?: string | null
+          rework_reason?: string | null
         }
         Relationships: [
           {
-            foreignKeyName: "tasks_assignee_id_fkey"
-            columns: ["assignee_id"]
+            foreignKeyName: 'tasks_assignee_id_fkey'
+            columns: ['assignee_id']
             isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
           },
           {
-            foreignKeyName: "tasks_created_by_fkey"
-            columns: ["created_by"]
+            foreignKeyName: 'tasks_category_id_fkey'
+            columns: ['category_id']
             isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
+            referencedRelation: 'task_categories'
+            referencedColumns: ['id']
           },
           {
-            foreignKeyName: "tasks_status_id_fkey"
-            columns: ["status_id"]
+            foreignKeyName: 'tasks_created_by_fkey'
+            columns: ['created_by']
             isOneToOne: false
-            referencedRelation: "task_statuses"
-            referencedColumns: ["id"]
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'tasks_status_id_fkey'
+            columns: ['status_id']
+            isOneToOne: false
+            referencedRelation: 'task_statuses'
+            referencedColumns: ['id']
           },
         ]
       }
@@ -2512,18 +3011,18 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "teams_department_id_fkey"
-            columns: ["department_id"]
+            foreignKeyName: 'teams_department_id_fkey'
+            columns: ['department_id']
             isOneToOne: false
-            referencedRelation: "departments"
-            referencedColumns: ["id"]
+            referencedRelation: 'departments'
+            referencedColumns: ['id']
           },
           {
-            foreignKeyName: "teams_reporting_manager_id_fkey"
-            columns: ["reporting_manager_id"]
+            foreignKeyName: 'teams_reporting_manager_id_fkey'
+            columns: ['reporting_manager_id']
             isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
           },
         ]
       }
@@ -2554,23 +3053,24 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "ticket_updates_author_id_fkey"
-            columns: ["author_id"]
+            foreignKeyName: 'ticket_updates_author_id_fkey'
+            columns: ['author_id']
             isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
           },
           {
-            foreignKeyName: "ticket_updates_ticket_id_fkey"
-            columns: ["ticket_id"]
+            foreignKeyName: 'ticket_updates_ticket_id_fkey'
+            columns: ['ticket_id']
             isOneToOne: false
-            referencedRelation: "tickets"
-            referencedColumns: ["id"]
+            referencedRelation: 'tickets'
+            referencedColumns: ['id']
           },
         ]
       }
       tickets: {
         Row: {
+          closed_at: string | null
           assigned_to: string | null
           category: string
           created_at: string
@@ -2585,6 +3085,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          closed_at?: string | null
           assigned_to?: string | null
           category: string
           created_at?: string
@@ -2599,6 +3100,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          closed_at?: string | null
           assigned_to?: string | null
           category?: string
           created_at?: string
@@ -2614,23 +3116,26 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "tickets_assigned_to_fkey"
-            columns: ["assigned_to"]
+            foreignKeyName: 'tickets_assigned_to_fkey'
+            columns: ['assigned_to']
             isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
           },
           {
-            foreignKeyName: "tickets_raised_by_fkey"
-            columns: ["raised_by"]
+            foreignKeyName: 'tickets_raised_by_fkey'
+            columns: ['raised_by']
             isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
           },
         ]
       }
       training_assignments: {
         Row: {
+          assessment_result: string | null
+          assessment_score: number | null
+          certificate_issued: boolean
           acknowledged_at: string | null
           assigned_at: string
           assigned_by: string | null
@@ -2641,6 +3146,9 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          assessment_result?: string | null
+          assessment_score?: number | null
+          certificate_issued?: boolean
           acknowledged_at?: string | null
           assigned_at?: string
           assigned_by?: string | null
@@ -2651,6 +3159,9 @@ export type Database = {
           user_id: string
         }
         Update: {
+          assessment_result?: string | null
+          assessment_score?: number | null
+          certificate_issued?: boolean
           acknowledged_at?: string | null
           assigned_at?: string
           assigned_by?: string | null
@@ -2662,25 +3173,25 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "training_assignments_assigned_by_fkey"
-            columns: ["assigned_by"]
+            foreignKeyName: 'training_assignments_assigned_by_fkey'
+            columns: ['assigned_by']
             isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
           },
           {
-            foreignKeyName: "training_assignments_module_id_fkey"
-            columns: ["module_id"]
+            foreignKeyName: 'training_assignments_module_id_fkey'
+            columns: ['module_id']
             isOneToOne: false
-            referencedRelation: "training_modules"
-            referencedColumns: ["id"]
+            referencedRelation: 'training_modules'
+            referencedColumns: ['id']
           },
           {
-            foreignKeyName: "training_assignments_user_id_fkey"
-            columns: ["user_id"]
+            foreignKeyName: 'training_assignments_user_id_fkey'
+            columns: ['user_id']
             isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
           },
         ]
       }
@@ -2708,11 +3219,11 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "training_attachments_module_id_fkey"
-            columns: ["module_id"]
+            foreignKeyName: 'training_attachments_module_id_fkey'
+            columns: ['module_id']
             isOneToOne: false
-            referencedRelation: "training_modules"
-            referencedColumns: ["id"]
+            referencedRelation: 'training_modules'
+            referencedColumns: ['id']
           },
         ]
       }
@@ -2743,13 +3254,19 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "training_modules_created_by_fkey"
-            columns: ["created_by"]
+            foreignKeyName: 'training_modules_created_by_fkey'
+            columns: ['created_by']
             isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
           },
         ]
+      }
+      user_field_access: {
+        Row: { field_key: string; is_visible: boolean; module: string; user_id: string }
+        Insert: { field_key: string; is_visible?: boolean; module: string; user_id: string }
+        Update: { field_key?: string; is_visible?: boolean; module?: string; user_id?: string }
+        Relationships: []
       }
       user_roles: {
         Row: {
@@ -2772,18 +3289,18 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "user_roles_role_id_fkey"
-            columns: ["role_id"]
+            foreignKeyName: 'user_roles_role_id_fkey'
+            columns: ['role_id']
             isOneToOne: false
-            referencedRelation: "roles"
-            referencedColumns: ["id"]
+            referencedRelation: 'roles'
+            referencedColumns: ['id']
           },
           {
-            foreignKeyName: "user_roles_user_id_fkey"
-            columns: ["user_id"]
+            foreignKeyName: 'user_roles_user_id_fkey'
+            columns: ['user_id']
             isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
           },
         ]
       }
@@ -2826,16 +3343,17 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "visitors_host_id_fkey"
-            columns: ["host_id"]
+            foreignKeyName: 'visitors_host_id_fkey'
+            columns: ['host_id']
             isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
           },
         ]
       }
       workflow_definitions: {
         Row: {
+          description: string | null
           created_at: string
           entity_type: string
           id: string
@@ -2844,6 +3362,7 @@ export type Database = {
           owner_id: string | null
         }
         Insert: {
+          description?: string | null
           created_at?: string
           entity_type?: string
           id?: string
@@ -2852,6 +3371,7 @@ export type Database = {
           owner_id?: string | null
         }
         Update: {
+          description?: string | null
           created_at?: string
           entity_type?: string
           id?: string
@@ -2861,11 +3381,11 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "workflow_definitions_owner_id_fkey"
-            columns: ["owner_id"]
+            foreignKeyName: 'workflow_definitions_owner_id_fkey'
+            columns: ['owner_id']
             isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
           },
         ]
       }
@@ -2890,11 +3410,11 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "workflow_steps_definition_id_fkey"
-            columns: ["definition_id"]
+            foreignKeyName: 'workflow_steps_definition_id_fkey'
+            columns: ['definition_id']
             isOneToOne: false
-            referencedRelation: "workflow_definitions"
-            referencedColumns: ["id"]
+            referencedRelation: 'workflow_definitions'
+            referencedColumns: ['id']
           },
         ]
       }
@@ -2946,6 +3466,11 @@ export type Database = {
         Args: { p_decision: string; p_remarks?: string; p_request: string }
         Returns: Json
       }
+      log_document_download: { Args: { p_document: string }; Returns: Json }
+      delete_leave_request: {
+        Args: { p_reason?: string; p_request: string }
+        Returns: Json
+      }
       directory: {
         Args: never
         Returns: {
@@ -2963,6 +3488,10 @@ export type Database = {
       is_meeting_host: { Args: { p_meeting: string }; Returns: boolean }
       is_meeting_invitee: { Args: { p_meeting: string }; Returns: boolean }
       my_permissions: { Args: never; Returns: string[] }
+      my_allowed_fields: {
+        Args: { p_module: string }
+        Returns: { field_key: string; is_visible: boolean }[]
+      }
       my_roles: { Args: never; Returns: string[] }
       planning_day_fully_planned: {
         Args: { p_date: string; p_user: string }
@@ -2996,6 +3525,15 @@ export type Database = {
         Returns: Json
       }
       start_onboarding: { Args: { p_employee: string }; Returns: Json }
+      nearest_attendance_location: {
+        Args: { p_lat: number; p_lng: number }
+        Returns: {
+          location_id: string | null
+          name: string
+          distance_m: number
+          radius_m: number
+        }[]
+      }
       planning_compliant_days: {
         Args: { p_from: string; p_to: string; p_user: string }
         Returns: string[]
@@ -3008,8 +3546,36 @@ export type Database = {
         Args: { p_remarks: string; p_user: string }
         Returns: Json
       }
+      accept_task: {
+        Args: { p_remarks?: string | null; p_task: string }
+        Returns: Json
+      }
+      approve_task: {
+        Args: { p_remarks?: string | null; p_task: string }
+        Returns: Json
+      }
+      effective_task_capacity: { Args: { p_user: string }; Returns: number }
+      is_task_approver_for: { Args: { p_task: string; p_user: string }; Returns: boolean }
+      open_task_count: { Args: { p_user: string }; Returns: number }
+      reject_task: {
+        Args: { p_reason: string; p_task: string }
+        Returns: Json
+      }
+      rework_task: {
+        Args: { p_reason: string; p_task: string }
+        Returns: Json
+      }
+      start_task: { Args: { p_task: string }; Returns: Json }
+      submit_task: {
+        Args: { p_remarks?: string | null; p_task: string }
+        Returns: Json
+      }
       update_task_progress: {
         Args: { p_percent: number; p_task: string }
+        Returns: Json
+      }
+      update_employee_appraisal_feedback: {
+        Args: { p_appraisal: string; p_feedback: string }
         Returns: Json
       }
       update_task_status: {
@@ -3026,33 +3592,31 @@ export type Database = {
   }
 }
 
-type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">
+type DatabaseWithoutInternals = Omit<Database, '__InternalSupabase'>
 
-type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "public">]
+type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, 'public'>]
 
 export type Tables<
   DefaultSchemaTableNameOrOptions extends
-    | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
+    | keyof (DefaultSchema['Tables'] & DefaultSchema['Views'])
     | { schema: keyof DatabaseWithoutInternals },
   TableName extends DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
-    ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
-        DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
+    ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions['schema']]['Tables'] &
+        DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions['schema']]['Views'])
     : never = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
-  ? (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
-      DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
+  ? (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions['schema']]['Tables'] &
+      DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions['schema']]['Views'])[TableName] extends {
       Row: infer R
     }
     ? R
     : never
-  : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema["Tables"] &
-        DefaultSchema["Views"])
-    ? (DefaultSchema["Tables"] &
-        DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
+  : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema['Tables'] & DefaultSchema['Views'])
+    ? (DefaultSchema['Tables'] & DefaultSchema['Views'])[DefaultSchemaTableNameOrOptions] extends {
         Row: infer R
       }
       ? R
@@ -3061,23 +3625,23 @@ export type Tables<
 
 export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
-    | keyof DefaultSchema["Tables"]
+    | keyof DefaultSchema['Tables']
     | { schema: keyof DatabaseWithoutInternals },
   TableName extends DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
-    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions['schema']]['Tables']
     : never = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
-  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions['schema']]['Tables'][TableName] extends {
       Insert: infer I
     }
     ? I
     : never
-  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
-    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema['Tables']
+    ? DefaultSchema['Tables'][DefaultSchemaTableNameOrOptions] extends {
         Insert: infer I
       }
       ? I
@@ -3086,23 +3650,23 @@ export type TablesInsert<
 
 export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
-    | keyof DefaultSchema["Tables"]
+    | keyof DefaultSchema['Tables']
     | { schema: keyof DatabaseWithoutInternals },
   TableName extends DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
-    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions['schema']]['Tables']
     : never = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
-  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions['schema']]['Tables'][TableName] extends {
       Update: infer U
     }
     ? U
     : never
-  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
-    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema['Tables']
+    ? DefaultSchema['Tables'][DefaultSchemaTableNameOrOptions] extends {
         Update: infer U
       }
       ? U
@@ -3111,36 +3675,36 @@ export type TablesUpdate<
 
 export type Enums<
   DefaultSchemaEnumNameOrOptions extends
-    | keyof DefaultSchema["Enums"]
+    | keyof DefaultSchema['Enums']
     | { schema: keyof DatabaseWithoutInternals },
   EnumName extends DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
-    ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
+    ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions['schema']]['Enums']
     : never = never,
 > = DefaultSchemaEnumNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
-  ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
-  : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema["Enums"]
-    ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
+  ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions['schema']]['Enums'][EnumName]
+  : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema['Enums']
+    ? DefaultSchema['Enums'][DefaultSchemaEnumNameOrOptions]
     : never
 
 export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
-    | keyof DefaultSchema["CompositeTypes"]
+    | keyof DefaultSchema['CompositeTypes']
     | { schema: keyof DatabaseWithoutInternals },
   CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
-    ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
+    ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions['schema']]['CompositeTypes']
     : never = never,
 > = PublicCompositeTypeNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
-  ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
-  : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
-    ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
+  ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions['schema']]['CompositeTypes'][CompositeTypeName]
+  : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema['CompositeTypes']
+    ? DefaultSchema['CompositeTypes'][PublicCompositeTypeNameOrOptions]
     : never
 
 export const Constants = {
@@ -3151,4 +3715,3 @@ export const Constants = {
     Enums: {},
   },
 } as const
-

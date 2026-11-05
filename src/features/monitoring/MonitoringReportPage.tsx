@@ -15,6 +15,7 @@ import { Label } from '@/components/ui/Label'
 import { Select } from '@/components/ui/Select'
 import { Table, Tbody, Td, Th, Thead } from '@/components/ui/Table'
 import { EmptyState } from '@/components/ui/EmptyState'
+import { formatDateTime } from '@/lib/format'
 
 export function MonitoringReportPage() {
   const { hasPermission } = useProfile()
@@ -30,9 +31,15 @@ export function MonitoringReportPage() {
 
   return (
     <div data-testid="monitoring-report-page">
-      <PageHeader title="Monitoring Reports" description="Daily / weekly / monthly screenshot captures." />
+      <PageHeader
+        title="Monitoring Reports"
+        description="Daily / weekly / monthly screenshot captures."
+      />
 
-      <div className="mb-4 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800" data-testid="report-limitation-note">
+      <div
+        className="mb-4 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800"
+        data-testid="report-limitation-note"
+      >
         <Info className="mt-0.5 size-4 shrink-0" />
         <p>
           Captures here are <strong>opt-in</strong> (consent-based). The interval below is the
@@ -45,7 +52,12 @@ export function MonitoringReportPage() {
       <div className="mb-4 flex flex-wrap items-end gap-3">
         <div>
           <Label className="text-xs">Period</Label>
-          <Select data-testid="monitoring-period" value={period} onChange={(e) => setPeriod(e.target.value as ReportPeriod)} className="w-36">
+          <Select
+            data-testid="monitoring-period"
+            value={period}
+            onChange={(e) => setPeriod(e.target.value as ReportPeriod)}
+            className="w-36"
+          >
             <option value="daily">Daily</option>
             <option value="weekly">Weekly</option>
             <option value="monthly">Monthly</option>
@@ -53,9 +65,18 @@ export function MonitoringReportPage() {
         </div>
         <div>
           <Label className="text-xs">Employee</Label>
-          <Select data-testid="monitoring-employee" value={employeeId} onChange={(e) => setEmployeeId(e.target.value)} className="w-48">
+          <Select
+            data-testid="monitoring-employee"
+            value={employeeId}
+            onChange={(e) => setEmployeeId(e.target.value)}
+            className="w-48"
+          >
             <option value="">All employees</option>
-            {users.map((u) => (<option key={u.id} value={u.id}>{u.full_name || u.email}</option>))}
+            {users.map((u) => (
+              <option key={u.id} value={u.id}>
+                {u.full_name || u.email}
+              </option>
+            ))}
           </Select>
         </div>
         {canConfig && config && (
@@ -65,10 +86,18 @@ export function MonitoringReportPage() {
               <Select
                 data-testid="monitoring-interval"
                 value={String(config.capture_interval_minutes)}
-                onChange={(e) => updateConfig.mutate(Number(e.target.value), { onSuccess: () => toast.success('Interval saved') })}
+                onChange={(e) =>
+                  updateConfig.mutate(Number(e.target.value), {
+                    onSuccess: () => toast.success('Interval saved'),
+                  })
+                }
                 className="w-28"
               >
-                {[10, 15, 20, 30].map((m) => (<option key={m} value={m}>{m} min</option>))}
+                {[10, 15, 20, 30].map((m) => (
+                  <option key={m} value={m}>
+                    {m} min
+                  </option>
+                ))}
               </Select>
             </div>
           </div>
@@ -93,9 +122,13 @@ export function MonitoringReportPage() {
                 <Td className="font-medium text-slate-900">
                   {c.profiles?.full_name || nameById.get(c.user_id) || '—'}
                 </Td>
-                <Td className="text-sm">{new Date(c.captured_at).toLocaleString()}</Td>
+                <Td className="text-sm">{formatDateTime(c.captured_at)}</Td>
                 <Td className="text-xs text-slate-500">{c.system_name}</Td>
-                <Td><Badge tone={c.activity_status === 'active' ? 'green' : 'slate'}>{c.activity_status}</Badge></Td>
+                <Td>
+                  <Badge tone={c.activity_status === 'active' ? 'green' : 'slate'}>
+                    {c.activity_status}
+                  </Badge>
+                </Td>
               </tr>
             ))}
           </Tbody>
