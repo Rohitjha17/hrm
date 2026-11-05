@@ -17,6 +17,20 @@ export function useCompanies() {
   })
 }
 
+export function useSaveCompany() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: { id?: string; name: string }) => {
+      if (!input.name.trim()) throw new Error('Company name is required')
+      const { error } = input.id
+        ? await supabase.from('companies').update({ name: input.name.trim() }).eq('id', input.id)
+        : await supabase.from('companies').insert({ name: input.name.trim() })
+      if (error) throw error
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['companies'] }),
+  })
+}
+
 export function useDepartments() {
   return useQuery({
     queryKey: ['departments'],

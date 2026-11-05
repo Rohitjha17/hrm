@@ -18,11 +18,13 @@ import { Label } from '@/components/ui/Label'
 import { Textarea } from '@/components/ui/Textarea'
 import { Modal } from '@/components/ui/Modal'
 import { EmptyState } from '@/components/ui/EmptyState'
+import { Select } from '@/components/ui/Select'
 
 const INVITE_TONE: Record<string, 'slate' | 'green' | 'red'> = {
   invited: 'slate',
   accepted: 'green',
-  declined: 'red',
+  rejected: 'red',
+  attended: 'green',
 }
 
 /** Internal meeting management — host meetings, invite colleagues, respond to invites. */
@@ -73,7 +75,7 @@ export function MeetingsSection() {
                     respond.mutate(
                       { inviteeRowId: rowId, status },
                       {
-                        onSuccess: () => toast.success(status === 'accepted' ? 'Invitation accepted' : 'Invitation declined'),
+                        onSuccess: () => toast.success('Meeting attendance updated'),
                         onError: (err) => toast.error('Failed', (err as Error).message),
                       },
                     )
@@ -95,7 +97,18 @@ export function MeetingsSection() {
               </summary>
               <div className="mt-3 grid gap-3 opacity-70 md:grid-cols-2">
                 {past.map((m) => (
-                  <MeetingCard key={m.id} meeting={m} meId={user?.id} nameById={nameById} />
+                  <MeetingCard
+                    key={m.id}
+                    meeting={m}
+                    meId={user?.id}
+                    nameById={nameById}
+                    onRespond={(rowId, status) =>
+                      respond.mutate(
+                        { inviteeRowId: rowId, status },
+                        { onSuccess: () => toast.success('Meeting attendance updated') },
+                      )
+                    }
+                  />
                 ))}
               </div>
             </details>
@@ -118,7 +131,10 @@ function MeetingCard({
   meeting: MeetingRow
   meId?: string
   nameById: Map<string, string>
-  onRespond?: (inviteeRowId: string, status: 'accepted' | 'declined') => void
+  onRespond?: (
+    inviteeRowId: string,
+    status: 'invited' | 'accepted' | 'rejected' | 'attended',
+  ) => void
   onDelete?: (meetingId: string) => void
 }) {
   const myInvite = meeting.meeting_invitees.find((i) => i.user_id === meId)
@@ -129,7 +145,9 @@ function MeetingCard({
       <CardBody className="space-y-2">
         <div className="flex items-start justify-between gap-2">
           <div>
-            <h3 className="font-semibold text-slate-900" data-testid="meeting-title">{meeting.title}</h3>
+            <h3 className="font-semibold text-slate-900" data-testid="meeting-title">
+              {meeting.title}
+            </h3>
             <p className="text-xs text-slate-500">
               Hosted by {isHost ? 'you' : (nameById.get(meeting.host_id) ?? '—')}
             </p>
@@ -156,24 +174,55 @@ function MeetingCard({
             target="_blank"
             rel="noreferrer noopener"
             data-testid="meeting-link"
-            className="inline-flex items-center gap-1 text-sm font-medium text-brand-600 hover:underline"
+            className="text-brand-600 inline-flex items-center gap-1 text-sm font-medium hover:underline"
           >
             <ExternalLink className="size-3.5" /> Join link
           </a>
         )}
         <div className="flex flex-wrap gap-1" data-testid="meeting-invitees">
-          {meeting.meeting_invitees.map((i) => (
-            <Badge key={i.id} tone={INVITE_TONE[i.status] ?? 'slate'}>
-              {nameById.get(i.user_id) ?? '—'} · {i.status}
-            </Badge>
-          ))}
+          {meeting.meeting_invitees.map((i) =>
+            isHost && onRespond ? (
+              <label key={i.id} className="flex items-center gap-1 text-xs">
+                {nameById.get(i.user_id) ?? '—'}
+                <Select
+                  value={i.status}
+                  onChange={(event) =>
+                    onRespond(
+                      i.id,
+                      event.target.value as 'invited' | 'accepted' | 'rejected' | 'attended',
+                    )
+                  }
+                  className="h-7 w-28"
+                >
+                  {['invited', 'accepted', 'rejected', 'attended'].map((status) => (
+                    <option key={status} value={status}>
+                      {status}
+                    </option>
+                  ))}
+                </Select>
+              </label>
+            ) : (
+              <Badge key={i.id} tone={INVITE_TONE[i.status] ?? 'slate'}>
+                {nameById.get(i.user_id) ?? '—'} · {i.status}
+              </Badge>
+            ),
+          )}
         </div>
         {myInvite && myInvite.status === 'invited' && onRespond && (
           <div className="flex gap-2 border-t border-slate-100 pt-2">
-            <Button size="sm" data-testid="accept-invite" onClick={() => onRespond(myInvite.id, 'accepted')}>
+            <Button
+              size="sm"
+              data-testid="accept-invite"
+              onClick={() => onRespond(myInvite.id, 'accepted')}
+            >
               <Check className="size-4" /> Accept
             </Button>
-            <Button size="sm" variant="outline" data-testid="decline-invite" onClick={() => onRespond(myInvite.id, 'declined')}>
+            <Button
+              size="sm"
+              variant="outline"
+              data-testid="decline-invite"
+              onClick={() => onRespond(myInvite.id, 'rejected')}
+            >
               <X className="size-4" /> Decline
             </Button>
           </div>
@@ -233,31 +282,69 @@ function HostMeetingModal({ onClose }: { onClose: () => void }) {
       >
         <div>
           <Label htmlFor="mt-title">Title</Label>
-          <Input id="mt-title" data-testid="meeting-title-input" value={title} onChange={(e) => setTitle(e.target.value)} required />
+          <Input
+            id="mt-title"
+            data-testid="meeting-title-input"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            required
+          />
         </div>
         <div>
           <Label htmlFor="mt-desc">Description</Label>
-          <Textarea id="mt-desc" data-testid="meeting-desc-input" rows={2} value={description} onChange={(e) => setDescription(e.target.value)} />
+          <Textarea
+            id="mt-desc"
+            data-testid="meeting-desc-input"
+            rows={2}
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+          />
         </div>
         <div>
           <Label htmlFor="mt-link">Meeting link</Label>
-          <Input id="mt-link" data-testid="meeting-link-input" type="url" placeholder="https://meet.example.com/…" value={link} onChange={(e) => setLink(e.target.value)} />
+          <Input
+            id="mt-link"
+            data-testid="meeting-link-input"
+            type="url"
+            placeholder="https://meet.example.com/…"
+            value={link}
+            onChange={(e) => setLink(e.target.value)}
+          />
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div>
             <Label htmlFor="mt-start">Starts</Label>
-            <Input id="mt-start" data-testid="meeting-start-input" type="datetime-local" value={startsAt} onChange={(e) => setStartsAt(e.target.value)} required />
+            <Input
+              id="mt-start"
+              data-testid="meeting-start-input"
+              type="datetime-local"
+              value={startsAt}
+              onChange={(e) => setStartsAt(e.target.value)}
+              required
+            />
           </div>
           <div>
             <Label htmlFor="mt-end">Ends (optional)</Label>
-            <Input id="mt-end" data-testid="meeting-end-input" type="datetime-local" value={endsAt} onChange={(e) => setEndsAt(e.target.value)} />
+            <Input
+              id="mt-end"
+              data-testid="meeting-end-input"
+              type="datetime-local"
+              value={endsAt}
+              onChange={(e) => setEndsAt(e.target.value)}
+            />
           </div>
         </div>
         <div>
           <Label>Invite colleagues</Label>
-          <div className="max-h-40 space-y-1 overflow-y-auto rounded-lg border border-slate-200 p-2" data-testid="invitee-picker">
+          <div
+            className="max-h-40 space-y-1 overflow-y-auto rounded-lg border border-slate-200 p-2"
+            data-testid="invitee-picker"
+          >
             {colleagues.map((c) => (
-              <label key={c.id} className="flex cursor-pointer items-center gap-2 rounded px-1 py-0.5 text-sm hover:bg-slate-50">
+              <label
+                key={c.id}
+                className="flex cursor-pointer items-center gap-2 rounded px-1 py-0.5 text-sm hover:bg-slate-50"
+              >
                 <input
                   type="checkbox"
                   data-testid={`invite-${c.email}`}
@@ -270,7 +357,9 @@ function HostMeetingModal({ onClose }: { onClose: () => void }) {
           </div>
         </div>
         <div className="flex justify-end gap-2">
-          <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
+          <Button type="button" variant="outline" onClick={onClose}>
+            Cancel
+          </Button>
           <Button type="submit" data-testid="create-meeting-submit" loading={create.isPending}>
             Create meeting
           </Button>

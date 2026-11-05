@@ -48,6 +48,7 @@ export function useUpsertSlot() {
       slotIndex: number
       slotLabel: string
       taskName: string
+      taskId?: string | null
       progress: number
       challenges?: string
       remarks?: string
@@ -62,6 +63,7 @@ export function useUpsertSlot() {
           slot_index: s.slotIndex,
           slot_label: s.slotLabel,
           task_name: s.taskName,
+          task_id: s.taskId || null,
           progress: s.progress,
           challenges: s.challenges || null,
           remarks: s.remarks || null,
@@ -243,9 +245,13 @@ export function usePlanningRealtime() {
         .on('postgres_changes', { event: '*', schema: 'public', table: 'planning_slots' }, () => {
           qc.invalidateQueries({ queryKey: ['admin-day-slots'] })
         })
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'planning_compliance' }, () => {
-          qc.invalidateQueries({ queryKey: ['punch-lock-overview'] })
-        })
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'planning_compliance' },
+          () => {
+            qc.invalidateQueries({ queryKey: ['punch-lock-overview'] })
+          },
+        )
         .subscribe()
     })()
     return () => {

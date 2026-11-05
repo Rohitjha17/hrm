@@ -61,10 +61,20 @@ export function useSteps(definitionId: string | null) {
 export function useCreateDefinition() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async (input: { name: string; entityType: string; ownerId: string }) => {
+    mutationFn: async (input: {
+      name: string
+      description: string
+      entityType: string
+      ownerId: string
+    }) => {
       const { data, error } = await supabase
         .from('workflow_definitions')
-        .insert({ name: input.name, entity_type: input.entityType, owner_id: input.ownerId })
+        .insert({
+          name: input.name,
+          description: input.description.trim() || null,
+          entity_type: input.entityType,
+          owner_id: input.ownerId,
+        })
         .select('id')
         .single()
       if (error) throw error

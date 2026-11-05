@@ -7,6 +7,8 @@ import {
   useRolePermissionIds,
   useRoles,
   useToggleRolePermission,
+  useRoleFieldAccess,
+  useSetRoleFieldAccess,
   type Permission,
 } from './hooks'
 import { useProfile } from '@/features/rbac/profile-context'
@@ -21,6 +23,25 @@ import { Label } from '@/components/ui/Label'
 import { Textarea } from '@/components/ui/Textarea'
 import { Checkbox } from '@/components/ui/Checkbox'
 import { cn } from '@/lib/cn'
+import { Select } from '@/components/ui/Select'
+
+const FIELD_CATALOG: Record<string, string[]> = {
+  attendance: ['date', 'status', 'firstIn', 'lastOut', 'worked', 'late', 'overtime', 'remarks'],
+  tasks: [
+    'title',
+    'assignee',
+    'assignor',
+    'status',
+    'priority',
+    'progress',
+    'created',
+    'due',
+    'completed',
+  ],
+  leave: ['employee', 'type', 'from', 'to', 'days', 'status', 'reason', 'remainingBalance'],
+  salary: ['month', 'employee', 'present', 'gross', 'net'],
+  appraisal: ['employee', 'cycle', 'attendance', 'task', 'planning', 'overall', 'finalRating'],
+}
 
 function slugify(s: string) {
   return s
@@ -43,6 +64,12 @@ export function RolesPage() {
   const toggle = useToggleRolePermission()
 
   const [modalOpen, setModalOpen] = useState(false)
+  const [fieldModule, setFieldModule] = useState('attendance')
+  const { data: fieldAccess = new Map<string, boolean>() } = useRoleFieldAccess(
+    selected?.id ?? null,
+    fieldModule,
+  )
+  const setFieldAccess = useSetRoleFieldAccess()
 
   const grouped = useMemo(() => {
     const map = new Map<string, Permission[]>()
@@ -98,14 +125,18 @@ export function RolesPage() {
                   <p className="text-sm text-slate-500">{selected.description || selected.slug}</p>
                 </div>
                 {canManage && !selected.is_system && (
-                  <DeleteRoleButton id={selected.id} slug={selected.slug} onDeleted={() => setSelectedId(null)} />
+                  <DeleteRoleButton
+                    id={selected.id}
+                    slug={selected.slug}
+                    onDeleted={() => setSelectedId(null)}
+                  />
                 )}
               </div>
 
               <div className="space-y-5">
                 {grouped.map(([category, perms]) => (
                   <div key={category}>
-                    <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
+                    <h3 className="mb-2 text-xs font-semibold tracking-wide text-slate-400 uppercase">
                       {category}
                     </h3>
                     <div className="grid gap-2 sm:grid-cols-2">
@@ -122,8 +153,15 @@ export function RolesPage() {
                             disabled={!canManage || toggle.isPending}
                             onChange={(e) =>
                               toggle.mutate(
-                                { roleId: selected.id, permissionId: p.id, enabled: e.target.checked },
-                                { onError: (err) => toast.error('Update failed', (err as Error).message) },
+                                {
+                                  roleId: selected.id,
+                                  permissionId: p.id,
+                                  enabled: e.target.checked,
+                                },
+                                {
+                                  onError: (err) =>
+                                    toast.error('Update failed', (err as Error).message),
+                                },
                               )
                             }
                           />
@@ -132,6 +170,45 @@ export function RolesPage() {
                     </div>
                   </div>
                 ))}
+              </div>
+              <div className="mt-6 border-t border-slate-200 pt-5">
+                <div className="mb-3 flex items-center justify-between gap-3">
+                  <div>
+                    <h3 className="font-semibold text-slate-900">Field visibility</h3>
+                    <p className="text-xs text-slate-500">
+                      Role-wise fields shown inside each module and report.
+                    </p>
+                  </div>
+                  <Select
+                    value={fieldModule}
+                    onChange={(event) => setFieldModule(event.target.value)}
+                    className="w-44"
+                  >
+                    {Object.keys(FIELD_CATALOG).map((module) => (
+                      <option key={module} value={module}>
+                        {module}
+                      </option>
+                    ))}
+                  </Select>
+                </div>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {FIELD_CATALOG[fieldModule].map((field) => (
+                    <Checkbox
+                      key={field}
+                      label={field}
+                      checked={fieldAccess.get(field) ?? true}
+                      disabled={!canManage || setFieldAccess.isPending}
+                      onChange={(event) =>
+                        setFieldAccess.mutate({
+                          roleId: selected.id,
+                          module: fieldModule,
+                          fieldKey: field,
+                          visible: event.target.checked,
+                        })
+                      }
+                    />
+                  ))}
+                </div>
               </div>
             </CardBody>
           </Card>

@@ -1,11 +1,12 @@
 import { useMemo, useState } from 'react'
-import { Eye, EyeOff, History, MessageSquarePlus, Plus, Settings2, Trash2 } from 'lucide-react'
+import { Check, CheckCheck, Eye, EyeOff, FolderOpen, History, MessageSquarePlus, Plus, Send, Settings2, Trash2, Undo2, X } from 'lucide-react'
 import {
   useCreateStatus,
   useCreateTask,
   useDeleteStatus,
   useDeleteTask,
   useTaskHistory,
+  useTaskCategories,
   useTaskStatuses,
   useTasks,
   useTasksRealtime,
@@ -14,8 +15,19 @@ import {
   useUpdateTaskStatus,
   useUpdateTaskDueDate,
   useUpdateTaskProgress,
+  useAcceptTask,
+  useRejectTask,
+  useStartTask,
+  useSubmitTask,
+  useApproveTask,
+  useReworkTask,
+  useOpenTaskCount,
+  useEffectiveCapacity,
+  useTaskPolicy,
+  useUpdateTaskPolicy,
   type TaskRow,
 } from './hooks'
+import { availableActions, styleForStatus } from './status-ui'
 import { useUsers } from '@/features/admin/users/hooks'
 import { useAuth } from '@/features/auth/auth-context'
 import { useProfile } from '@/features/rbac/profile-context'
@@ -33,6 +45,18 @@ import { Table, Tbody, Td, Th, Thead } from '@/components/ui/Table'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { cn } from '@/lib/cn'
 import { formatDate, formatDateTime } from '@/lib/format'
+import { getTaskDelay, type TaskDelayState } from './delay'
+
+// Due-date text colour reflects the state so overdue tasks pop in the list.
+const DUE_DATE_COLOUR: Record<TaskDelayState, string> = {
+  no_due_date: 'text-slate-400',
+  upcoming: 'text-emerald-600',
+  due_today: 'text-amber-600 font-medium',
+  overdue: 'text-red-600 font-semibold',
+  completed_on_time: 'text-emerald-600',
+  completed_late: 'text-red-600 font-medium',
+}
+const dueDateClass = (state: TaskDelayState) => DUE_DATE_COLOUR[state]
 
 const PRIORITY_TONE = { low: 'slate', medium: 'blue', high: 'red' } as const
 
@@ -56,6 +80,7 @@ export function TasksPage() {
   const [remarkTask, setRemarkTask] = useState<TaskRow | null>(null)
   const [manageOpen, setManageOpen] = useState(false)
   const [showCompleted, setShowCompleted] = useState(false)
+  const [groupBy, setGroupBy] = useState<'none' | 'project'>('none')
   const [confirmDeleteTask, setConfirmDeleteTask] = useState<TaskRow | null>(null)
   const deleteTask = useDeleteTask()
   const toast = useToast()
@@ -109,7 +134,11 @@ export function TasksPage() {
         actions={
           <div className="flex gap-2">
             {canManageStatuses && (
-              <Button variant="outline" data-testid="manage-statuses-button" onClick={() => setManageOpen(true)}>
+              <Button
+                variant="outline"
+                data-testid="manage-statuses-button"
+                onClick={() => setManageOpen(true)}
+              >
                 <Settings2 className="size-4" /> Statuses
               </Button>
             )}
@@ -130,7 +159,7 @@ export function TasksPage() {
                 onClick={() => setFilter(f)}
                 className={cn(
                   'rounded-md px-3 py-1 text-xs font-medium capitalize',
-                  filter === f ? 'bg-white text-brand-700 shadow-sm' : 'text-slate-500',
+                  filter === f ? 'text-brand-700 bg-white shadow-sm' : 'text-slate-500',
                 )}
               >
                 {f === 'mine' ? 'My tasks' : 'All tasks'}
@@ -151,6 +180,21 @@ export function TasksPage() {
           {showCompleted ? <EyeOff className="size-3.5" /> : <Eye className="size-3.5" />}
           {showCompleted ? 'Hide completed' : `Show completed (${completedCount})`}
         </button>
+        <button
+          data-testid="toggle-group-project"
+          onClick={() => setGroupBy((v) => (v === 'project' ? 'none' : 'project'))}
+          className={cn(
+            'inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium',
+            groupBy === 'project'
+              ? 'border-brand-200 bg-brand-50 text-brand-700'
+              : 'border-slate-200 bg-white text-slate-500 hover:text-slate-700',
+          )}
+        >
+          <FolderOpen className="size-3.5" />
+          {groupBy === 'project' ? 'Ungroup' : 'Group by project'}
+        </button>
+        <ApprovalsSummary tasks={visible} userId={user?.id} />
+        {user?.id && <CapacityCallout userId={user.id} />}
         <div className="flex items-center gap-2">
           <Label htmlFor="task-status-filter" className="mb-0 text-xs text-slate-500">
             Status
@@ -211,7 +255,7 @@ export function TasksPage() {
         {hasFilters && (
           <button
             data-testid="clear-task-filters"
-            className="text-xs font-medium text-brand-600 hover:underline"
+            className="text-brand-600 text-xs font-medium hover:underline"
             onClick={() => {
               setAssignorFilter('')
               setAssigneeFilter('')
@@ -225,7 +269,13 @@ export function TasksPage() {
 
       {!isLoading && visible.length === 0 ? (
         <EmptyState
-          title={hasFilters ? 'No tasks match these filters' : scoped.length > 0 ? 'No open tasks' : 'No tasks yet'}
+          title={
+            hasFilters
+              ? 'No tasks match these filters'
+              : scoped.length > 0
+                ? 'No open tasks'
+                : 'No tasks yet'
+          }
           description={
             hasFilters
               ? 'Change or clear the filters to see more tasks.'
@@ -256,8 +306,15 @@ export function TasksPage() {
                 <Td className="font-medium text-slate-900">
                   {t.title}
                   {t.due_date && (
-                    <div data-testid="task-due-date" className="text-xs font-normal text-slate-400">
-                      due {formatDate(t.due_date)}
+                    <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs font-normal">
+                      <span
+                        data-testid="task-due-date"
+                        data-delay={getTaskDelay(t.due_date, t.completed_at).state}
+                        className={dueDateClass(getTaskDelay(t.due_date, t.completed_at).state)}
+                      >
+                        due {formatDate(t.due_date)}
+                      </span>
+                      <TaskDelayBadge dueDate={t.due_date} completedAt={t.completed_at} />
                     </div>
                   )}
                   {t.remarks && (
@@ -270,7 +327,9 @@ export function TasksPage() {
                     </div>
                   )}
                 </Td>
-                <Td data-testid="task-assignee">{t.assignee?.full_name || t.assignee?.email || 'Unassigned'}</Td>
+                <Td data-testid="task-assignee">
+                  {t.assignee?.full_name || t.assignee?.email || 'Unassigned'}
+                </Td>
                 <Td className="text-slate-500">{t.creator?.full_name || t.creator?.email}</Td>
                 <Td data-testid="task-created-at" className="whitespace-nowrap text-slate-500">
                   {formatDate(t.created_at)}
@@ -279,13 +338,15 @@ export function TasksPage() {
                   {formatDate(t.completed_at) || '—'}
                 </Td>
                 <Td>
-                  <Badge tone={PRIORITY_TONE[t.priority as keyof typeof PRIORITY_TONE]}>{t.priority}</Badge>
+                  <Badge tone={PRIORITY_TONE[t.priority as keyof typeof PRIORITY_TONE]}>
+                    {t.priority}
+                  </Badge>
                 </Td>
                 <Td>
                   <div className="flex items-center gap-2" data-testid="task-progress">
                     <div className="h-1.5 w-16 overflow-hidden rounded-full bg-slate-100">
                       <div
-                        className="h-full rounded-full bg-brand-500"
+                        className="bg-brand-500 h-full rounded-full"
                         style={{ width: `${t.progress_percent}%` }}
                       />
                     </div>
@@ -293,16 +354,21 @@ export function TasksPage() {
                   </div>
                 </Td>
                 <Td>
-                  <Badge tone={t.status?.is_terminal ? 'green' : 'slate'} data-testid="task-status">
-                    {t.status?.name}
+                  <Badge
+                    className={styleForStatus(t.status?.slug).className}
+                    data-testid="task-status"
+                    data-status={t.status?.slug ?? ''}
+                  >
+                    {styleForStatus(t.status?.slug).label}
                   </Badge>
                 </Td>
                 <Td>
                   <div className="flex justify-end gap-1">
+                    <LifecycleActions task={t} userId={user!.id} canApproveAny={canManageStatuses} />
                     <button
                       data-testid="update-status-button"
                       aria-label={`Update status of ${t.title}`}
-                      className="rounded-md px-2 py-1 text-xs font-medium text-brand-600 hover:bg-brand-50"
+                      className="text-brand-600 hover:bg-brand-50 rounded-md px-2 py-1 text-xs font-medium"
                       onClick={() => setStatusTask(t)}
                     >
                       Update
@@ -310,7 +376,7 @@ export function TasksPage() {
                     <button
                       data-testid="task-remark-button"
                       aria-label={`Remarks for ${t.title}`}
-                      className="rounded-md p-1 text-slate-400 hover:text-brand-600"
+                      className="hover:text-brand-600 rounded-md p-1 text-slate-400"
                       onClick={() => setRemarkTask(t)}
                     >
                       <MessageSquarePlus className="size-4" />
@@ -341,7 +407,9 @@ export function TasksPage() {
         </Table>
       )}
 
-      {newOpen && <NewTaskModal onClose={() => setNewOpen(false)} canAssign={canAssign} userId={user!.id} />}
+      {newOpen && (
+        <NewTaskModal onClose={() => setNewOpen(false)} canAssign={canAssign} userId={user!.id} />
+      )}
       {statusTask && <StatusModal task={statusTask} onClose={() => setStatusTask(null)} />}
       {remarkTask && <RemarkModal task={remarkTask} onClose={() => setRemarkTask(null)} />}
       {historyTask && <HistoryModal task={historyTask} onClose={() => setHistoryTask(null)} />}
@@ -388,11 +456,18 @@ function NewTaskModal({
   const toast = useToast()
   const { data: statuses = [] } = useTaskStatuses()
   const { data: users = [] } = useUsers()
+  const { data: categories = [] } = useTaskCategories()
   const [title, setTitle] = useState('')
   const [priority, setPriority] = useState<'low' | 'medium' | 'high'>('medium')
-  const [assigneeId, setAssigneeId] = useState(userId)
+  // Managers must pick someone else — the self-assign shortcut is gone to
+  // enforce the client rule: 'khud ko assign nh hoga'.
+  const [assigneeId, setAssigneeId] = useState(canAssign ? '' : userId)
   const [dueDate, setDueDate] = useState('')
   const [remarks, setRemarks] = useState('')
+  const [categoryId, setCategoryId] = useState('')
+  const { data: assigneeOpen = 0 } = useOpenTaskCount(assigneeId || null)
+  const { data: assigneeCap = 25 } = useEffectiveCapacity(assigneeId || null)
+  const overCap = !!assigneeId && assigneeId !== userId && assigneeOpen >= assigneeCap
 
   return (
     <Modal open onClose={onClose} title="New task" testid="task-modal">
@@ -402,15 +477,24 @@ function NewTaskModal({
           e.preventDefault()
           const firstStatus = statuses[0]?.id
           if (!firstStatus) return
+          if (!categoryId) {
+            toast.error('Pick a task group', 'Choose which group this task belongs to.')
+            return
+          }
+          if (canAssign && !assigneeId) {
+            toast.error('Pick an assignee', 'Choose the employee this task is for.')
+            return
+          }
           create.mutate(
             {
               title: title.trim(),
-              assigneeId: assigneeId || userId,
+              assigneeId: canAssign ? assigneeId || null : userId,
               statusId: firstStatus,
               priority,
               dueDate: dueDate || null,
               createdBy: userId,
               remarks,
+              categoryId: categoryId || null,
             },
             {
               onSuccess: () => {
@@ -423,8 +507,15 @@ function NewTaskModal({
         }}
       >
         <div>
-          <Label htmlFor="task-title">Title</Label>
-          <Input id="task-title" data-testid="task-title-input" value={title} onChange={(e) => setTitle(e.target.value)} required />
+          <Label htmlFor="task-title">Task</Label>
+          <Input
+            id="task-title"
+            data-testid="task-title-input"
+            placeholder="What is the task?"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            required
+          />
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div>
@@ -440,7 +531,12 @@ function NewTaskModal({
           </div>
           <div>
             <Label htmlFor="task-priority">Priority</Label>
-            <Select id="task-priority" data-testid="task-priority-select" value={priority} onChange={(e) => setPriority(e.target.value as 'low' | 'medium' | 'high')}>
+            <Select
+              id="task-priority"
+              data-testid="task-priority-select"
+              value={priority}
+              onChange={(e) => setPriority(e.target.value as 'low' | 'medium' | 'high')}
+            >
               <option value="low">Low</option>
               <option value="medium">Medium</option>
               <option value="high">High</option>
@@ -448,8 +544,39 @@ function NewTaskModal({
           </div>
           <div>
             <Label htmlFor="task-due">Due date</Label>
-            <Input id="task-due" data-testid="task-due-input" type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
+            <Input
+              id="task-due"
+              data-testid="task-due-input"
+              type="date"
+              value={dueDate}
+              onChange={(e) => setDueDate(e.target.value)}
+            />
             {dueDate && <p className="mt-1 text-xs text-slate-400">Due {formatDate(dueDate)}</p>}
+          </div>
+          <div>
+            <Label htmlFor="task-category">Task Group *</Label>
+            <Select
+              id="task-category"
+              data-testid="task-category-select"
+              value={categoryId}
+              onChange={(e) => setCategoryId(e.target.value)}
+              required
+            >
+              <option value="">Select a group…</option>
+              {categories
+                .slice()
+                .sort((a, b) => a.name.localeCompare(b.name))
+                .map((category) => (
+                  <option key={category.id} value={category.id}>
+                    {category.name}
+                  </option>
+                ))}
+            </Select>
+            {categories.length === 0 && (
+              <p className="mt-1 text-xs text-amber-600">
+                No task groups yet — ask an admin to create one in Masters.
+              </p>
+            )}
           </div>
         </div>
         <div>
@@ -461,17 +588,35 @@ function NewTaskModal({
             onChange={(e) => setAssigneeId(e.target.value)}
             disabled={!canAssign}
           >
-            <option value={userId}>Myself</option>
+            {!canAssign && <option value={userId}>Myself</option>}
+            {canAssign && <option value="">Select employee…</option>}
             {canAssign &&
               users
                 .filter((u) => u.id !== userId)
+                .sort((a, b) =>
+                  (a.full_name || a.email).localeCompare(b.full_name || b.email),
+                )
                 .map((u) => (
                   <option key={u.id} value={u.id}>
                     {u.full_name || u.email}
                   </option>
                 ))}
           </Select>
-          {!canAssign && <p className="mt-1 text-xs text-slate-400">Only managers can assign to others.</p>}
+          {!canAssign && (
+            <p className="mt-1 text-xs text-slate-400">Only managers can assign to others.</p>
+          )}
+          {assigneeId && assigneeId !== userId && (
+            <p
+              data-testid="assignee-capacity-hint"
+              className={cn(
+                'mt-1 text-xs',
+                overCap ? 'font-medium text-red-600' : 'text-slate-500',
+              )}
+            >
+              Open tasks: {assigneeOpen} / capacity {assigneeCap}
+              {overCap && ' — they are already at or over capacity. Assign anyway?'}
+            </p>
+          )}
         </div>
         <div>
           <Label htmlFor="task-remarks">Remarks</Label>
@@ -580,6 +725,23 @@ function RemarkModal({ task, onClose }: { task: TaskRow; onClose: () => void }) 
   )
 }
 
+function TaskDelayBadge({
+  dueDate,
+  completedAt,
+}: {
+  dueDate: string | null
+  completedAt: string | null
+}) {
+  const delay = getTaskDelay(dueDate, completedAt)
+  if (!['overdue', 'due_today', 'completed_late'].includes(delay.state)) return null
+
+  return (
+    <Badge tone={delay.isDelayed ? 'red' : 'amber'} data-testid="task-delay-status">
+      {delay.label}
+    </Badge>
+  )
+}
+
 function StatusModal({ task, onClose }: { task: TaskRow; onClose: () => void }) {
   const { data: statuses = [] } = useTaskStatuses()
   const update = useUpdateTaskStatus()
@@ -591,6 +753,10 @@ function StatusModal({ task, onClose }: { task: TaskRow; onClose: () => void }) 
   const [dueDate, setDueDate] = useState(task.due_date ?? '')
   const [remarks, setRemarks] = useState('')
   const completing = !!statuses.find((s) => s.id === statusId)?.is_terminal
+  const completingLate =
+    completing &&
+    statusId !== task.status_id &&
+    getTaskDelay(dueDate, new Date().toISOString()).isDelayed
 
   return (
     <Modal open onClose={onClose} title={`Update: ${task.title}`} testid="status-modal">
@@ -603,11 +769,19 @@ function StatusModal({ task, onClose }: { task: TaskRow; onClose: () => void }) 
               const newDue = dueDate || null
               const dueChanged = newDue !== (task.due_date ?? null)
               const statusChanged = statusId !== task.status_id
+              if (completingLate && !remarks.trim()) {
+                toast.error('Delay comment required', 'Explain why this task was completed late.')
+                return
+              }
               if (dueChanged) {
                 await updateDueDate.mutateAsync({ taskId: task.id, dueDate: newDue })
               }
               if (statusChanged || remarks.trim()) {
-                await update.mutateAsync({ taskId: task.id, statusId, remarks: remarks.trim() || undefined })
+                await update.mutateAsync({
+                  taskId: task.id,
+                  statusId,
+                  remarks: remarks.trim() || undefined,
+                })
               }
               // A completed status sets 100% on the server; otherwise save the user's value.
               if (!completing && progress !== task.progress_percent) {
@@ -623,7 +797,12 @@ function StatusModal({ task, onClose }: { task: TaskRow; onClose: () => void }) 
       >
         <div>
           <Label htmlFor="status-select">New status</Label>
-          <Select id="status-select" data-testid="status-select" value={statusId} onChange={(e) => setStatusId(e.target.value)}>
+          <Select
+            id="status-select"
+            data-testid="status-select"
+            value={statusId}
+            onChange={(e) => setStatusId(e.target.value)}
+          >
             {statuses.map((s) => (
               <option key={s.id} value={s.id}>
                 {s.name}
@@ -643,7 +822,7 @@ function StatusModal({ task, onClose }: { task: TaskRow; onClose: () => void }) 
             value={completing ? 100 : progress}
             disabled={completing}
             onChange={(e) => setProgress(Number(e.target.value))}
-            className="w-full accent-brand-600"
+            className="accent-brand-600 w-full"
           />
           {completing && (
             <p className="mt-1 text-xs text-slate-400">A completed task is always 100%.</p>
@@ -659,13 +838,26 @@ function StatusModal({ task, onClose }: { task: TaskRow; onClose: () => void }) 
             onChange={(e) => setDueDate(e.target.value)}
           />
           <p className="mt-1 text-xs text-slate-400">
-            {dueDate ? `Due ${formatDate(dueDate)}. ` : ''}The assignee, creator or a task manager can
-            change the due date.
+            {dueDate ? `Due ${formatDate(dueDate)}. ` : ''}The assignee, creator or a task manager
+            can change the due date.
           </p>
         </div>
         <div>
-          <Label htmlFor="status-remarks">Remarks</Label>
-          <Textarea id="status-remarks" data-testid="status-remarks" rows={2} value={remarks} onChange={(e) => setRemarks(e.target.value)} />
+          <Label htmlFor="status-remarks">{completingLate ? 'Delay comment' : 'Remarks'}</Label>
+          <Textarea
+            id="status-remarks"
+            data-testid="status-remarks"
+            rows={2}
+            required={completingLate}
+            placeholder={completingLate ? 'Explain the reason for the delay' : undefined}
+            value={remarks}
+            onChange={(e) => setRemarks(e.target.value)}
+          />
+          {completingLate && (
+            <p className="mt-1 text-xs text-red-600">
+              This task is past its due date. A delay comment is required before completion.
+            </p>
+          )}
         </div>
         <div className="flex justify-end gap-2">
           <Button type="button" variant="outline" onClick={onClose}>
@@ -693,7 +885,7 @@ function HistoryModal({ task, onClose }: { task: TaskRow; onClose: () => void })
       ) : (
         <ul className="space-y-3">
           {history.map((h) => (
-            <li key={h.id} data-testid="history-entry" className="border-l-2 border-brand-200 pl-3">
+            <li key={h.id} data-testid="history-entry" className="border-brand-200 border-l-2 pl-3">
               <p className="text-sm font-medium text-slate-800">
                 {h.from_status?.name ? `${h.from_status.name} → ` : ''}
                 {h.to_status?.name}
@@ -714,15 +906,58 @@ function StatusMasterModal({ onClose }: { onClose: () => void }) {
   const { data: statuses = [] } = useTaskStatuses()
   const create = useCreateStatus()
   const del = useDeleteStatus()
+  const { data: policy } = useTaskPolicy()
+  const updatePolicy = useUpdateTaskPolicy()
   const toast = useToast()
   const [name, setName] = useState('')
+  const [defaultCapDraft, setDefaultCapDraft] = useState<string | null>(null)
+  const defaultCap =
+    defaultCapDraft ?? (policy?.default_task_capacity != null ? String(policy.default_task_capacity) : '')
 
   return (
-    <Modal open onClose={onClose} title="Task statuses" testid="status-master-modal">
+    <Modal open onClose={onClose} title="Task statuses & policy" testid="status-master-modal">
       <div className="space-y-4">
+        <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+          <Label htmlFor="task-default-cap">Default task capacity (new users)</Label>
+          <div className="mt-1 flex items-center gap-2">
+            <Input
+              id="task-default-cap"
+              data-testid="task-default-capacity"
+              type="number"
+              min="1"
+              value={defaultCap}
+              onChange={(e) => setDefaultCapDraft(e.target.value)}
+              className="w-32"
+            />
+            <Button
+              size="sm"
+              variant="outline"
+              data-testid="save-default-capacity"
+              loading={updatePolicy.isPending}
+              onClick={() => {
+                const n = Math.max(1, Math.round(Number(defaultCap)))
+                updatePolicy.mutate(
+                  { default_task_capacity: n },
+                  {
+                    onSuccess: () => toast.success('Default capacity saved'),
+                    onError: (err: unknown) => toast.error('Save failed', (err as Error).message),
+                  },
+                )
+              }}
+            >
+              Save
+            </Button>
+          </div>
+          <p className="mt-1 text-xs text-slate-500">
+            A user with no per-user capacity set uses this value. Edit a user to override it.
+          </p>
+        </div>
         <ul className="space-y-1">
           {statuses.map((s) => (
-            <li key={s.id} className="flex items-center justify-between rounded-lg border border-slate-100 px-3 py-2 text-sm">
+            <li
+              key={s.id}
+              className="flex items-center justify-between rounded-lg border border-slate-100 px-3 py-2 text-sm"
+            >
               <span>{s.name}</span>
               {s.is_system ? (
                 <Badge tone="slate">system</Badge>
@@ -730,7 +965,11 @@ function StatusMasterModal({ onClose }: { onClose: () => void }) {
                 <button
                   aria-label={`Delete ${s.name}`}
                   className="text-slate-400 hover:text-red-600"
-                  onClick={() => del.mutate(s.id, { onError: (e) => toast.error('Delete failed', (e as Error).message) })}
+                  onClick={() =>
+                    del.mutate(s.id, {
+                      onError: (e) => toast.error('Delete failed', (e as Error).message),
+                    })
+                  }
                 >
                   <Trash2 className="size-4" />
                 </button>
@@ -745,7 +984,10 @@ function StatusMasterModal({ onClose }: { onClose: () => void }) {
             create.mutate(
               {
                 name: name.trim(),
-                slug: name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '_'),
+                slug: name
+                  .trim()
+                  .toLowerCase()
+                  .replace(/[^a-z0-9]+/g, '_'),
                 sortOrder: statuses.length + 1,
               },
               {
@@ -758,12 +1000,280 @@ function StatusMasterModal({ onClose }: { onClose: () => void }) {
             )
           }}
         >
-          <Input data-testid="new-status-name" placeholder="New status name" value={name} onChange={(e) => setName(e.target.value)} required />
+          <Input
+            data-testid="new-status-name"
+            placeholder="New status name"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            required
+          />
           <Button type="submit" data-testid="create-status-submit" loading={create.isPending}>
             Add
           </Button>
         </form>
       </div>
     </Modal>
+  )
+}
+
+/* -----------------------------------------------------------------------------
+ * Lifecycle action cell
+ * Accept/Reject (assignee, pending), Start, Submit for approval, Resubmit,
+ * Approve / Send back (approver, awaiting_approval). Rendered inline so each
+ * state has exactly the right call-to-action right next to the task.
+ * -------------------------------------------------------------------------- */
+
+function LifecycleActions({
+  task,
+  userId,
+  canApproveAny,
+}: {
+  task: TaskRow
+  userId: string
+  canApproveAny: boolean
+}) {
+  const [reasonModal, setReasonModal] = useState<null | 'reject' | 'rework'>(null)
+  const [confirmSubmit, setConfirmSubmit] = useState(false)
+  const toast = useToast()
+  const accept = useAcceptTask()
+  const reject = useRejectTask()
+  const start = useStartTask()
+  const submit = useSubmitTask()
+  const approve = useApproveTask()
+  const rework = useReworkTask()
+
+  const actions = availableActions(task, {
+    userId,
+    canApproveAny,
+    reportingManagerId: null,
+  })
+
+  function okWarn(res: { warning?: string | null }) {
+    if (res.warning) toast.error('Capacity warning', res.warning)
+    else toast.success('Done')
+  }
+  function fail(err: unknown) {
+    toast.error('Could not update task', (err as Error).message)
+  }
+
+  const btn = (
+    label: string,
+    testid: string,
+    icon: React.ReactNode,
+    onClick: () => void,
+    tone: 'brand' | 'red' | 'amber' | 'emerald' = 'brand',
+  ) => {
+    const tones: Record<string, string> = {
+      brand: 'text-brand-600 hover:bg-brand-50',
+      red: 'text-red-600 hover:bg-red-50',
+      amber: 'text-amber-700 hover:bg-amber-50',
+      emerald: 'text-emerald-700 hover:bg-emerald-50',
+    }
+    return (
+      <button
+        data-testid={testid}
+        onClick={onClick}
+        className={cn('inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium', tones[tone])}
+      >
+        {icon}
+        {label}
+      </button>
+    )
+  }
+
+  return (
+    <>
+      {actions.canAccept &&
+        btn(
+          'Accept',
+          'task-accept',
+          <Check className="size-3.5" />,
+          () =>
+            accept.mutate(
+              { taskId: task.id },
+              { onSuccess: (r) => okWarn(r), onError: fail },
+            ),
+          'emerald',
+        )}
+      {actions.canReject &&
+        btn('Reject', 'task-reject', <X className="size-3.5" />, () => setReasonModal('reject'), 'red')}
+      {actions.canStart &&
+        btn(
+          'Start',
+          'task-start',
+          <Send className="size-3.5" />,
+          () => start.mutate(task.id, { onError: fail }),
+        )}
+      {(actions.canSubmit || actions.canResubmit) &&
+        btn(
+          actions.canResubmit ? 'Resubmit' : task.created_by === task.assignee_id ? 'Mark done' : 'Submit for approval',
+          'task-submit',
+          <CheckCheck className="size-3.5" />,
+          () => setConfirmSubmit(true),
+          'amber',
+        )}
+      {actions.canApprove &&
+        btn(
+          'Approve',
+          'task-approve',
+          <Check className="size-3.5" />,
+          () =>
+            approve.mutate(
+              { taskId: task.id },
+              {
+                onSuccess: () => toast.success('Task approved'),
+                onError: fail,
+              },
+            ),
+          'emerald',
+        )}
+      {actions.canRework &&
+        btn(
+          'Send back',
+          'task-rework',
+          <Undo2 className="size-3.5" />,
+          () => setReasonModal('rework'),
+          'amber',
+        )}
+
+      {reasonModal && (
+        <ReasonModal
+          title={reasonModal === 'reject' ? 'Reject assignment' : 'Send task back for rework'}
+          label={reasonModal === 'reject' ? 'Why are you declining this task?' : 'What needs changing?'}
+          confirmLabel={reasonModal === 'reject' ? 'Reject' : 'Send back'}
+          loading={reject.isPending || rework.isPending}
+          onClose={() => setReasonModal(null)}
+          onConfirm={(reason) => {
+            const action = reasonModal === 'reject' ? reject : rework
+            action.mutate(
+              { taskId: task.id, reason },
+              {
+                onSuccess: () => {
+                  toast.success(reasonModal === 'reject' ? 'Assignment rejected' : 'Sent back for rework')
+                  setReasonModal(null)
+                },
+                onError: fail,
+              },
+            )
+          }}
+        />
+      )}
+
+      {confirmSubmit && (
+        <ReasonModal
+          title={task.created_by === task.assignee_id ? 'Mark task as done' : 'Submit for approval'}
+          label="Add a note (optional)"
+          confirmLabel={task.created_by === task.assignee_id ? 'Mark done' : 'Submit'}
+          required={false}
+          loading={submit.isPending}
+          onClose={() => setConfirmSubmit(false)}
+          onConfirm={(remarks) =>
+            submit.mutate(
+              { taskId: task.id, remarks },
+              {
+                onSuccess: (r) => {
+                  toast.success(
+                    r.status === 'completed' ? 'Task completed' : 'Submitted — awaiting approval',
+                  )
+                  setConfirmSubmit(false)
+                },
+                onError: fail,
+              },
+            )
+          }
+        />
+      )}
+    </>
+  )
+}
+
+function ReasonModal({
+  title,
+  label,
+  confirmLabel,
+  loading = false,
+  required = true,
+  onClose,
+  onConfirm,
+}: {
+  title: string
+  label: string
+  confirmLabel: string
+  loading?: boolean
+  required?: boolean
+  onClose: () => void
+  onConfirm: (reason: string) => void
+}) {
+  const [reason, setReason] = useState('')
+  return (
+    <Modal open onClose={onClose} title={title} testid="task-reason-modal">
+      <form
+        className="space-y-4"
+        onSubmit={(e) => {
+          e.preventDefault()
+          if (required && !reason.trim()) return
+          onConfirm(reason.trim())
+        }}
+      >
+        <div>
+          <Label htmlFor="task-reason">{label}</Label>
+          <Textarea
+            id="task-reason"
+            data-testid="task-reason-input"
+            rows={3}
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            required={required}
+          />
+        </div>
+        <div className="flex justify-end gap-2">
+          <Button type="button" variant="outline" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button type="submit" data-testid="task-reason-submit" loading={loading} disabled={required && !reason.trim()}>
+            {confirmLabel}
+          </Button>
+        </div>
+      </form>
+    </Modal>
+  )
+}
+
+/* -----------------------------------------------------------------------------
+ * Approvals summary chip (shows how many tasks need THIS user's approval)
+ * -------------------------------------------------------------------------- */
+function ApprovalsSummary({ tasks, userId }: { tasks: TaskRow[]; userId: string | undefined }) {
+  if (!userId) return null
+  const owed = tasks.filter(
+    (t) =>
+      t.status?.slug === 'awaiting_approval' &&
+      t.assignee_id !== userId &&
+      (t.created_by === userId /* approver fallback — reporting-manager link lives on profiles */),
+  ).length
+  if (!owed) return null
+  return (
+    <span
+      data-testid="approvals-owed"
+      className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-800"
+    >
+      <CheckCheck className="size-3.5" /> {owed} awaiting your approval
+    </span>
+  )
+}
+
+/* -----------------------------------------------------------------------------
+ * Capacity callout — tells the user whether they're over cap and what to do.
+ * -------------------------------------------------------------------------- */
+function CapacityCallout({ userId }: { userId: string }) {
+  const { data: open = 0 } = useOpenTaskCount(userId)
+  const { data: cap = 25 } = useEffectiveCapacity(userId)
+  if (open <= cap) return null
+  return (
+    <span
+      data-testid="capacity-callout"
+      className="inline-flex items-center gap-1.5 rounded-full bg-red-50 px-3 py-1 text-xs font-semibold text-red-700"
+    >
+      {open} open · capacity {cap} — close some before planning
+    </span>
   )
 }

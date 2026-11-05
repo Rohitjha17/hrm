@@ -13,10 +13,9 @@ import { Badge } from '@/components/ui/Badge'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { useToast } from '@/components/ui/toast-context'
 
-const STATUS_LABEL: Record<string, string> = {
-  ...Object.fromEntries(Object.entries(ATTENDANCE_STATUS).map(([k, v]) => [k, v.label])),
-  absent: 'Absent / Short',
-}
+const STATUS_LABEL: Record<string, string> = Object.fromEntries(
+  Object.entries(ATTENDANCE_STATUS).map(([k, v]) => [k, v.label]),
+)
 
 const hrs = (h: number) => `${h} h`
 

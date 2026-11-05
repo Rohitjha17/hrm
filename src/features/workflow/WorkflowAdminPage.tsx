@@ -24,6 +24,7 @@ import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { Input } from '@/components/ui/Input'
 import { Label } from '@/components/ui/Label'
 import { Select } from '@/components/ui/Select'
+import { Textarea } from '@/components/ui/Textarea'
 import { cn } from '@/lib/cn'
 
 function entityLabel(value: string) {
@@ -364,6 +365,7 @@ function DefinitionModal({ ownerId, onClose }: { ownerId: string; onClose: () =>
   const create = useCreateDefinition()
   const toast = useToast()
   const [name, setName] = useState('')
+  const [description, setDescription] = useState('')
   const [entityType, setEntityType] = useState('generic')
 
   return (
@@ -373,7 +375,7 @@ function DefinitionModal({ ownerId, onClose }: { ownerId: string; onClose: () =>
         onSubmit={(e) => {
           e.preventDefault()
           create.mutate(
-            { name: name.trim(), entityType, ownerId },
+            { name: name.trim(), description, entityType, ownerId },
             {
               onSuccess: () => {
                 toast.success('Workflow created')
@@ -384,6 +386,16 @@ function DefinitionModal({ ownerId, onClose }: { ownerId: string; onClose: () =>
           )
         }}
       >
+        <div>
+          <Label htmlFor="def-description">Description</Label>
+          <Textarea
+            id="def-description"
+            data-testid="definition-description"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            required
+          />
+        </div>
         <div>
           <Label htmlFor="def-name">Name</Label>
           <Input

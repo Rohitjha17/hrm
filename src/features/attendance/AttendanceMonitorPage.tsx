@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { CalendarPlus, Pencil, Settings } from 'lucide-react'
+import { CalendarPlus, MapPin, Pencil, Settings } from 'lucide-react'
 import {
   useAdminAttendance,
   useAttendanceConfig,
@@ -8,9 +8,17 @@ import {
   useUpdateAttendanceConfig,
 } from './hooks'
 import { todayInTz, formatMinutes } from './geo'
-import { ATTENDANCE_STATUS, LEGEND, SUNDAY_META, formatLateBy, isSunday, statusLabel } from './status'
+import {
+  ATTENDANCE_STATUS,
+  LEGEND,
+  SUNDAY_META,
+  formatLateBy,
+  isSunday,
+  statusLabel,
+} from './status'
 import { AttendanceCorrectionModal } from './AttendanceCorrectionModal'
 import { AttendanceRegister } from './AttendanceRegister'
+import { LocationsManager } from './LocationsManager'
 import { formatDate, formatTime } from '@/lib/format'
 import { cn } from '@/lib/cn'
 import { useProfile } from '@/features/rbac/profile-context'
@@ -26,7 +34,8 @@ import { EmptyState } from '@/components/ui/EmptyState'
 
 export function AttendanceMonitorPage() {
   const { hasPermission } = useProfile()
-  const canManage = hasPermission('attendance.manage')
+  const canAdd = hasPermission('attendance.add')
+  const canEdit = hasPermission('attendance.edit')
   const { data: config } = useAttendanceConfig()
   const tz = config?.timezone ?? 'Asia/Kolkata'
   const today = todayInTz(tz)
@@ -34,6 +43,7 @@ export function AttendanceMonitorPage() {
   const [to, setTo] = useState(today)
   const { data: rows = [], isLoading } = useAdminAttendance(from, to)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [locationsOpen, setLocationsOpen] = useState(false)
   const [view, setView] = useState<'list' | 'register'>('list')
   const [correction, setCorrection] = useState<{ userId: string; date: string } | null>(null)
   const multiDay = from !== to
@@ -94,18 +104,35 @@ export function AttendanceMonitorPage() {
         title="Attendance Monitor"
         description="Live view — punches sync here in real time."
         actions={
-          canManage && (
+          (canAdd || canEdit) && (
             <div className="flex gap-2">
-              <Button
-                variant="outline"
-                data-testid="add-attendance-button"
-                onClick={() => setCorrection({ userId: '', date: today })}
-              >
-                <CalendarPlus className="size-4" /> Add / correct attendance
-              </Button>
-              <Button variant="outline" data-testid="monitor-settings-button" onClick={() => setSettingsOpen(true)}>
-                <Settings className="size-4" /> Settings
-              </Button>
+              {canAdd && (
+                <Button
+                  variant="outline"
+                  data-testid="add-attendance-button"
+                  onClick={() => setCorrection({ userId: '', date: today })}
+                >
+                  <CalendarPlus className="size-4" /> Add attendance
+                </Button>
+              )}
+              {canEdit && (
+                <Button
+                  variant="outline"
+                  data-testid="monitor-locations-button"
+                  onClick={() => setLocationsOpen(true)}
+                >
+                  <MapPin className="size-4" /> Locations
+                </Button>
+              )}
+              {canEdit && (
+                <Button
+                  variant="outline"
+                  data-testid="monitor-settings-button"
+                  onClick={() => setSettingsOpen(true)}
+                >
+                  <Settings className="size-4" /> Settings
+                </Button>
+              )}
             </div>
           )
         }
@@ -120,7 +147,7 @@ export function AttendanceMonitorPage() {
               onClick={() => setView(v)}
               className={cn(
                 'rounded-md px-3 py-1 text-xs font-medium',
-                view === v ? 'bg-white text-brand-700 shadow-sm' : 'text-slate-500',
+                view === v ? 'text-brand-700 bg-white shadow-sm' : 'text-slate-500',
               )}
             >
               {v === 'list' ? 'Daily list' : 'Monthly register'}
@@ -129,7 +156,10 @@ export function AttendanceMonitorPage() {
         </div>
         <div className="flex flex-wrap items-center gap-1.5" data-testid="attendance-legend">
           {LEGEND.map((m) => (
-            <span key={m.label} className={cn('rounded-full px-2 py-0.5 text-xs font-medium', m.className)}>
+            <span
+              key={m.label}
+              className={cn('rounded-full px-2 py-0.5 text-xs font-medium', m.className)}
+            >
               {m.label}
             </span>
           ))}
@@ -139,156 +169,201 @@ export function AttendanceMonitorPage() {
       {view === 'register' && (
         <AttendanceRegister
           today={today}
-          onCellClick={canManage ? (userId, date) => setCorrection({ userId, date }) : undefined}
+          onCellClick={canEdit ? (userId, date) => setCorrection({ userId, date }) : undefined}
         />
       )}
 
       {view === 'list' && (
-      <>
-      <div className="mb-4 flex flex-wrap items-center gap-2">
-        <Label htmlFor="monitor-from" className="mb-0">
-          From
-        </Label>
-        <Input
-          id="monitor-from"
-          data-testid="monitor-from"
-          type="date"
-          value={from}
-          max={to}
-          onChange={(e) => setFrom(e.target.value)}
-          className="w-44"
-        />
-        <Label htmlFor="monitor-to" className="mb-0">
-          To
-        </Label>
-        <Input
-          id="monitor-to"
-          data-testid="monitor-to"
-          type="date"
-          value={to}
-          min={from}
-          onChange={(e) => setTo(e.target.value)}
-          className="w-44"
-        />
-        <span className="ml-2 inline-flex items-center gap-1.5 text-xs text-emerald-600">
-          <span className="size-2 animate-pulse rounded-full bg-emerald-500" /> live
-        </span>
-      </div>
+        <>
+          <div className="mb-4 flex flex-wrap items-center gap-2">
+            <Label htmlFor="monitor-from" className="mb-0">
+              From
+            </Label>
+            <Input
+              id="monitor-from"
+              data-testid="monitor-from"
+              type="date"
+              value={from}
+              max={to}
+              onChange={(e) => setFrom(e.target.value)}
+              className="w-44"
+            />
+            <Label htmlFor="monitor-to" className="mb-0">
+              To
+            </Label>
+            <Input
+              id="monitor-to"
+              data-testid="monitor-to"
+              type="date"
+              value={to}
+              min={from}
+              onChange={(e) => setTo(e.target.value)}
+              className="w-44"
+            />
+            <span className="ml-2 inline-flex items-center gap-1.5 text-xs text-emerald-600">
+              <span className="size-2 animate-pulse rounded-full bg-emerald-500" /> live
+            </span>
+          </div>
 
-      <div data-testid="monitor-summary" className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-7">
-        <SummaryTile label="Employees" value={String(summary.employees)} testid="summary-employees" />
-        <SummaryTile label="Records" value={String(summary.records)} testid="summary-records" />
-        <SummaryTile label="Full / Present" value={String(summary.fullDays)} testid="summary-full" tone="text-emerald-600" />
-        <SummaryTile label="Half / Quarter" value={String(summary.halfDays)} testid="summary-half" tone="text-amber-600" />
-        <SummaryTile label="Absent" value={String(summary.absents)} testid="summary-absent" tone="text-red-600" />
-        <SummaryTile label="Late arrivals" value={String(summary.lates)} testid="summary-late" tone="text-amber-600" />
-        <SummaryTile label="Total worked" value={formatMinutes(summary.workedMinutes)} testid="summary-worked" />
-      </div>
+          <div
+            data-testid="monitor-summary"
+            className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-7"
+          >
+            <SummaryTile
+              label="Employees"
+              value={String(summary.employees)}
+              testid="summary-employees"
+            />
+            <SummaryTile label="Records" value={String(summary.records)} testid="summary-records" />
+            <SummaryTile
+              label="Full / Present"
+              value={String(summary.fullDays)}
+              testid="summary-full"
+              tone="text-emerald-600"
+            />
+            <SummaryTile
+              label="Half / Quarter"
+              value={String(summary.halfDays)}
+              testid="summary-half"
+              tone="text-amber-600"
+            />
+            <SummaryTile
+              label="Absent"
+              value={String(summary.absents)}
+              testid="summary-absent"
+              tone="text-red-600"
+            />
+            <SummaryTile
+              label="Late arrivals"
+              value={String(summary.lates)}
+              testid="summary-late"
+              tone="text-amber-600"
+            />
+            <SummaryTile
+              label="Total worked"
+              value={formatMinutes(summary.workedMinutes)}
+              testid="summary-worked"
+            />
+          </div>
 
-      {multiDay && perEmployee.length > 0 && (
-        <div className="mb-6">
-          <h3 className="mb-2 text-sm font-semibold text-slate-700">
-            Per-employee summary ({formatDate(from)} → {formatDate(to)})
-          </h3>
-          <Table data-testid="monitor-emp-summary">
-            <Thead>
-              <tr>
-                <Th>Employee</Th>
-                <Th>Days present</Th>
-                <Th>Total worked</Th>
-                <Th>Late</Th>
-                <Th>Overtime</Th>
-              </tr>
-            </Thead>
-            <Tbody>
-              {perEmployee.map((e) => (
-                <tr key={e.email} data-testid={`emp-summary-${e.email}`}>
-                  <Td className="font-medium text-slate-900">{e.name}</Td>
-                  <Td>{e.days}</Td>
-                  <Td>{formatMinutes(e.worked)}</Td>
-                  <Td>{e.lates > 0 ? <Badge tone="amber">{e.lates}</Badge> : '—'}</Td>
-                  <Td>{e.overtime > 0 ? formatMinutes(e.overtime) : '—'}</Td>
+          {multiDay && perEmployee.length > 0 && (
+            <div className="mb-6">
+              <h3 className="mb-2 text-sm font-semibold text-slate-700">
+                Per-employee summary ({formatDate(from)} → {formatDate(to)})
+              </h3>
+              <Table data-testid="monitor-emp-summary">
+                <Thead>
+                  <tr>
+                    <Th>Employee</Th>
+                    <Th>Days present</Th>
+                    <Th>Total worked</Th>
+                    <Th>Late</Th>
+                    <Th>Overtime</Th>
+                  </tr>
+                </Thead>
+                <Tbody>
+                  {perEmployee.map((e) => (
+                    <tr key={e.email} data-testid={`emp-summary-${e.email}`}>
+                      <Td className="font-medium text-slate-900">{e.name}</Td>
+                      <Td>{e.days}</Td>
+                      <Td>{formatMinutes(e.worked)}</Td>
+                      <Td>{e.lates > 0 ? <Badge tone="amber">{e.lates}</Badge> : '—'}</Td>
+                      <Td>{e.overtime > 0 ? formatMinutes(e.overtime) : '—'}</Td>
+                    </tr>
+                  ))}
+                </Tbody>
+              </Table>
+            </div>
+          )}
+
+          {!isLoading && rows.length === 0 ? (
+            <EmptyState title="No attendance recorded for this range" testid="monitor-empty" />
+          ) : (
+            <Table data-testid="monitor-table">
+              <Thead>
+                <tr>
+                  <Th>Employee</Th>
+                  {multiDay && <Th>Date</Th>}
+                  <Th>Status</Th>
+                  <Th>Worked</Th>
+                  <Th>First In</Th>
+                  <Th>Last Out</Th>
+                  <Th>Late by</Th>
+                  <Th>Flags</Th>
+                  {canEdit && <Th className="w-px" />}
                 </tr>
-              ))}
-            </Tbody>
-          </Table>
-        </div>
-      )}
-
-      {!isLoading && rows.length === 0 ? (
-        <EmptyState title="No attendance recorded for this range" testid="monitor-empty" />
-      ) : (
-        <Table data-testid="monitor-table">
-          <Thead>
-            <tr>
-              <Th>Employee</Th>
-              {multiDay && <Th>Date</Th>}
-              <Th>Status</Th>
-              <Th>Worked</Th>
-              <Th>First In</Th>
-              <Th>Last Out</Th>
-              <Th>Late by</Th>
-              <Th>Flags</Th>
-              {canManage && <Th className="w-px" />}
-            </tr>
-          </Thead>
-          <Tbody>
-            {rows.map((r) => {
-              const sunday = isSunday(r.work_date)
-              return (
-                <tr
-                  key={r.id}
-                  data-testid={`monitor-row-${r.profiles?.email ?? r.user_id}`}
-                  className={cn(sunday && 'bg-slate-100/70')}
-                >
-                  <Td className="font-medium text-slate-900">
-                    {r.profiles?.full_name || r.profiles?.email || r.user_id}
-                  </Td>
-                  {multiDay && (
-                    <Td className="text-xs whitespace-nowrap text-slate-500">{formatDate(r.work_date)}</Td>
-                  )}
-                  <Td>
-                    <span data-status={r.status}>
-                      <Badge className={ATTENDANCE_STATUS[r.status]?.className}>{statusLabel(r.status)}</Badge>
-                    </span>
-                  </Td>
-                  <Td>{formatMinutes(r.worked_minutes)}</Td>
-                  <Td className="text-xs whitespace-nowrap text-slate-500">{formatTime(r.first_in_at) || '—'}</Td>
-                  <Td className="text-xs whitespace-nowrap text-slate-500">{formatTime(r.last_out_at) || '—'}</Td>
-                  <Td data-testid="monitor-late-by" className="whitespace-nowrap">
-                    {r.is_late ? <Badge tone="amber">{formatLateBy(r.late_minutes) || 'Late'}</Badge> : '—'}
-                  </Td>
-                  <Td>
-                    <div className="flex flex-wrap gap-1">
-                      {sunday && <Badge className={SUNDAY_META.className}>Sunday</Badge>}
-                      {r.overtime_minutes > 0 && <Badge tone="blue">OT {r.overtime_minutes}m</Badge>}
-                      {r.missed_punch_out && <Badge tone="red">Missed punch-out</Badge>}
-                      {r.is_manual && (
-                        <span title={r.remarks ?? undefined}>
-                          <Badge tone="slate">Corrected</Badge>
-                        </span>
+              </Thead>
+              <Tbody>
+                {rows.map((r) => {
+                  const sunday = isSunday(r.work_date)
+                  return (
+                    <tr
+                      key={r.id}
+                      data-testid={`monitor-row-${r.profiles?.email ?? r.user_id}`}
+                      className={cn(sunday && 'bg-slate-100/70')}
+                    >
+                      <Td className="font-medium text-slate-900">
+                        {r.profiles?.full_name || r.profiles?.email || r.user_id}
+                      </Td>
+                      {multiDay && (
+                        <Td className="text-xs whitespace-nowrap text-slate-500">
+                          {formatDate(r.work_date)}
+                        </Td>
                       )}
-                    </div>
-                  </Td>
-                  {canManage && (
-                    <Td>
-                      <button
-                        data-testid="correct-attendance-button"
-                        aria-label={`Correct attendance of ${r.profiles?.full_name ?? 'employee'}`}
-                        className="rounded-md p-1 text-slate-400 hover:text-brand-600"
-                        onClick={() => setCorrection({ userId: r.user_id, date: r.work_date })}
-                      >
-                        <Pencil className="size-4" />
-                      </button>
-                    </Td>
-                  )}
-                </tr>
-              )
-            })}
-          </Tbody>
-        </Table>
-      )}
-      </>
+                      <Td>
+                        <span data-status={r.status}>
+                          <Badge className={ATTENDANCE_STATUS[r.status]?.className}>
+                            {statusLabel(r.status)}
+                          </Badge>
+                        </span>
+                      </Td>
+                      <Td>{formatMinutes(r.worked_minutes)}</Td>
+                      <Td className="text-xs whitespace-nowrap text-slate-500">
+                        {formatTime(r.first_in_at) || '—'}
+                      </Td>
+                      <Td className="text-xs whitespace-nowrap text-slate-500">
+                        {formatTime(r.last_out_at) || '—'}
+                      </Td>
+                      <Td data-testid="monitor-late-by" className="whitespace-nowrap">
+                        {r.is_late ? (
+                          <Badge tone="amber">{formatLateBy(r.late_minutes) || 'Late'}</Badge>
+                        ) : (
+                          '—'
+                        )}
+                      </Td>
+                      <Td>
+                        <div className="flex flex-wrap gap-1">
+                          {sunday && <Badge className={SUNDAY_META.className}>Sunday</Badge>}
+                          {r.overtime_minutes > 0 && (
+                            <Badge tone="blue">OT {r.overtime_minutes}m</Badge>
+                          )}
+                          {r.missed_punch_out && <Badge tone="red">Missed punch-out</Badge>}
+                          {r.is_manual && (
+                            <span title={r.remarks ?? undefined}>
+                              <Badge tone="slate">Corrected</Badge>
+                            </span>
+                          )}
+                        </div>
+                      </Td>
+                      {canEdit && (
+                        <Td>
+                          <button
+                            data-testid="correct-attendance-button"
+                            aria-label={`Correct attendance of ${r.profiles?.full_name ?? 'employee'}`}
+                            className="hover:text-brand-600 rounded-md p-1 text-slate-400"
+                            onClick={() => setCorrection({ userId: r.user_id, date: r.work_date })}
+                          >
+                            <Pencil className="size-4" />
+                          </button>
+                        </Td>
+                      )}
+                    </tr>
+                  )
+                })}
+              </Tbody>
+            </Table>
+          )}
+        </>
       )}
 
       {correction && (
@@ -302,6 +377,7 @@ export function AttendanceMonitorPage() {
       )}
 
       {settingsOpen && <ConfigModal onClose={() => setSettingsOpen(false)} />}
+      {locationsOpen && <LocationsManager onClose={() => setLocationsOpen(false)} />}
     </div>
   )
 }
@@ -366,31 +442,79 @@ function ConfigModal({ onClose }: { onClose: () => void }) {
         <div className="grid grid-cols-2 gap-3">
           <div>
             <Label htmlFor="cfg-radius">Radius (m)</Label>
-            <Input id="cfg-radius" data-testid="cfg-radius" type="number" value={radius} onChange={(e) => setRadius(e.target.value)} />
+            <Input
+              id="cfg-radius"
+              data-testid="cfg-radius"
+              type="number"
+              value={radius}
+              onChange={(e) => setRadius(e.target.value)}
+            />
           </div>
           <div>
             <Label htmlFor="cfg-grace">Grace / consideration (min)</Label>
-            <Input id="cfg-grace" data-testid="cfg-grace" type="number" min="0" value={grace} onChange={(e) => setGrace(e.target.value)} />
+            <Input
+              id="cfg-grace"
+              data-testid="cfg-grace"
+              type="number"
+              min="0"
+              value={grace}
+              onChange={(e) => setGrace(e.target.value)}
+            />
           </div>
           <div>
             <Label htmlFor="cfg-full">Full day (hrs)</Label>
-            <Input id="cfg-full" data-testid="cfg-full-day" type="number" step="0.01" value={fullDay} onChange={(e) => setFullDay(e.target.value)} />
+            <Input
+              id="cfg-full"
+              data-testid="cfg-full-day"
+              type="number"
+              step="0.01"
+              value={fullDay}
+              onChange={(e) => setFullDay(e.target.value)}
+            />
           </div>
           <div>
             <Label htmlFor="cfg-half">Half day (hrs)</Label>
-            <Input id="cfg-half" data-testid="cfg-half-day" type="number" step="0.01" value={halfDay} onChange={(e) => setHalfDay(e.target.value)} />
+            <Input
+              id="cfg-half"
+              data-testid="cfg-half-day"
+              type="number"
+              step="0.01"
+              value={halfDay}
+              onChange={(e) => setHalfDay(e.target.value)}
+            />
           </div>
           <div>
             <Label htmlFor="cfg-quarter">Quarter day (hrs)</Label>
-            <Input id="cfg-quarter" data-testid="cfg-quarter-day" type="number" step="0.01" value={quarterDay} onChange={(e) => setQuarterDay(e.target.value)} />
+            <Input
+              id="cfg-quarter"
+              data-testid="cfg-quarter-day"
+              type="number"
+              step="0.01"
+              value={quarterDay}
+              onChange={(e) => setQuarterDay(e.target.value)}
+            />
           </div>
           <div>
             <Label htmlFor="cfg-break">Break included (min)</Label>
-            <Input id="cfg-break" data-testid="cfg-break" type="number" min="0" value={breakMin} onChange={(e) => setBreakMin(e.target.value)} />
+            <Input
+              id="cfg-break"
+              data-testid="cfg-break"
+              type="number"
+              min="0"
+              value={breakMin}
+              onChange={(e) => setBreakMin(e.target.value)}
+            />
           </div>
           <div>
             <Label htmlFor="cfg-accuracy">GPS accuracy allowance (m)</Label>
-            <Input id="cfg-accuracy" data-testid="cfg-accuracy" type="number" min="0" value={accuracyCap} onChange={(e) => setAccuracyCap(e.target.value)} />
+            <Input
+              id="cfg-accuracy"
+              data-testid="cfg-accuracy"
+              type="number"
+              min="0"
+              value={accuracyCap}
+              onChange={(e) => setAccuracyCap(e.target.value)}
+            />
           </div>
         </div>
         <p className="text-xs text-slate-500">

@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { FileSpreadsheet, FileText, X } from 'lucide-react'
-import { REPORT_LABELS, useReport, type ReportType } from './hooks'
+import { REPORT_LABELS, useAllowedReportFields, useReport, type ReportType } from './hooks'
 import { exportExcel, exportPdf, type CellFill } from './export'
 import { ATTENDANCE_STATUS, LEGEND, SUNDAY_META } from '@/features/attendance/status'
 import { Badge } from '@/components/ui/Badge'
@@ -47,13 +47,28 @@ export function ReportsPage() {
   const [from, setFrom] = useState('')
   const [to, setTo] = useState('')
   const [userId, setUserId] = useState('')
+  const [status, setStatus] = useState('')
+  const [category, setCategory] = useState('')
+  const [priority, setPriority] = useState('')
   const { data: users = [] } = useUsers()
   const { data, isLoading } = useReport(type, {
     from: from || undefined,
     to: to || undefined,
     userId: userId || undefined,
+    status: status || undefined,
+    category: category || undefined,
+    priority: priority || undefined,
   })
-  const hasFilters = !!(from || to || userId)
+  const { data: allowedFields = new Map<string, boolean>() } = useAllowedReportFields(type)
+  const [hiddenColumns, setHiddenColumns] = useState<string[]>([])
+  const visibleColumns = useMemo(
+    () =>
+      data?.columns.filter(
+        (column) => !hiddenColumns.includes(column.key) && (allowedFields.get(column.key) ?? true),
+      ) ?? [],
+    [allowedFields, data?.columns, hiddenColumns],
+  )
+  const hasFilters = !!(from || to || userId || status || category || priority)
 
   return (
     <div data-testid="reports-page">
@@ -66,7 +81,7 @@ export function ReportsPage() {
               <Button
                 variant="outline"
                 data-testid="export-excel"
-                onClick={() => exportExcel(data.filename, data.columns, data.rows)}
+                onClick={() => exportExcel(data.filename, visibleColumns, data.rows)}
               >
                 <FileSpreadsheet className="size-4" /> Excel
               </Button>
@@ -77,7 +92,7 @@ export function ReportsPage() {
                   exportPdf(
                     data.title,
                     data.filename,
-                    data.columns,
+                    visibleColumns,
                     data.rows,
                     type === 'attendance' ? attendanceFill : undefined,
                   )
@@ -90,20 +105,47 @@ export function ReportsPage() {
         }
       />
 
-      <div className="mb-4 flex flex-wrap gap-1 rounded-lg border border-slate-200 bg-slate-50 p-1">
-        {TYPES.map((t) => (
-          <button
-            key={t}
-            data-testid={`report-tab-${t}`}
-            onClick={() => setType(t)}
-            className={cn(
-              'rounded-md px-3 py-1.5 text-sm font-medium',
-              type === t ? 'bg-white text-brand-700 shadow-sm' : 'text-slate-500 hover:text-slate-800',
-            )}
+      <div className="mb-4 grid gap-4 lg:grid-cols-2">
+        <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+          <Label htmlFor="report-category">Window 1 · Report category</Label>
+          <Select
+            id="report-category"
+            data-testid="report-category"
+            value={type}
+            onChange={(event) => {
+              setType(event.target.value as ReportType)
+              setHiddenColumns([])
+            }}
+            className="mt-1 w-full"
           >
-            {REPORT_LABELS[t]}
-          </button>
-        ))}
+            {TYPES.map((reportType) => (
+              <option key={reportType} value={reportType}>
+                {REPORT_LABELS[reportType]}
+              </option>
+            ))}
+          </Select>
+        </div>
+        <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+          <p className="text-sm font-medium text-slate-700">Window 2 · Display headings</p>
+          <div className="mt-2 flex max-h-28 flex-wrap gap-x-4 gap-y-2 overflow-auto">
+            {data?.columns.map((column) => (
+              <label key={column.key} className="flex items-center gap-1.5 text-sm text-slate-600">
+                <input
+                  type="checkbox"
+                  checked={!hiddenColumns.includes(column.key)}
+                  onChange={() =>
+                    setHiddenColumns((current) =>
+                      current.includes(column.key)
+                        ? current.filter((key) => key !== column.key)
+                        : [...current, column.key],
+                    )
+                  }
+                />
+                {column.label}
+              </label>
+            ))}
+          </div>
+        </div>
       </div>
 
       <div className="mb-4 flex flex-wrap items-end gap-3" data-testid="report-filters">
@@ -111,19 +153,88 @@ export function ReportsPage() {
           <Label htmlFor="report-from" className="text-xs text-slate-500">
             From
           </Label>
-          <Input id="report-from" data-testid="report-from" type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="w-40" />
+          <Input
+            id="report-from"
+            data-testid="report-from"
+            type="date"
+            value={from}
+            onChange={(e) => setFrom(e.target.value)}
+            className="w-40"
+          />
         </div>
+        {type === 'helpdesk' && (
+          <>
+            <div>
+              <Label className="text-xs text-slate-500">Status</Label>
+              <Select
+                value={status}
+                onChange={(event) => setStatus(event.target.value)}
+                className="w-36"
+              >
+                <option value="">All statuses</option>
+                {['open', 'in_progress', 'resolved', 'closed'].map((value) => (
+                  <option key={value} value={value}>
+                    {value}
+                  </option>
+                ))}
+              </Select>
+            </div>
+            <div>
+              <Label className="text-xs text-slate-500">Category</Label>
+              <Select
+                value={category}
+                onChange={(event) => setCategory(event.target.value)}
+                className="w-36"
+              >
+                <option value="">All categories</option>
+                {['it', 'hr', 'salary', 'leave', 'asset'].map((value) => (
+                  <option key={value} value={value}>
+                    {value}
+                  </option>
+                ))}
+              </Select>
+            </div>
+            <div>
+              <Label className="text-xs text-slate-500">Priority</Label>
+              <Select
+                value={priority}
+                onChange={(event) => setPriority(event.target.value)}
+                className="w-36"
+              >
+                <option value="">All priorities</option>
+                {['low', 'medium', 'high'].map((value) => (
+                  <option key={value} value={value}>
+                    {value}
+                  </option>
+                ))}
+              </Select>
+            </div>
+          </>
+        )}
         <div>
           <Label htmlFor="report-to" className="text-xs text-slate-500">
             To
           </Label>
-          <Input id="report-to" data-testid="report-to" type="date" value={to} onChange={(e) => setTo(e.target.value)} className="w-40" />
+          <Input
+            id="report-to"
+            data-testid="report-to"
+            type="date"
+            value={to}
+            onChange={(e) => setTo(e.target.value)}
+            className="w-40"
+          />
         </div>
         <div>
           <Label htmlFor="report-employee" className="text-xs text-slate-500">
             Employee
           </Label>
-          <Select id="report-employee" data-testid="report-employee" value={userId} onChange={(e) => setUserId(e.target.value)} className="w-56">
+          <Select
+            id="report-employee"
+            data-testid="report-employee"
+            value={userId}
+            onChange={(e) => setUserId(e.target.value)}
+            className="w-56"
+          >
             <option value="">All employees</option>
             {users.map((u) => (
               <option key={u.id} value={u.id}>
@@ -140,6 +251,9 @@ export function ReportsPage() {
               setFrom('')
               setTo('')
               setUserId('')
+              setStatus('')
+              setCategory('')
+              setPriority('')
             }}
           >
             <X className="size-4" /> Clear
@@ -150,7 +264,10 @@ export function ReportsPage() {
       {type === 'attendance' && (
         <div className="mb-3 flex flex-wrap items-center gap-1.5" data-testid="report-legend">
           {LEGEND.map((m) => (
-            <span key={m.label} className={cn('rounded-full px-2 py-0.5 text-xs font-medium', m.className)}>
+            <span
+              key={m.label}
+              className={cn('rounded-full px-2 py-0.5 text-xs font-medium', m.className)}
+            >
               {m.label}
             </span>
           ))}
@@ -160,42 +277,50 @@ export function ReportsPage() {
       {isLoading || !data ? (
         <p className="text-sm text-slate-500">Loading…</p>
       ) : data.rows.length === 0 ? (
-        <EmptyState title={`No ${REPORT_LABELS[type].toLowerCase()} data`} testid="report-empty" />
+        <EmptyState title="No Data Found" testid="report-empty" />
       ) : (
-        <Table data-testid="report-table">
-          <Thead>
-            <tr>
-              {data.columns.map((c) => (
-                <Th key={c.key}>{c.label}</Th>
-              ))}
-            </tr>
-          </Thead>
-          <Tbody>
-            {data.rows.map((row, i) => (
-              <tr
-                key={i}
-                data-testid="report-row"
-                className={cn(type === 'attendance' && !!row._sunday && 'bg-slate-100/70')}
-              >
-                {data.columns.map((c) => {
-                  const meta =
-                    type === 'attendance' && c.key === 'status'
-                      ? ATTENDANCE_STATUS[String(row._status ?? '')]
-                      : undefined
-                  return (
-                    <Td key={c.key}>
-                      {meta ? (
-                        <Badge className={meta.className}>{String(row[c.key] ?? '')}</Badge>
-                      ) : (
-                        String(row[c.key] ?? '')
-                      )}
-                    </Td>
-                  )
-                })}
+        <>
+          <div
+            className="mb-2 text-sm font-medium text-slate-600"
+            data-testid="report-total-records"
+          >
+            Total Records: {data.rows.length}
+          </div>
+          <Table data-testid="report-table">
+            <Thead>
+              <tr>
+                {visibleColumns.map((c) => (
+                  <Th key={c.key}>{c.label}</Th>
+                ))}
               </tr>
-            ))}
-          </Tbody>
-        </Table>
+            </Thead>
+            <Tbody>
+              {data.rows.map((row, i) => (
+                <tr
+                  key={i}
+                  data-testid="report-row"
+                  className={cn(type === 'attendance' && !!row._sunday && 'bg-slate-100/70')}
+                >
+                  {visibleColumns.map((c) => {
+                    const meta =
+                      type === 'attendance' && c.key === 'status'
+                        ? ATTENDANCE_STATUS[String(row._status ?? '')]
+                        : undefined
+                    return (
+                      <Td key={c.key}>
+                        {meta ? (
+                          <Badge className={meta.className}>{String(row[c.key] ?? '')}</Badge>
+                        ) : (
+                          String(row[c.key] ?? '')
+                        )}
+                      </Td>
+                    )
+                  })}
+                </tr>
+              ))}
+            </Tbody>
+          </Table>
+        </>
       )}
     </div>
   )

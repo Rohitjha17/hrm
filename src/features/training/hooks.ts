@@ -78,7 +78,9 @@ export function useUploadTrainingAttachment() {
   return useMutation({
     mutationFn: async (input: { moduleId: string; file: File }) => {
       const path = `training/${input.moduleId}/${crypto.randomUUID()}-${input.file.name}`
-      const up = await supabase.storage.from('documents').upload(path, input.file, { upsert: false })
+      const up = await supabase.storage
+        .from('documents')
+        .upload(path, input.file, { upsert: false })
       if (up.error) throw up.error
       const { error } = await supabase.from('training_attachments').insert({
         module_id: input.moduleId,
@@ -127,6 +129,29 @@ export function useAssignTraining() {
         })),
         { onConflict: 'module_id,user_id', ignoreDuplicates: true },
       )
+      if (error) throw error
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['training-assignments'] }),
+  })
+}
+
+export function useUpdateTrainingResult() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: {
+      id: string
+      certificateIssued: boolean
+      assessmentScore: number | null
+      assessmentResult: string
+    }) => {
+      const { error } = await supabase
+        .from('training_assignments')
+        .update({
+          certificate_issued: input.certificateIssued,
+          assessment_score: input.assessmentScore,
+          assessment_result: input.assessmentResult.trim() || null,
+        })
+        .eq('id', input.id)
       if (error) throw error
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['training-assignments'] }),

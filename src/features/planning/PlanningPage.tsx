@@ -10,8 +10,13 @@ import {
   type PlanningSlot,
 } from './hooks'
 import { addHours, slotLabelFromRange } from './util'
-import { useTasks } from '@/features/tasks/hooks'
+import { useOpenTaskCount, useEffectiveCapacity } from '@/features/tasks/hooks'
+import {
+  useTaskCategories,
+  useTasks,
+} from '@/features/tasks/hooks'
 import { todayInTz } from '@/features/attendance/geo'
+import { useAuth } from '@/features/auth/auth-context'
 import { useToast } from '@/components/ui/toast-context'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { Card } from '@/components/ui/Card'
@@ -19,6 +24,7 @@ import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
 import { Input } from '@/components/ui/Input'
 import { Label } from '@/components/ui/Label'
+import { Select } from '@/components/ui/Select'
 import { Textarea } from '@/components/ui/Textarea'
 import { Modal } from '@/components/ui/Modal'
 import { EmptyState } from '@/components/ui/EmptyState'
@@ -208,8 +214,13 @@ function SlotRow({ slot, onEdit }: { slot: PlanningSlot; onEdit: () => void }) {
         {label}
       </span>
       <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-medium text-slate-800" data-testid={`slot-planning-${tid}`}>
-          {slot.task_name || <span className="font-normal text-slate-400">Nothing planned yet</span>}
+        <p
+          className="truncate text-sm font-medium text-slate-800"
+          data-testid={`slot-planning-${tid}`}
+        >
+          {slot.task_name || (
+            <span className="font-normal text-slate-400">Nothing planned yet</span>
+          )}
         </p>
         {(slot.remarks || slot.challenges) && (
           <p className="mt-0.5 truncate text-xs text-slate-500">
@@ -225,7 +236,10 @@ function SlotRow({ slot, onEdit }: { slot: PlanningSlot; onEdit: () => void }) {
           </p>
         )}
       </div>
-      <Badge tone={(slot.progress ?? 0) >= 100 ? 'green' : 'blue'} data-testid={`slot-progress-${tid}`}>
+      <Badge
+        tone={(slot.progress ?? 0) >= 100 ? 'green' : 'blue'}
+        data-testid={`slot-progress-${tid}`}
+      >
         {slot.progress ?? 0}%
       </Badge>
       <div className="flex shrink-0 items-center gap-1">
@@ -283,15 +297,25 @@ function SlotFormModal({
   onClose: () => void
 }) {
   const upsert = useUpsertSlot()
+  const { user } = useAuth()
+  const { data: tasks = [] } = useTasks()
+  const { data: categories = [] } = useTaskCategories()
   const toast = useToast()
   const [start, setStart] = useState(slot?.start_time?.slice(0, 5) ?? defaultStart)
   const [end, setEnd] = useState(
-    slot?.end_time?.slice(0, 5) ?? addHours(slot?.start_time?.slice(0, 5) ?? defaultStart, intervalHours),
+    slot?.end_time?.slice(0, 5) ??
+      addHours(slot?.start_time?.slice(0, 5) ?? defaultStart, intervalHours),
   )
   const [planning, setPlanning] = useState(slot?.task_name ?? '')
+  const initialTask = tasks.find((task) => task.id === slot?.task_id)
+  const [categoryId, setCategoryId] = useState(initialTask?.category_id ?? '')
+  const [taskId, setTaskId] = useState(slot?.task_id ?? '')
   const [working, setWorking] = useState(slot?.remarks ?? '')
   const [progress, setProgress] = useState(slot?.progress ?? 0)
   const [challenges, setChallenges] = useState(slot?.challenges ?? '')
+  const pendingTasks = tasks.filter(
+    (task) => !task.status?.is_terminal && (!categoryId || task.category_id === categoryId),
+  )
 
   return (
     <Modal
@@ -315,6 +339,7 @@ function SlotFormModal({
               slotIndex,
               slotLabel: slotLabelFromRange(start, end),
               taskName: planning,
+              taskId: taskId || null,
               progress,
               challenges,
               remarks: working,
@@ -326,11 +351,27 @@ function SlotFormModal({
                 toast.success(slot ? 'Slot saved' : 'Slot added')
                 onClose()
               },
-              onError: (err) => toast.error('Save failed', (err as Error).message),
+              onError: (err) => {
+                const msg = (err as Error).message
+                if (msg.includes('planning_overlap')) {
+                  toast.error(
+                    'Overlapping slot',
+                    'This time range overlaps with another slot on the same day. Shift or shorten it.',
+                  )
+                } else if (msg.includes('planning_capacity_exceeded')) {
+                  toast.error(
+                    'Over task capacity',
+                    'Close or get approvals on some open tasks before planning more work.',
+                  )
+                } else {
+                  toast.error('Save failed', msg)
+                }
+              },
             },
           )
         }}
       >
+        {user?.id && <PlanningCapacityBanner userId={user.id} />}
         <div className="grid grid-cols-2 gap-3">
           <div>
             <Label htmlFor="slot-form-start">Start</Label>
@@ -359,14 +400,69 @@ function SlotFormModal({
             />
           </div>
         </div>
+        <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div>
+              <Label htmlFor="slot-form-category">Task Group</Label>
+              <Select
+                id="slot-form-category"
+                data-testid="slot-form-category"
+                value={categoryId}
+                onChange={(e) => {
+                  setCategoryId(e.target.value)
+                  setTaskId('')
+                  setPlanning('')
+                }}
+              >
+                <option value="">All groups</option>
+                {categories
+                  .slice()
+                  .sort((a, b) => a.name.localeCompare(b.name))
+                  .map((category) => (
+                    <option key={category.id} value={category.id}>
+                      {category.name}
+                    </option>
+                  ))}
+              </Select>
+            </div>
+            <div>
+              <Label htmlFor="slot-form-task">Pending task</Label>
+              <Select
+                id="slot-form-task"
+                data-testid="slot-form-task"
+                value={taskId}
+                onChange={(e) => {
+                  const selected = tasks.find((task) => task.id === e.target.value)
+                  setTaskId(e.target.value)
+                  setPlanning(selected?.title ?? '')
+                }}
+              >
+                <option value="">Select a pending task</option>
+                {pendingTasks
+                  .slice()
+                  .sort((a, b) => a.title.localeCompare(b.title))
+                  .map((task) => (
+                    <option key={task.id} value={task.id}>
+                      {task.title}
+                    </option>
+                  ))}
+              </Select>
+            </div>
+          </div>
+          <p className="mt-2 text-xs text-slate-500">
+            Create new tasks and task groups from the <strong>Tasks</strong> page and
+            <strong> Masters → Task Groups</strong>.
+          </p>
+        </div>
         <div>
-          <Label htmlFor="slot-form-planning">Planning</Label>
+          <Label htmlFor="slot-form-planning">Planning / expected output</Label>
           <Input
             id="slot-form-planning"
             data-testid="slot-form-planning"
-            placeholder="Planning"
+            placeholder="Describe what you plan to complete"
             value={planning}
             onChange={(e) => setPlanning(e.target.value)}
+            required
           />
         </div>
         <div>
@@ -467,7 +563,11 @@ function SlotHistoryModal({
               challenges: after?.challenges || '—',
             }
             return (
-              <li key={h.id} data-testid="planning-history-entry" className="border-l-2 border-brand-200 pl-3 text-sm">
+              <li
+                key={h.id}
+                data-testid="planning-history-entry"
+                className="border-brand-200 border-l-2 pl-3 text-sm"
+              >
                 <dl className="grid grid-cols-[7rem_1fr] gap-y-0.5">
                   {HISTORY_FIELDS.map((f) => (
                     <div key={f.key} className="contents">
@@ -480,12 +580,30 @@ function SlotHistoryModal({
                     </div>
                   ))}
                 </dl>
-                <p className="mt-1 text-xs text-slate-400">{new Date(h.created_at).toLocaleString()}</p>
+                <p className="mt-1 text-xs text-slate-400">
+                  {new Date(h.created_at).toLocaleString()}
+                </p>
               </li>
             )
           })}
         </ul>
       )}
     </Modal>
+  )
+}
+
+/** Shown inside the slot form when the user is at or over task capacity. */
+function PlanningCapacityBanner({ userId }: { userId: string }) {
+  const { data: open = 0 } = useOpenTaskCount(userId)
+  const { data: cap = 25 } = useEffectiveCapacity(userId)
+  if (open <= cap) return null
+  return (
+    <div
+      data-testid="planning-capacity-banner"
+      className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800"
+    >
+      <span className="font-semibold">Over capacity:</span> you have {open} open tasks (cap {cap}).
+      Close or get approvals on some tasks before adding more planning entries.
+    </div>
   )
 }

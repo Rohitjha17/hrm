@@ -27,12 +27,43 @@ export function useCycles() {
 export function useCreateCycle() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async (input: { name: string; periodStart: string; periodEnd: string }) => {
+    mutationFn: async (input: {
+      name: string
+      periodStart: string
+      periodEnd: string
+      cycleType?: string
+    }) => {
       const { error } = await supabase.from('appraisal_cycles').insert({
         name: input.name,
+        cycle_type: input.cycleType || null,
         period_start: input.periodStart,
         period_end: input.periodEnd,
       })
+      if (error) throw error
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['appraisal-cycles'] }),
+  })
+}
+
+export function useUpdateCycle() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: {
+      id: string
+      name: string
+      periodStart: string
+      periodEnd: string
+      cycleType?: string
+    }) => {
+      const { error } = await supabase
+        .from('appraisal_cycles')
+        .update({
+          name: input.name,
+          cycle_type: input.cycleType || null,
+          period_start: input.periodStart,
+          period_end: input.periodEnd,
+        })
+        .eq('id', input.id)
       if (error) throw error
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['appraisal-cycles'] }),
@@ -186,6 +217,7 @@ export const HISTORY_FIELD_LABEL: Record<string, string> = {
   kpi: 'KPI',
   manager_feedback: 'Manager feedback',
   hr_feedback: 'HR feedback',
+  employee_feedback: 'Employee remarks',
 }
 
 export interface AppraisalHistoryRow extends Tables<'appraisal_history'> {
@@ -222,6 +254,23 @@ export function useMyAppraisals() {
         .order('created_at', { ascending: false })
       if (error) throw error
       return data
+    },
+  })
+}
+
+export function useUpdateEmployeeAppraisalFeedback() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: { appraisalId: string; feedback: string }) => {
+      const { error } = await supabase.rpc('update_employee_appraisal_feedback', {
+        p_appraisal: input.appraisalId,
+        p_feedback: input.feedback,
+      })
+      if (error) throw error
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['my-appraisals'] })
+      qc.invalidateQueries({ queryKey: ['appraisal-history'] })
     },
   })
 }

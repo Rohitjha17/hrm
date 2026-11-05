@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/features/auth/auth-context'
 import { ProfileContext, type Profile, type ProfileContextValue } from './profile-context'
+import { hasEffectivePermission } from './permissions'
 
 const EMPTY = new Set<string>()
 
@@ -36,7 +37,7 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
   const roles = data?.roles ?? EMPTY
 
   const hasPermission = useCallback(
-    (perm: string) => permissions.has('*') || permissions.has(perm),
+    (perm: string) => hasEffectivePermission(permissions, perm),
     [permissions],
   )
 

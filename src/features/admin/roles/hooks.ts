@@ -112,3 +112,41 @@ export function useToggleRolePermission() {
       qc.invalidateQueries({ queryKey: ['role-permissions', vars.roleId] }),
   })
 }
+
+export function useRoleFieldAccess(roleId: string | null, module: string) {
+  return useQuery({
+    queryKey: ['role-field-access', roleId, module],
+    enabled: !!roleId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('role_field_access')
+        .select('field_key,is_visible')
+        .eq('role_id', roleId!)
+        .eq('module', module)
+      if (error) throw error
+      return new Map(data.map((item) => [item.field_key, item.is_visible]))
+    },
+  })
+}
+
+export function useSetRoleFieldAccess() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: {
+      roleId: string
+      module: string
+      fieldKey: string
+      visible: boolean
+    }) => {
+      const { error } = await supabase.from('role_field_access').upsert({
+        role_id: input.roleId,
+        module: input.module,
+        field_key: input.fieldKey,
+        is_visible: input.visible,
+      })
+      if (error) throw error
+    },
+    onSuccess: (_, input) =>
+      qc.invalidateQueries({ queryKey: ['role-field-access', input.roleId, input.module] }),
+  })
+}

@@ -24,7 +24,12 @@ export function useRaiseTicket() {
   const qc = useQueryClient()
   const { user } = useAuth()
   return useMutation({
-    mutationFn: async (input: { category: string; subject: string; description?: string; priority: string }) => {
+    mutationFn: async (input: {
+      category: string
+      subject: string
+      description?: string
+      priority: string
+    }) => {
       const { error } = await supabase.from('tickets').insert({
         raised_by: user!.id,
         category: input.category,
@@ -41,11 +46,32 @@ export function useRaiseTicket() {
 export function useUpdateTicket() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async (input: { id: string; status?: Ticket['status']; escalated?: boolean }) => {
-      const patch: { status?: Ticket['status']; escalated?: boolean } = {}
+    mutationFn: async (input: {
+      id: string
+      status?: Ticket['status']
+      escalated?: boolean
+      assignedTo?: string | null
+    }) => {
+      const patch: {
+        status?: Ticket['status']
+        escalated?: boolean
+        assigned_to?: string | null
+      } = {}
       if (input.status) patch.status = input.status
       if (input.escalated != null) patch.escalated = input.escalated
+      if (input.assignedTo !== undefined) patch.assigned_to = input.assignedTo
       const { error } = await supabase.from('tickets').update(patch).eq('id', input.id)
+      if (error) throw error
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['tickets'] }),
+  })
+}
+
+export function useDeleteTicket() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from('tickets').delete().eq('id', id)
       if (error) throw error
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['tickets'] }),

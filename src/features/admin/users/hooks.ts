@@ -30,6 +30,22 @@ export interface ProfileUpdate {
   team_id?: string | null
   reporting_manager_id?: string | null
   status?: 'active' | 'inactive'
+  avatar_url?: string | null
+  task_capacity?: number | null
+}
+
+export async function uploadProfilePicture(userId: string, file: File) {
+  const path = `avatars/${userId}/${crypto.randomUUID()}-${file.name}`
+  const uploaded = await supabase.storage.from('documents').upload(path, file)
+  if (uploaded.error) throw uploaded.error
+  const signed = await supabase.storage.from('documents').createSignedUrl(path, 60 * 60 * 24 * 365)
+  if (signed.error) throw signed.error
+  const { error } = await supabase
+    .from('profiles')
+    .update({ avatar_url: signed.data.signedUrl })
+    .eq('id', userId)
+  if (error) throw error
+  return signed.data.signedUrl
 }
 
 export function useUpdateProfile() {
@@ -163,5 +179,42 @@ export function useSetUserRoles() {
       }
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['users'] }),
+  })
+}
+
+export function useUserFieldAccess(userId: string, module: string) {
+  return useQuery({
+    queryKey: ['user-field-access', userId, module],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('user_field_access')
+        .select('field_key,is_visible')
+        .eq('user_id', userId)
+        .eq('module', module)
+      if (error) throw error
+      return new Map(data.map((item) => [item.field_key, item.is_visible]))
+    },
+  })
+}
+
+export function useSetUserFieldAccess() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: {
+      userId: string
+      module: string
+      fieldKey: string
+      visible: boolean
+    }) => {
+      const { error } = await supabase.from('user_field_access').upsert({
+        user_id: input.userId,
+        module: input.module,
+        field_key: input.fieldKey,
+        is_visible: input.visible,
+      })
+      if (error) throw error
+    },
+    onSuccess: (_, input) =>
+      qc.invalidateQueries({ queryKey: ['user-field-access', input.userId, input.module] }),
   })
 }

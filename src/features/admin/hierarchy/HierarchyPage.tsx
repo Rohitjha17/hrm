@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Plus, Trash2 } from 'lucide-react'
+import { Pencil, Plus, Trash2 } from 'lucide-react'
 import {
   useCompanies,
   useCreateDepartment,
@@ -7,6 +7,7 @@ import {
   useDeleteDepartment,
   useDeleteTeam,
   useDepartments,
+  useSaveCompany,
   useTeams,
   useUpdateTeamManager,
 } from './hooks'
@@ -21,6 +22,7 @@ import { Label } from '@/components/ui/Label'
 import { Select } from '@/components/ui/Select'
 import { Table, Tbody, Td, Th, Thead } from '@/components/ui/Table'
 import { EmptyState } from '@/components/ui/EmptyState'
+import { Card, CardBody } from '@/components/ui/Card'
 
 export function HierarchyPage() {
   const { hasPermission } = useProfile()
@@ -34,9 +36,12 @@ export function HierarchyPage() {
   const updateManager = useUpdateTeamManager()
   const delDept = useDeleteDepartment()
   const delTeam = useDeleteTeam()
+  const saveCompany = useSaveCompany()
 
   const [deptModal, setDeptModal] = useState(false)
   const [teamModal, setTeamModal] = useState(false)
+  const [companyName, setCompanyName] = useState('')
+  const [editingCompanyId, setEditingCompanyId] = useState<string | undefined>()
 
   return (
     <div data-testid="hierarchy-page">
@@ -45,15 +50,73 @@ export function HierarchyPage() {
         description="Structure your organisation. Assign reporting managers to teams."
       />
 
+      {canManage && (
+        <Card className="mb-6">
+          <CardBody>
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className="text-sm font-semibold tracking-wide text-slate-500 uppercase">
+                Companies
+              </h2>
+              <span className="text-xs text-slate-400">Create or rename a company</span>
+            </div>
+            <form
+              className="mb-3 flex gap-2"
+              onSubmit={(event) => {
+                event.preventDefault()
+                saveCompany.mutate(
+                  { id: editingCompanyId, name: companyName },
+                  {
+                    onSuccess: () => {
+                      toast.success(editingCompanyId ? 'Company updated' : 'Company created')
+                      setCompanyName('')
+                      setEditingCompanyId(undefined)
+                    },
+                    onError: (error) => toast.error('Save failed', (error as Error).message),
+                  },
+                )
+              }}
+            >
+              <Input
+                value={companyName}
+                onChange={(event) => setCompanyName(event.target.value)}
+                placeholder="Company name"
+                required
+              />
+              <Button type="submit" loading={saveCompany.isPending}>
+                {editingCompanyId ? 'Save name' : 'New company'}
+              </Button>
+            </form>
+            <div className="flex flex-wrap gap-2">
+              {companies.map((company) => (
+                <button
+                  key={company.id}
+                  className="flex items-center gap-1 rounded-full bg-slate-100 px-3 py-1 text-sm text-slate-700"
+                  onClick={() => {
+                    setEditingCompanyId(company.id)
+                    setCompanyName(company.name)
+                  }}
+                >
+                  {company.name} <Pencil className="size-3" />
+                </button>
+              ))}
+            </div>
+          </CardBody>
+        </Card>
+      )}
+
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Departments */}
         <div>
           <div className="mb-2 flex items-center justify-between">
-            <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
+            <h2 className="text-sm font-semibold tracking-wide text-slate-500 uppercase">
               Departments
             </h2>
             {canManage && (
-              <Button size="sm" data-testid="new-department-button" onClick={() => setDeptModal(true)}>
+              <Button
+                size="sm"
+                data-testid="new-department-button"
+                onClick={() => setDeptModal(true)}
+              >
                 <Plus className="size-4" /> New
               </Button>
             )}
@@ -99,7 +162,7 @@ export function HierarchyPage() {
         {/* Teams */}
         <div>
           <div className="mb-2 flex items-center justify-between">
-            <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">Teams</h2>
+            <h2 className="text-sm font-semibold tracking-wide text-slate-500 uppercase">Teams</h2>
             {canManage && (
               <Button size="sm" data-testid="new-team-button" onClick={() => setTeamModal(true)}>
                 <Plus className="size-4" /> New
